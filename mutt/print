@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+rm -f ${TMPDIR}/muttprint*.pdf
+PRINTFILE=`mktemp -t muttprint`
+mv -f ${PRINTFILE} ${PRINTFILE}.pdf
+LANG=nl_BE.UTF-8 /usr/local/bin/muttprint -p - -P A4 -i ~/Pictures/hcode_new.eps -e local -F Times -n fontfamily=helvetica | pstopdf -i -o ${PRINTFILE}.pdf
+open ${PRINTFILE}.pdf
+# echo -n "Printen? (Ja/Nee): "
+# read -n 1 c
+# echo $c
+# if [[ "$c"=~[j\|J] ]]; then
+#     lpr ${PRINTFILE}.pdf
+# fi

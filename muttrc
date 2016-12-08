@@ -1,0 +1,24 @@
+## GENERAL
+# set charset="utf-8"
+# set assumed_charset="utf-8"
+source ~/.mutt/general.rc
+## ACCOUNT
+source ~/.mutt/account.rc
+source ~/.mutt/composing.rc
+source ~/.mutt/ui.rc
+
+
+
+## EXTRAS
+
+source ~/.mutt/solarized.rc
+# source ~/.mutt/gpg.rc
+
+## S/MIME
+#source ~/.mutt/smime.rc
+# set smime_default_key="d4354654.0"
+# set smime_is_default
+
+## PRINTER
+#set print_command="~/.mutt/print"
+source ~/.mutt/aliasses.rc

@@ -1,0 +1,13 @@
+set nomove
+unset mark_old
+set beep
+set timeout=10
+set certificate_file=~/.mutt/certs
+set query_command="/usr/local/bin/lbdbq %s"
+set arrow_cursor
+set sendmail="/usr/local/bin/msmtp"
+set imap_delim_chars="/"
+set editor="vim"
+set header_cache = "~/.mutt_cache"
+set message_cachedir = "~/.mutt_cache"
+set move = no

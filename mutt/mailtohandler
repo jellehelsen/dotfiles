@@ -1,0 +1,24 @@
+#!/usr/bin/env ruby
+
+require "uri"
+require "yaml"
+if ARGV.size < 1
+  puts "Usage: urlhandler url"
+  exit(1)
+end
+
+url = URI.parse(ARGV[0])
+if url.class != URI::MailTo
+  puts 'invalid url'
+  exit(2)
+end
+mailheaders = Hash.new
+
+url.headers.each do |header|
+  mailheaders[header[0]] = header[1]
+end
+
+mutt_parameters = "'#{url.to}'"
+mutt_parameters += " -s '#{mailheaders['subject']}'" if mailheaders['subject']
+
+system("mutt #{mutt_parameters}")

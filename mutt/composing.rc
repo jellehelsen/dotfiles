@@ -1,0 +1,12 @@
+set include=yes
+set attribution="On %d, %n wrote:" 
+set forward_format="Fwd: %s" 
+set from="jelle.helsen@hcode.be"
+set realname = "Jelle Helsen"
+set use_envelope_from
+set signature="~/.mutt/signature"
+set sig_dashes=no
+set sig_on_top=yes
+set editor = "vim +8"
+set edit_headers = yes
+set fast_reply

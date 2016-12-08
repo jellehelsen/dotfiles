@@ -1,0 +1,54 @@
+#!/usr/bin/env ruby
+
+require "uri"
+require "rubygems"
+require "highline"
+require "tmail"
+require "ncurses"
+
+src = STDIN.read
+email = TMail::Mail.parse(src)
+
+urls = URI.extract(email.body)
+# HighLine.track_eof = false
+# h = HighLine.new
+# h.choose do |menu|
+#   menu.prompt = 'Choose the url to open'
+#   urls.each do |url|
+#     menu.choice(url){`open '#{url}'`}
+#   end
+#   # menu.choice(:Quit){}
+# end
+# # puts src
+# STDIN.reopen(STDIN)
+# Ncurses::endwin
+# Ncurses::initscr
+STDIN = IO.open 0,'r'
+term = Ncurses.newterm(nil,STDOUT,STDIN)
+Ncurses::cbreak
+Ncurses::noecho
+Ncurses::keypad Ncurses::stdscr, 1
+
+Ncurses.set_term(term)
+items = urls.map { |u| Ncurses::Menu::new_item(u,'') }
+
+menu=Ncurses::Menu::new_menu items
+menu.post_menu
+Ncurses::refresh
+while (c=Ncurses.getch) != Ncurses::KEY_F1
+  case c
+  when Ncurses::KEY_DOWN
+    menu.driver(Ncurses::Menu::REQ_DOWN_ITEM)
+  when Ncurses::KEY_UP
+    menu.driver(Ncurses::Menu::REQ_UP_ITEM)
+  when Ncurses::KEY_ENTER
+    break
+  when 10
+    break
+  when 'q'
+    break
+  # else
+  #   # puts c
+  end
+end
+Ncurses::endwin

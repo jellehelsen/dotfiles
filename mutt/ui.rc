@@ -1,0 +1,29 @@
+## HEADERS
+ignore *
+unignore from date subject to cc
+unignore organization organisation x-mailer: x-newsreader: x-mailing-list:
+unignore posted-to:
+hdr_order From: Date: To: Cc: Subject:
+
+## READING
+set pager_index_lines=9
+set sort=threads
+lists act-macos-101@group.apple.com
+subscribe act-macos-101@group.apple.com
+set index_format="%M %4C %Z %{%b %d} %-15.15L %s %> (%4c)"
+
+## MACROS
+macro index \ca s=Archive<enter><enter>
+macro pager \ca s=Archive<enter><enter>
+macro index \cx $<enter>
+macro pager \cx $<enter>
+macro index \cb "|~/.mutt/urlview" "open url with urlview" 
+macro pager \cb "|~/.mutt/urlview" "open url with urlview" 
+# macro index \033OP |~/.mutt/add_to_addressbook.rb<enter><space>
+# macro pager \033OP |~/.mutt/add_to_addressbook.rb<enter><space>
+macro index,pager <F5> c!<enter>
+macro index <F1> "<collapse-all>"
+macro index,pager \e1 "s=_Read<enter>y" "Save Message to _Read"
+macro index,pager \e<F1> "c=_Read<enter>" "Goto _Read"
+macro index,pager \e2 "s=_Reply<enter>y" "Save Message to _Reply"
+macro index,pager \e<F1> "c=_Reply<enter>" "Goto _Reply"

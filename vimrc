@@ -69,6 +69,7 @@ call plug#begin('~/.vim/plugged')
     Plug 'actionshrimp/vim-xpath'
 
     Plug 'PProvost/vim-ps1'
+    Plug 'editorconfig/editorconfig-vim'
 " }"
 
 call plug#end()

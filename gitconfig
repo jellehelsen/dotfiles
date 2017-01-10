@@ -13,4 +13,6 @@
 	tool = Kaleidoscope
 [user]
 	name = Jelle Helsen
-	email = jelle.helsen@hcode.be
+	email = jelle@playpass.be
+[core]
+	excludesfile = /Users/jelle/.gitignore_global

@@ -9,6 +9,7 @@
 	prompt = false
 [mergetool]
 	prompt = false
+	keepBackup = false
 [diff]
 	tool = Kaleidoscope
 [user]
@@ -16,3 +17,4 @@
 	email = jelle@playpass.be
 [core]
 	excludesfile = /Users/jelle/.gitignore_global
+	precomposeunicode = false

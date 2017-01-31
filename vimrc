@@ -171,7 +171,7 @@ filetype plugin on
     set hlsearch
     set cursorline
 
-    set guifont=Meslo\ LG\ S\ DZ:h13
+    set guifont=Meslo\ LG\ S\ DZ\ for\ Powerline:h13
     "set comments=sl:/*,mb:*,elx:*/  " auto format comment blocks
     " Remove trailing whitespaces and ^M chars
     autocmd FileType c,cpp,java,go,php,javascript,python,twig,xml,yml autocmd BufWritePre * :%s/\s\+$//e
@@ -440,6 +440,7 @@ filetype plugin on
         nnoremap <silent> <leader>gw :Gwrite<CR>:GitGutter<CR>
         nnoremap <silent> <leader>ge :Gedit<CR>
         nnoremap <silent> <leader>gg :GitGutterToggle<CR>
+        set diffopt=filler,vertical
     "}
 
     " neocomplete {

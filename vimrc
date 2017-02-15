@@ -450,6 +450,10 @@ filetype plugin on
             let g:neocomplete#enable_auto_delimiter = 1
             let g:neocomplete#max_list = 15
             let g:neocomplete#force_overwrite_completefunc = 1
+            let g:neocomplete#sources#syntax#min_keyword_length = 3
+            let g:neocomplete#disable_auto_complete = 1
+            inoremap <expr><Tab> pumvisible() ? "\<C-n>" : neocomplete#start_manual_complete('buffer')
+
 
             " SuperTab like snippets behavior.
             imap <silent><expr><TAB> neosnippet#expandable() ?

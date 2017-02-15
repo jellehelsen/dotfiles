@@ -18,3 +18,5 @@
 [core]
 	excludesfile = /Users/jelle/.gitignore_global
 	precomposeunicode = false
+[pretty]
+	markdown = * %h %s

@@ -62,7 +62,7 @@ call plug#begin('~/.vim/plugged')
     Plug 'quentindecock/vim-cucumber-align-pipes'
     Plug 'xolox/vim-misc'
     Plug 'xolox/vim-notes'
-    Plug 'mattn/emmet-vim.git'
+    Plug 'mattn/emmet-vim'
     Plug 'tpope/vim-abolish'
     Plug 'vimwiki/vimwiki'
     Plug 'danielmiessler/VimBlog'
@@ -328,7 +328,7 @@ filetype plugin on
     
         " Some convenient mappings
         inoremap <expr> <Esc>      pumvisible() ? "\<C-e>" : "\<Esc>"
-        inoremap <expr> <CR>       pumvisible() ? "\<C-y>" : "\<CR>"
+        "inoremap <expr> <CR>       pumvisible() ? "\<C-y>" : "\<CR>"
         inoremap <expr> <Down>     pumvisible() ? "\<C-n>" : "\<Down>"
         inoremap <expr> <Up>       pumvisible() ? "\<C-p>" : "\<Up>"
         inoremap <expr> <C-d>      pumvisible() ? "\<PageDown>\<C-p>\<C-n>" : "\<C-d>"
@@ -499,7 +499,7 @@ filetype plugin on
 
             " <C-h>, <BS>: close popup and delete backword char.
             inoremap <expr><BS> neocomplete#smart_close_popup()."\<C-h>"
-            inoremap <expr><C-y> neocomplete#close_popup()
+            "inoremap <expr><C-y> neocomplete#close_popup()
 
             " Enable omni completion.
             autocmd FileType css setlocal omnifunc=csscomplete#CompleteCSS

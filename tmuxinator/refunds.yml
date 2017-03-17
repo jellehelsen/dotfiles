@@ -38,7 +38,7 @@ windows:
       # synchronize: after
       panes:
         - vim
-        - guard
+        - bundle exec guard
   - foreman: bundle exec foreman start
   - console: bundle exec rails c
   - shell: reattach-to-user-namespace

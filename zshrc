@@ -8,3 +8,4 @@ source $ZSH/oh-my-zsh.sh
 PROMPT=' %m%{${fg_bold[magenta]}%} :: %{$reset_color%}%{${fg[green]}%}%c $(git_prompt_info)%{${fg_bold[$CARETCOLOR]}%}%#%{${reset_color}%} '
 eval "$(rbenv init -)"
 export PATH="/usr/local/sbin:$PATH"
+alias ti=tmuxinator

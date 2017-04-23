@@ -30,6 +30,7 @@ set backupskip=/tmp/*,/private/tmp/*"
     Plug 'LokiChaos/vim-tintin'
     Plug 'tpope/vim-projectionist'
     Plug 'mileszs/ack.vim'
+    Plug 'benmills/vimux'
 
     " HTML
     "Plug 'amirh/HTML-AutoCloseTag'
@@ -379,6 +380,11 @@ nnoremap <leader>. :call OpenTestAlternate()<cr>
 "
 " RUNNING TESTS {{{
 "
+  if $TMUX == ""
+    let g:running_in_tmux = 0
+  else
+    let g:running_in_tmux = 1
+  endif
   map <leader>t :call RunTestFile()<cr>
   map <leader>T :call RunNearestTest()<cr>
   map <leader>a :call RunTests('')<cr>
@@ -412,6 +418,14 @@ nnoremap <leader>. :call OpenTestAlternate()<cr>
       let t:grb_test_file=@%
   endfunction
 
+  function! RunTestCommand(command)
+    if g:running_in_tmux
+      call VimuxRunCommand(a:command)
+    else
+      exec ":!" . a:command
+    endif
+  endfunction
+
   function! RunTests(filename)
       " Write the file and run tests for the given filename
       if expand("%") != ""
@@ -421,13 +435,13 @@ nnoremap <leader>. :call OpenTestAlternate()<cr>
           exec ":!script/features " . a:filename
       else
           if filereadable("script/test")
-              exec ":!script/test " . a:filename
+              call RunTestCommand("script/test " . a:filename)
           elseif filereadable("bin/spring")
-              exec ":!spring rspec --color " . a:filename
+              call RunTestCommand("bin/spring rspec --color " . a:filename)
           elseif filereadable("Gemfile")
-              exec ":!bundle exec rspec --color " . a:filename
+              call RunTestCommand("bundle exec rspec --color " . a:filename)
           else
-              exec ":!rspec --color " . a:filename
+              call RunTestCommand("rspec --color " . a:filename)
           end
       end
   endfunction

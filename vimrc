@@ -583,3 +583,12 @@ set grepprg=ack
 
 let g:notes_directories = ['~/Dropbox/Notes']
 let g:vimwiki_list = [{'path': '~/Google\ Drive/wiki/'}]
+
+python from powerline.vim import setup as powerline_setup
+python powerline_setup()
+python del powerline_setup
+
+if has('mouse')
+  set mouse=a
+  set ttymouse=xterm2
+endif

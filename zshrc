@@ -13,3 +13,7 @@ export PATH="/usr/local/sbin:$PATH"
 eval "$(rbenv init -)"
 . /usr/local/lib/python2.7/site-packages/powerline/bindings/zsh/powerline.zsh
 alias ti=tmuxinator
+function bundled_rubocop(){
+  _run-with-bundler rubocop $@
+}
+alias rubocop=bundled_rubocop

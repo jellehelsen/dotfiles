@@ -234,7 +234,7 @@ set incsearch
 set hlsearch
 set cursorline
 
-set guifont=Meslo\ LG\ S\ DZ\ for\ Powerline:h13
+set guifont=Meslo\ LG\ S:h13
 
 set winwidth=84
 " We have to have a winheight bigger than we want to set winminheight. But if
@@ -281,7 +281,7 @@ augroup vimrcEx
 
   " Don't syntax highlight markdown because
   " it's often wrong
-  autocmd! FileType mkd setlocal syn=off
+  "autocmd! FileType mkd setlocal syn=off
 
   " Leave the return key alone when in
   " command line windows, since it's
@@ -310,8 +310,12 @@ endfunction
 command! Rubocop call Rubocop()
 
 function! Rubocop()
-  set makeprg=rubocop
-  make
+  if g:running_in_tmux
+    call VimuxRunCommand('rubocop')
+  else
+    set makeprg=rubocop
+    make
+  endif
 endfunction
 ""}}}
 " Find merge conflict markers {{{

@@ -9,7 +9,7 @@
       "theme": "default"
     },
     "vim": {
-      "colorscheme": "solarized"
+      "colorscheme": "solarizedlight"
     }
   }
 }

@@ -34,4 +34,4 @@ windows:
   - editor: vim 
   - foreman: bundle exec foreman start
   - console: bundle exec rails c
-  - shell: reattach-to-user-namespace
+  - shell: reattach-to-user-namespace -l zsh

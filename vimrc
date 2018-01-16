@@ -18,6 +18,7 @@ Plug 'kien/ctrlp.vim'
 Plug 'myusuf3/numbers.vim'
 Plug 'scrooloose/syntastic'
 Plug 'scrooloose/nerdcommenter'
+Plug 'scrooloose/nerdtree'
 Plug 'godlygeek/tabular'
 Plug 'Shougo/neocomplete'
 Plug 'Shougo/neosnippet'
@@ -62,6 +63,8 @@ Plug 'actionshrimp/vim-xpath'
 
 "Plug 'PProvost/vim-ps1'
 Plug 'editorconfig/editorconfig-vim'
+Plug 'vim-scripts/groovy.vim'
+Plug 'martinda/Jenkinsfile-vim-syntax'
 call plug#end()
 " }}}
 
@@ -177,8 +180,9 @@ map zl zL
 map zh zH
 "map <Leader>i mmgg=G`m<CR>
 map <Leader>p :set paste<CR>o<esc>"*]p:set nopaste<cr>
-"nmap <F2> :NERDTreeToggle<cr>
+nmap <F2> :NERDTreeToggle<cr>
 map <F5> :%!tidy -xml -q -utf8 -indent<cr>
+map <F6> :%s/\s\+$//ge<cr>
 nnoremap <leader><leader> <C-^>
 " Insert a hash rocket with <c-l>
 imap <c-l> <space>=><space>

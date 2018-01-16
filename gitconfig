@@ -14,9 +14,17 @@
 	tool = Kaleidoscope
 [user]
 	name = Jelle Helsen
-	email = jelle@playpass.be
+	email = jelle.helsen@hcode.be
 [core]
 	excludesfile = /Users/jelle/.gitignore_global
 	precomposeunicode = false
 [pretty]
 	markdown = * %h %s
+[includeIf "gitdir:~/Documents/telenet/"]
+  path = ~/Documents/telenet/.gitconfig
+[difftool "sourcetree"]
+	cmd = opendiff \"$LOCAL\" \"$REMOTE\"
+	path = 
+[mergetool "sourcetree"]
+	cmd = /Applications/Sourcetree.app/Contents/Resources/opendiff-w.sh \"$LOCAL\" \"$REMOTE\" -ancestor \"$BASE\" -merge \"$MERGED\"
+	trustExitCode = true

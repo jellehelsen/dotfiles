@@ -5,10 +5,13 @@ export ZSH_THEME="flazz"
 export EDITOR=VIM
 export XDG_CONFIG_HOME=~/.config
 export VAGRANT_PREFER_SYSTEM_BIN=1
+export ZSH_TMUX_AUTOSTART=true
 fpath=(/usr/local/share/zsh/site-functions $fpath)
 
 if [ `uname` = 'CYGWIN_NT-6.1' ]; then
-  plugins=(git git-flow history-substring-search vi-mode bundler ssh-agent)
+  plugins=(git git-flow history-substring-search vi-mode bundler ssh-agent tmux)
+else
+  plugins=(git git-flow iTerm osx brew history-substring-search vi-mode bundler ssh-agent pow tmux tmuxinator bwana)
 fi
 
 source $ZSH/oh-my-zsh.sh
@@ -21,3 +24,9 @@ function bundled_rubocop(){
   _run-with-bundler rubocop $@
 }
 alias rubocop=bundled_rubocop
+alias evim='vim ~/.vimrc'
+
+source /usr/local/bin/virtualenvwrapper.sh
+
+export NVM_DIR="$HOME/.nvm"
+ . "/usr/local/opt/nvm/nvm.sh"

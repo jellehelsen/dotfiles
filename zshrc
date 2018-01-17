@@ -12,6 +12,9 @@ if [ `uname` = 'CYGWIN_NT-6.1' ]; then
   plugins=(git git-flow history-substring-search vi-mode bundler ssh-agent tmux)
 else
   plugins=(git git-flow iTerm osx brew history-substring-search vi-mode bundler ssh-agent pow tmux tmuxinator bwana)
+  export NVM_DIR="$HOME/.nvm"
+  . "/usr/local/opt/nvm/nvm.sh"
+  source /usr/local/bin/virtualenvwrapper.sh
 fi
 
 source $ZSH/oh-my-zsh.sh
@@ -26,7 +29,4 @@ function bundled_rubocop(){
 alias rubocop=bundled_rubocop
 alias evim='vim ~/.vimrc'
 
-source /usr/local/bin/virtualenvwrapper.sh
 
-export NVM_DIR="$HOME/.nvm"
- . "/usr/local/opt/nvm/nvm.sh"

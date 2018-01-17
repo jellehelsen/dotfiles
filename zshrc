@@ -12,13 +12,10 @@ if [ `uname` = 'CYGWIN_NT-6.1' ]; then
   plugins=(git git-flow history-substring-search vi-mode bundler ssh-agent tmux)
 else
   plugins=(git git-flow iTerm osx brew history-substring-search vi-mode bundler ssh-agent pow tmux tmuxinator bwana)
-  export NVM_DIR="$HOME/.nvm"
-  . "/usr/local/opt/nvm/nvm.sh"
   source /usr/local/bin/virtualenvwrapper.sh
 fi
 
 source $ZSH/oh-my-zsh.sh
-#PROMPT=' %m%{${fg_bold[magenta]}%} :: %{$reset_color%}%{${fg[green]}%}%c $(git_prompt_info)%{${fg_bold[$CARETCOLOR]}%}%#%{${reset_color}%} '
 export PATH="/usr/local/sbin:$PATH"
 #eval "$(rbenv init -)"
 #. /usr/lib/python2.7/site-packages/powerline/bindings/zsh/powerline.zsh
@@ -29,4 +26,7 @@ function bundled_rubocop(){
 alias rubocop=bundled_rubocop
 alias evim='vim ~/.vimrc'
 
-
+if [ `uname` = 'Darwin' ]; then
+  export NVM_DIR="$HOME/.nvm"
+  source /usr/local/opt/nvm/nvm.sh
+fi

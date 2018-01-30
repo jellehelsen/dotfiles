@@ -17,8 +17,6 @@ fi
 
 source $ZSH/oh-my-zsh.sh
 export PATH="/usr/local/sbin:$PATH"
-#eval "$(rbenv init -)"
-#. /usr/lib/python2.7/site-packages/powerline/bindings/zsh/powerline.zsh
 alias ti=tmuxinator
 function bundled_rubocop(){
   _run-with-bundler rubocop $@
@@ -29,4 +27,7 @@ alias evim='vim ~/.vimrc'
 if [ `uname` = 'Darwin' ]; then
   export NVM_DIR="$HOME/.nvm"
   source /usr/local/opt/nvm/nvm.sh
+  export PATH=$PATH:$HOME/Library/Python/2.7/bin
+  eval "$(rbenv init -)"
+  . /usr/local/lib/python2.7/site-packages/powerline/bindings/zsh/powerline.zsh
 fi

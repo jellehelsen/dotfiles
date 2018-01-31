@@ -8,7 +8,7 @@ export VAGRANT_PREFER_SYSTEM_BIN=1
 fpath=(/usr/local/share/zsh/site-functions $fpath)
 
 zstyle :omz:plugins:ssh-agent agent-forwarding on
-zstyle :omz:plugins:ssh-agent identities id_rsa bitbucket
+#zstyle :omz:plugins:ssh-agent identities id_rsa bitbucket
 
 case "$(uname)" in
   Linux)

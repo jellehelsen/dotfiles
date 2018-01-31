@@ -8,11 +8,11 @@ export VAGRANT_PREFER_SYSTEM_BIN=1
 fpath=(/usr/local/share/zsh/site-functions $fpath)
 
 zstyle :omz:plugins:ssh-agent agent-forwarding on
-#zstyle :omz:plugins:ssh-agent identities id_rsa bitbucket
 
 case "$(uname)" in
   Linux)
-    plugins=(git git-flow history-substring-search vi-mode bundler ssh-agent)
+    plugins=(tmux git git-flow history-substring-search vi-mode bundler ssh-agent)
+    export ZSH_TMUX_AUTOSTART=true
     ;;
 
   Darwin)

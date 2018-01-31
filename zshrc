@@ -41,6 +41,7 @@ if [ `uname` = 'Darwin' ]; then
 fi
 case "$(uname)" in
   Linux)
+    . /usr/local/lib/python2.7/dist-packages/powerline/bindings/zsh/powerline.zsh
     ;;
 
   Darwin)

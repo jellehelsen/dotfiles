@@ -16,7 +16,7 @@ case "$(uname)" in
     ;;
 
   Darwin)
-    plugins=(git git-flow iTerm osx brew history-substring-search vi-mode bundler ssh-agent pow tmux tmuxinator bwana docker docker-compose)
+    plugins=(git git-flow iTerm osx brew history-substring-search vi-mode bundler ssh-agent pow tmux tmuxinator bwana docker docker-compose go)
     source /usr/local/bin/virtualenvwrapper.sh
     export ZSH_TMUX_AUTOSTART=true
     ;;
@@ -29,7 +29,8 @@ case "$(uname)" in
 esac
 
 source $ZSH/oh-my-zsh.sh
-export PATH="/usr/local/sbin:$PATH"
+export GOPATH=$HOME/go
+export PATH="/usr/local/sbin:$PATH:$GOPATH/bin"
 alias ti=tmuxinator
 function bundled_rubocop(){
   _run-with-bundler rubocop $@

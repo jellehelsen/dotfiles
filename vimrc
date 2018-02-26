@@ -65,6 +65,8 @@ Plug 'actionshrimp/vim-xpath'
 Plug 'editorconfig/editorconfig-vim'
 Plug 'vim-scripts/groovy.vim'
 Plug 'martinda/Jenkinsfile-vim-syntax'
+
+Plug 'fatih/vim-go'
 call plug#end()
 " }}}
 
@@ -546,6 +548,13 @@ set diffopt=filler,vertical
 " vim-gitgutter {{{
 " https://github.com/airblade/vim-gitgutter/issues/106
 let g:gitgutter_realtime = 0
+" }}}
+
+" vim-go {{{
+  let g:go_highlight_functions = 1
+  let g:go_highlight_function_calls = 1
+  let g:go_highlight_fields = 1
+  let g:go_highlight_types = 1
 " }}}
 ""}}}
 

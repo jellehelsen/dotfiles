@@ -48,7 +48,7 @@ case "$(uname)" in
   Darwin)
     export NVM_DIR="$HOME/.nvm"
     source /usr/local/opt/nvm/nvm.sh
-    export PATH=$PATH:$HOME/Library/Python/2.7/bin
+    export PATH=$PATH:$HOME/Library/Python/2.7/bin:$HOME/go/bin
     eval "$(rbenv init -)"
     . /usr/local/lib/python2.7/site-packages/powerline/bindings/zsh/powerline.zsh
     ;;

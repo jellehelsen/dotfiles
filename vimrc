@@ -10,7 +10,7 @@ set backupskip=/tmp/*,/private/tmp/*"
 " Bundles {{{
 call plug#begin('~/.vim/plugged')
 
-Plug 'Shougo/vimproc'
+Plug 'Shougo/vimproc', {'do': 'make'}
 Plug 'altercation/vim-colors-solarized'
 Plug 'tpope/vim-surround'
 Plug 'spf13/vim-autoclose'
@@ -60,13 +60,18 @@ Plug 'mattn/emmet-vim'
 "Plug 'vimwiki/vimwiki'
 "Plug 'danielmiessler/VimBlog'
 Plug 'actionshrimp/vim-xpath'
-
+7
 "Plug 'PProvost/vim-ps1'
 Plug 'editorconfig/editorconfig-vim'
 Plug 'vim-scripts/groovy.vim'
 Plug 'martinda/Jenkinsfile-vim-syntax'
 
 Plug 'fatih/vim-go'
+
+" Typescript"
+Plug 'Quramy/tsuquyomi'
+Plug 'leafgarland/typescript-vim'
+
 call plug#end()
 " }}}
 
@@ -571,9 +576,9 @@ set grepprg=ack
 let g:notes_directories = ['~/Dropbox/Notes']
 let g:vimwiki_list = [{'path': '~/Google\ Drive/wiki/'}]
 
-python from powerline.vim import setup as powerline_setup
-python powerline_setup()
-python del powerline_setup
+python3 from powerline.vim import setup as powerline_setup
+python3 powerline_setup()
+python3 del powerline_setup
 
 if has('mouse')
   set mouse=a

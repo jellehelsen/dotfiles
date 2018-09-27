@@ -5,6 +5,7 @@ export ZSH_THEME="flazz"
 export EDITOR=vim
 export XDG_CONFIG_HOME=~/.config
 export VAGRANT_PREFER_SYSTEM_BIN=1
+export ANSIBLE_COW_SELECTION=random
 fpath=(/usr/local/share/zsh/site-functions $fpath)
 
 zstyle :omz:plugins:ssh-agent agent-forwarding on

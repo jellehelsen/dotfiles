@@ -10,6 +10,11 @@ set backupskip=/tmp/*,/private/tmp/*"
 " Bundles {{{
 call plug#begin('~/.vim/plugged')
 
+if has('nvim')
+  Plug 'vim-airline/vim-airline'
+else
+  Plug 'powerline/powerline'
+endif
 Plug 'Shougo/vimproc', {'do': 'make'}
 Plug 'altercation/vim-colors-solarized'
 Plug 'tpope/vim-surround'
@@ -577,15 +582,17 @@ set grepprg=ack
 let g:notes_directories = ['~/Dropbox/Notes']
 let g:vimwiki_list = [{'path': '~/Google\ Drive/wiki/'}]
 
-if has('python3')
-  python3 from powerline.vim import setup as powerline_setup
-  python3 powerline_setup()
-  python3 del powerline_setup
-elseif has('python')
-  python from powerline.vim import setup as powerline_setup
-  python powerline_setup()
-  python del powerline_setup
-endif
+let g:python3_host_prog = '/home/jelle/.pyenv/versions/neovim/bin/python'
+let g:python_host_prog = '/home/jelle/.pyenv/versions/nvim2/bin/python'
+"if has('python')
+  "python from powerline.vim import setup as powerline_setup
+  "python powerline_setup()
+  "python del powerline_setup
+"elseif has('python3')
+  "python3 from powerline.vim import setup as powerline_setup
+  "python3 powerline_setup()
+  "python3 del powerline_setup
+"endif
 
 if has('mouse')
   set mouse=a

@@ -43,7 +43,13 @@ if [ `uname` = 'Darwin' ]; then
 fi
 case "$(uname)" in
   Linux)
-    . /usr/local/lib/python2.7/dist-packages/powerline/bindings/zsh/powerline.zsh
+    . $HOME/.local/lib/python2.7/site-packages/powerline/bindings/zsh/powerline.zsh
+    export NVM_DIR="$HOME/.nvm"
+    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+    [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+    export PATH="/home/jelle/.pyenv/bin:$PATH"
+    eval "$(pyenv init -)"
+    eval "$(pyenv virtualenv-init -)"
     ;;
 
   Darwin)

@@ -281,7 +281,7 @@ augroup vimrcEx
 
   "for ruby, autoindent with two spaces, always expand tabs
   autocmd FileType ruby,haml,eruby,yaml,html,javascript,sass,cucumber set ai sw=2 sts=2 et fdm=syntax
-  autocmd BufWritePost *.rb call system('ctags -R&')
+  autocmd BufWritePost *.rb call system('ctags -R --exclude=*.js&')
   autocmd FileType python set sw=4 sts=4 et
 
   autocmd! BufRead,BufNewFile *.sass setfiletype sass
@@ -425,10 +425,12 @@ function! RunTests(filename)
   if match(a:filename, '\.feature$') != -1
     exec ":!script/features " . a:filename
   else
-    if filereadable("script/test")
+    if filereadable("bin/rspec")
+      call RunTestCommand("./bin/rspec " . a:filename)
+    elseif filereadable("script/test")
       call RunTestCommand("script/test " . a:filename)
     elseif filereadable("bin/spring")
-      call RunTestCommand("bin/spring rspec --color " . a:filename)
+      call RunTestCommand("./bin/spring rspec --color " . a:filename)
     elseif filereadable("Gemfile")
       call RunTestCommand("bundle exec rspec --color " . a:filename)
     else

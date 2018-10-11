@@ -1,9 +1,7 @@
-export LANG=en_US.UTF-8
-export LC_CTYPE=en_US.UTF-8
+. ~/.zshenv
 export ZSH=$HOME/.oh-my-zsh/
 export ZSH_THEME="flazz"
 export EDITOR=vim
-export XDG_CONFIG_HOME=~/.config
 export VAGRANT_PREFER_SYSTEM_BIN=1
 export ANSIBLE_COW_SELECTION=random
 fpath=(/usr/local/share/zsh/site-functions $fpath)
@@ -19,7 +17,7 @@ case "$(uname)" in
   Darwin)
     plugins=(git git-flow iterm2 osx brew history-substring-search vi-mode bundler ssh-agent pow tmux tmuxinator bwana docker docker-compose go nvm)
     source /usr/local/bin/virtualenvwrapper.sh
-    export ZSH_TMUX_AUTOSTART=true
+    export ZSH_TMUX_AUTOSTART=false
     ;;
 
   CYGWIN*)
@@ -30,8 +28,6 @@ case "$(uname)" in
 esac
 
 source $ZSH/oh-my-zsh.sh
-export GOPATH=$HOME/go
-export PATH="/usr/local/sbin:$PATH:$GOPATH/bin"
 alias ti=tmuxinator
 function bundled_rubocop(){
   _run-with-bundler rubocop $@

@@ -46,6 +46,7 @@ case "$(uname)" in
     export PATH="/home/jelle/.pyenv/bin:$PATH"
     eval "$(pyenv init -)"
     eval "$(pyenv virtualenv-init -)"
+    stty -ixon
     ;;
 
   Darwin)

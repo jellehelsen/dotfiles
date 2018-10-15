@@ -413,9 +413,7 @@ you should place your code here."
   ;; confluence
   (require 'confluence)
   (setq confluence-url "https://wikiprojects.upc.biz/rpc/xmlrpc")
-  (eval-after-load 'org-jira (
-                              (setq jiralib-url "https://jira.lgi.io")
-                              ))
+  (with-eval-after-load 'org-jira (setq jiralib-url "https://jira.lgi.io"))
 
   ;; (setq request-log-level 'debug)
   ;; (setq request-message-level 'debug)

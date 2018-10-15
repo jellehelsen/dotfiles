@@ -86,6 +86,8 @@ values."
                                       nvm
                                       editorconfig
                                       groovy-mode
+                                      confluence
+                                      org-jira
                                       )
    ;; A list of packages that cannot be updated.
    dotspacemacs-frozen-packages '()
@@ -406,35 +408,22 @@ you should place your code here."
            "All inboxes" ?i)))
 
 
-  ;; gnus email config
-  (setq gnus-secondary-select-methods
-        '(
-          (nnimap "hcode"
-                  (nnimap-address "imap.gmail.com")
-                  (nnimap-server-port 993)
-                  ((nnimap-stream ssl)))
-          ))
+  ;; confluence
+  (require 'confluence)
+  (setq confluence-url "https://wikiprojects.upc.biz/rpc/xmlrpc")
+  (eval-after-load 'org-jira (
+                              (setq jiralib-url "https://jira.lgi.io")
+                              ))
+
+  ;; (setq request-log-level 'debug)
+  ;; (setq request-message-level 'debug)
+
   ;; Send email via Gmail:
   (setq message-send-mail-function 'smtpmail-send-it
         smtpmail-default-smtp-server "smtp.gmail.com"
         smtpmail-stream-type  'ssl
         smtpmail-smtp-service 465
         )
-
-  ;; Archive outgoing email in Sent folder on imap.gmail.com:
-  (setq gnus-message-archive-method '(nnimap "imap.gmail.com")
-        gnus-message-archive-group "[Gmail]/Sent Mail")
-
-  ;; set return email address based on incoming email address
-  (setq gnus-posting-styles
-        '(((header "to" "jelle@hcode.be")
-           (address "jelle@hcode.be"))
-          ((header "to" "jelle.helsen@hcode.be")
-           (address "jelle.helsen@hcode.be"))))
-
-  ;; store email in ~/gmail directory
-  (setq nnml-directory "~/hcodemail")
-  (setq message-directory "~/hcodemail")
 
   (define-key evil-insert-state-map (kbd "C-l") (lambda()
                                                   (interactive)

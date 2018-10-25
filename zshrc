@@ -11,7 +11,7 @@ zstyle :omz:plugins:ssh-agent agent-forwarding on
 case "$(uname)" in
   Linux)
     plugins=(tmux git git-flow history-substring-search vi-mode bundler ssh-agent docker docker-compose)
-    export ZSH_TMUX_AUTOSTART=true
+    export ZSH_TMUX_AUTOSTART=false
     ;;
 
   Darwin)

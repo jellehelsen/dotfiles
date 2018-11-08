@@ -5,15 +5,32 @@
 (setq-default display-line-numbers 'visual)
 (menu-bar-mode 1)
 #+END_SRC
+
+#+RESULTS:
+: t
+
 * Ruby
 #+BEGIN_SRC emacs-lisp
 (projectile-rails-global-mode)
 (global-rbenv-mode)
 #+END_SRC
 * Orgmode
+#+NAME: Testing
 #+BEGIN_SRC emacs-lisp
 (setq org-directory "~/Dropbox/Notes")
+;(org-babel-do-load-languages
+;    'org-babel-load-languages
+;    '((emacs-lisp . t)
+;      (sh . t)
+;      (python . t)
+;      (ruby . t)
+;    )
+; )
+
 #+END_SRC
+
+#+RESULTS: Testing
+: ~/Dropbox/Notes
 
 #+RESULTS:
 : ~/Dropbox/Notes

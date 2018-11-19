@@ -3,6 +3,8 @@
 * Visuals
 #+BEGIN_SRC emacs-lisp
 (setq-default display-line-numbers 'visual)
+(setq display-line-numbers 'visual)
+(setq doom-line-numbers-style 'visual)
 (menu-bar-mode 1)
 #+END_SRC
 
@@ -13,7 +15,25 @@
 #+BEGIN_SRC emacs-lisp
 (projectile-rails-global-mode)
 (global-rbenv-mode)
+(defun start-rails-server ()
+  "Start the rails server"
+  (interactive)
+  (set-process-sentinel
+   (start-process-shell-command "rails server" "rails server" (concat (projectile-rails-root) "bin/rails server"))
+   (lambda (p _m)
+     (when (eq 0 (process-exit-status p))
+       (with-current-buffer (process-buffer p)
+         (ansi-color-apply-on-region (point-min) (point-max))))))
+
+  )
+(map! :n :prefix ","
+      (:desc "Test project" :n "t" #'projectile-test-project)
+      (:desc "Start rails server" :n "S" #'start-rails-server)
+      )
 #+END_SRC
+
+#+RESULTS:
+
 * Orgmode
 #+NAME: Testing
 #+BEGIN_SRC emacs-lisp
@@ -156,3 +176,10 @@
 #+END_SRC
 
 #+RESULTS:
+* Tests
+#+BEGIN_SRC emacs-lisp
+(concat (projectile-rails-root) "bin/rails server")
+#+END_SRC
+
+#+RESULTS:
+: bin/rails server

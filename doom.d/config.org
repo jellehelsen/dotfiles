@@ -176,10 +176,12 @@
 #+END_SRC
 
 #+RESULTS:
-* Tests
+* Node
 #+BEGIN_SRC emacs-lisp
-(concat (projectile-rails-root) "bin/rails server")
+(nvm-use "10.11.0")
+(setq exec-path (append '("~/.nvm/versions/node/v10.11.0/bin/") exec-path))
+(setenv "PATH" (concat "~/.nvm/versions/node/v10.11.0/bin/:" (getenv "PATH")))
 #+END_SRC
 
 #+RESULTS:
-: bin/rails server
+: ~/.nvm/versions/node/v10.11.0/bin/:/home/jelle/.nvm/versions/node/v10.11.0/bin/:/home/jelle/.rbenv/bin/:/home/jelle/.rbenv/shims/:/home/jelle/.local/bin/:/usr/local/sbin/:/usr/local/bin/:/usr/sbin/:/usr/bin/:/sbin/:/bin/:/usr/games/:/usr/local/games/:/snap/bin/

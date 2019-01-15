@@ -38,6 +38,7 @@
 #+NAME: Testing
 #+BEGIN_SRC emacs-lisp
 (setq org-directory "~/Dropbox/Notes")
+(require 'ox-md)
 ;(org-babel-do-load-languages
 ;    'org-babel-load-languages
 ;    '((emacs-lisp . t)
@@ -50,7 +51,7 @@
 #+END_SRC
 
 #+RESULTS: Testing
-: ~/Dropbox/Notes
+: ox-md
 
 #+RESULTS:
 : ~/Dropbox/Notes

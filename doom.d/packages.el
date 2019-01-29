@@ -15,3 +15,4 @@
 (package! emmet-mode)
 (package! mocha)
 (package! groovy-mode)
+(package! go-mode)

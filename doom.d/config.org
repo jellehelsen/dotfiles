@@ -176,10 +176,4 @@
 #+END_SRC
 
 #+RESULTS:
-* Tests
-#+BEGIN_SRC emacs-lisp
-(concat (projectile-rails-root) "bin/rails server")
-#+END_SRC
-
-#+RESULTS:
-: bin/rails server
+* Javascript and typescript

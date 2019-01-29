@@ -13,3 +13,4 @@
 ;; (package! ox-confluence)
 (package! org-jira)
 (package! emmet-mode)
+(package! mocha)

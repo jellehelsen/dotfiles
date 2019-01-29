@@ -38,6 +38,7 @@
 #+NAME: Testing
 #+BEGIN_SRC emacs-lisp
 (setq org-directory "~/Dropbox/Notes")
+(require 'ox-md)
 ;(org-babel-do-load-languages
 ;    'org-babel-load-languages
 ;    '((emacs-lisp . t)
@@ -50,7 +51,7 @@
 #+END_SRC
 
 #+RESULTS: Testing
-: ~/Dropbox/Notes
+: ox-md
 
 #+RESULTS:
 : ~/Dropbox/Notes
@@ -176,4 +177,12 @@
 #+END_SRC
 
 #+RESULTS:
-* Javascript and typescript
+* Node
+#+BEGIN_SRC emacs-lisp
+(nvm-use "10.11.0")
+(setq exec-path (append '("~/.nvm/versions/node/v10.11.0/bin/") exec-path))
+(setenv "PATH" (concat "~/.nvm/versions/node/v10.11.0/bin/:" (getenv "PATH")))
+#+END_SRC
+
+#+RESULTS:
+: ~/.nvm/versions/node/v10.11.0/bin/:/home/jelle/.nvm/versions/node/v10.11.0/bin/:/home/jelle/.rbenv/bin/:/home/jelle/.rbenv/shims/:/home/jelle/.local/bin/:/usr/local/sbin/:/usr/local/bin/:/usr/sbin/:/usr/bin/:/sbin/:/bin/:/usr/games/:/usr/local/games/:/snap/bin/

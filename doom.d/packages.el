@@ -14,3 +14,4 @@
 (package! org-jira)
 (package! emmet-mode)
 (package! mocha)
+(package! groovy-mode)

@@ -18,8 +18,7 @@
 ;; Handles whitespace (tabs/spaces) settings externally. This way projects can
 ;; specify their own formatting rules.
 (def-package! editorconfig
-  :defer 3
-  :after-call (doom-enter-buffer-hook after-find-file)
+  :after-call (doom-switch-buffer-hook after-find-file)
   :config
   ;; Register missing indent variables
   (unless (assq 'mips-mode editorconfig-indentation-alist)
@@ -49,15 +48,15 @@ extension, try to guess one."
     (when (and (equal (gethash 'trim_trailing_whitespace props) "true")
                (bound-and-true-p ws-butler-mode))
       (ws-butler-mode -1)))
-  (add-hook 'editorconfig-custom-hooks #'+editorconfig|disable-ws-butler-maybe)
+  (add-hook 'editorconfig-after-apply-functions #'+editorconfig|disable-ws-butler-maybe)
 
   (defun +editorconfig|disable-indent-detection (props)
     "Inhibit `dtrt-indent' if an explicit indent_style and indent_size is
 specified by editorconfig."
     (when (or (gethash 'indent_style props)
               (gethash 'indent_size props))
-      (setq doom-inhibit-indent-detection t)))
-  (add-hook 'editorconfig-custom-hooks #'+editorconfig|disable-indent-detection)
+      (setq doom-inhibit-indent-detection 'editorconfig)))
+  (add-hook 'editorconfig-after-apply-functions #'+editorconfig|disable-indent-detection)
 
   ;; Editorconfig makes indentation too rigid in Lisp modes, so tell
   ;; editorconfig to ignore indentation there. The dynamic indentation support

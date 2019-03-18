@@ -47,14 +47,19 @@
 
   (add-hook 'js2-mode-hook #'rainbow-delimiters-mode)
   ;; Indent switch-case another step
-  (setq-hook! 'js2-mode-hook js-switch-indent-offset js2-basic-offset)
+  (setq-hook! 'js2-mode-hook
+    js-switch-indent-offset js2-basic-offset
+    mode-name "JS2")
 
   (set-electric! 'js2-mode :chars '(?\} ?\) ?. ?:))
-  (set-repl-handler! 'js2-mode #'+javascript/repl)
+  (set-repl-handler! 'js2-mode #'+javascript/open-repl)
+
+  (after! projectile
+    (add-to-list 'projectile-globally-ignored-directories "node_modules"))
 
   (map! :map js2-mode-map
         :localleader
-        :n "S" #'+javascript/skewer-this-buffer))
+        "S" #'+javascript/skewer-this-buffer))
 
 
 (def-package! rjsx-mode
@@ -71,7 +76,7 @@
   (add-to-list 'magic-mode-alist '(+javascript-jsx-file-p . rjsx-mode))
   :config
   (set-electric! 'rjsx-mode :chars '(?\} ?\) ?. ?>))
-  (when (featurep! :feature syntax-checker)
+  (when (featurep! :tools flycheck)
     (add-hook! 'rjsx-mode-hook
       ;; jshint doesn't know how to deal with jsx
       (push 'javascript-jshint flycheck-disabled-checkers)))
@@ -120,15 +125,22 @@
 ;;
 ;; Tools
 
+(when (featurep! +lsp)
+  (add-hook! (js2-mode rjsx-mode typescript-mode) #'lsp!))
+
+
 (def-package! tide
+  :unless (featurep! +lsp)
   :defer t
   :init
   ;; Don't let hard errors stop the user from opening js files.
   (defun +javascript|init-tide ()
     "Enable `tide-mode' if node is available."
-    (if (executable-find "node")
-        (tide-setup)
-      (message "Couldn't find `node', aborting tide server")))
+    (cond ((not buffer-file-name)
+           (add-hook 'after-save-hook #'+javascript|init-tide nil t))
+          ((executable-find "node")
+           (tide-setup))
+          ((message "Couldn't find `node', aborting tide server"))))
   (add-hook! (js2-mode typescript-mode) #'+javascript|init-tide)
 
   (defun +javascript|init-tide-in-web-mode ()
@@ -146,22 +158,23 @@
     (setq-default company-backends (delq 'company-tide (default-value 'company-backends))))
   (set-company-backend! 'tide-mode 'company-tide)
   ;; navigation
-  (set-lookup-handlers! 'tide-mode
+  (set-lookup-handlers! 'tide-mode :async t
     :definition #'tide-jump-to-definition
-    :references #'tide-references
-    :documentation #'tide-documentation-at-point)
+    :references #'tide-references)
   ;; resolve to `doom-project-root' if `tide-project-root' fails
   (advice-add #'tide-project-root :override #'+javascript*tide-project-root)
   ;; cleanup tsserver when no tide buffers are left
   (add-hook! 'tide-mode-hook
     (add-hook 'kill-buffer-hook #'+javascript|cleanup-tide-processes nil t))
 
-  (map! :map tide-mode-map
-        :localleader
-        :n "R"   #'tide-restart-server
-        :n "f"   #'tide-reformat
-        :n "rs"  #'tide-rename-symbol
-        :n "roi" #'tide-organize-imports))
+  (define-key tide-mode-map [remap +lookup/documentation] #'tide-documentation-at-point)
+
+  (map! :localleader
+        :map tide-mode-map
+        "R"   #'tide-restart-server
+        "f"   #'tide-reformat
+        "rs"  #'tide-rename-symbol
+        "roi" #'tide-organize-imports))
 
 
 (def-package! xref-js2
@@ -189,54 +202,48 @@
 
 
 ;; `skewer-mode'
-(map! (:after skewer-mode
+(map! :localleader
+      :prefix "s"
+      (:after skewer-mode
         :map skewer-mode-map
-        :localleader
-        :n "sE" #'skewer-eval-last-expression
-        :n "se" #'skewer-eval-defun
-        :n "sf" #'skewer-load-buffer)
+        "E" #'skewer-eval-last-expression
+        "e" #'skewer-eval-defun
+        "f" #'skewer-load-buffer)
 
       (:after skewer-css
         :map skewer-css-mode-map
-        :localleader
-        :n "se" #'skewer-css-eval-current-declaration
-        :n "sr" #'skewer-css-eval-current-rule
-        :n "sb" #'skewer-css-eval-buffer
-        :n "sc" #'skewer-css-clear-all)
+        "e" #'skewer-css-eval-current-declaration
+        "r" #'skewer-css-eval-current-rule
+        "b" #'skewer-css-eval-buffer
+        "c" #'skewer-css-clear-all)
 
       (:after skewer-html
         :map skewer-html-mode-map
-        :localleader
-        :n "se" #'skewer-html-eval-tag))
+        "e" #'skewer-html-eval-tag))
 
 
 ;; `npm-mode'
 (map! :after npm-mode
-      :map npm-mode-keymap
       :localleader
-      :n "nn" #'npm-mode-npm-init
-      :n "ni" #'npm-mode-npm-install
-      :n "ns" #'npm-mode-npm-install-save
-      :n "nd" #'npm-mode-npm-install-save-dev
-      :n "nu" #'npm-mode-npm-uninstall
-      :n "nl" #'npm-mode-npm-list
-      :n "nr" #'npm-mode-npm-run
-      :n "nv" #'npm-mode-visit-project-file)
+      :map npm-mode-keymap
+      :prefix "n"
+      "n" #'npm-mode-npm-init
+      "i" #'npm-mode-npm-install
+      "s" #'npm-mode-npm-install-save
+      "d" #'npm-mode-npm-install-save-dev
+      "u" #'npm-mode-npm-uninstall
+      "l" #'npm-mode-npm-list
+      "r" #'npm-mode-npm-run
+      "v" #'npm-mode-visit-project-file)
 
 
 ;;
 ;; Projects
 
 (def-project-mode! +javascript-npm-mode
-  :modes (html-mode css-mode web-mode js2-mode rjsx-mode json-mode markdown-mode)
+  :modes (html-mode css-mode web-mode typescript-mode js2-mode rjsx-mode json-mode markdown-mode)
   :when (locate-dominating-file default-directory "package.json")
   :add-hooks (+javascript|add-node-modules-path npm-mode))
 
 (def-project-mode! +javascript-gulp-mode
   :when (locate-dominating-file default-directory "gulpfile.js"))
-
-(def-project-mode! +javascript-screeps-mode
-  :match "/screeps\\(?:-ai\\)?/.+$"
-  :modes (+javascript-npm-mode)
-  :add-hooks (+javascript|init-screeps-mode)
-  :on-load (load! "+screeps"))

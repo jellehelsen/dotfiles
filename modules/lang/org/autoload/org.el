@@ -44,7 +44,7 @@ current file). Only scans first 2048 bytes of the document."
   :group 'evil-org
   (setq org-hide-emphasis-markers +org-pretty-mode)
   (org-toggle-pretty-entities)
-  (org-with-silent-modifications
+  (with-silent-modifications
    ;; In case the above un-align tables
    (org-table-map-tables 'org-table-align t)))
 
@@ -83,7 +83,11 @@ If on a:
          (org-toggle-checkbox (if (equal match "[ ]") '(16)))))
 
       (`headline
-       (cond ((org-element-property :todo-type context)
+       (cond ((and (fboundp 'toc-org-insert-toc)
+                   (member "TOC" (org-get-tags)))
+              (toc-org-insert-toc)
+              (message "Updating table of contents"))
+             ((org-element-property :todo-type context)
               (org-todo
                (if (eq (org-element-property :todo-type context) 'done)
                    (or (car (+org-get-todo-keywords-for (org-element-property :todo-keyword context)))
@@ -400,12 +404,15 @@ another level of headings on each invocation."
 (defun +org|yas-expand-maybe ()
   "Tries to expand a yasnippet snippet, if one is available. Made for
 `org-tab-first-hook'."
-  (when (and (or (not (bound-and-true-p evil-mode))
-                 (eq evil-state 'insert))
-             (bound-and-true-p yas-minor-mode)
-             (yas--templates-for-key-at-point))
-    (call-interactively #'yas-expand)
-    t))
+  (when (bound-and-true-p yas-minor-mode)
+    (cond ((and (or (not (bound-and-true-p evil-mode))
+                    (eq evil-state 'insert))
+                (yas--templates-for-key-at-point))
+           (call-interactively #'yas-expand)
+           t)
+          ((use-region-p)
+           (call-interactively #'yas-insert-snippet)
+           t))))
 
 ;;;###autoload
 (defun +org|cycle-only-current-subtree (&optional arg)
@@ -460,3 +467,10 @@ an effect when `evil-org-special-o/O' has `item' in it (not the default)."
                (backward-char 1)
                (evil-append nil))))
     (funcall orig-fn count)))
+
+;;;###autoload
+(defun +org*display-link-in-eldoc (orig-fn &rest args)
+  "Display the link at point in eldoc."
+  (or (when-let* ((link (org-element-property :raw-link (org-element-context))))
+        (format "Link: %s" link))
+      (apply orig-fn args)))

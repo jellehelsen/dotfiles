@@ -166,7 +166,9 @@ PLIST can be made up of any of the following properties:
   An alist of custom window parameters. See `(elisp)Window Parameters'.
 
 If any of these are omitted, defaults derived from `+popup-defaults' will be
-used."
+used.
+
+\(fn PREDICATE &key IGNORE ACTIONS SIDE SIZE WIDTH HEIGHT SLOT VSLOT TTL QUIT SELECT MODELINE AUTOSAVE PARAMETERS)"
   (declare (indent defun))
   (push (+popup--make predicate plist) +popup--display-buffer-alist)
   (when (bound-and-true-p +popup-mode)
@@ -196,19 +198,3 @@ Example:
   (when (bound-and-true-p +popup-mode)
     (setq display-buffer-alist +popup--display-buffer-alist))
   +popup--display-buffer-alist)
-
-
-;;
-;; Obsolete settings
-
-;; FIXME obsolete :popup
-;;;###autoload
-(def-setting! :popup (condition &optional alist parameters)
-  :obsolete set-popup-rule!
-  `(set-popup-rule! ,condition ,alist ,parameters))
-
-;; FIXME obsolete :popups
-;;;###autoload
-(def-setting! :popups (&rest rulesets)
-  :obsolete set-popup-rules!
-  `(set-popup-rules! ,@rulesets))

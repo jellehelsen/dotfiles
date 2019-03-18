@@ -1,5 +1,9 @@
 ;;; lang/ocaml/config.el -*- lexical-binding: t; -*-
 
+(when (featurep! +lsp)
+  (add-hook! (tuareg-mode reason-mode) #'lsp!))
+
+
 (after! tuareg
   ;; tuareg-mode has the prettify symbols itself
   (set-pretty-symbols! 'tuareg-mode :alist
@@ -13,11 +17,12 @@
   (tuareg-opam-update-env (tuareg-opam-current-compiler))
 
   ;; Spell-check comments
-  (when (featurep! :feature spellcheck)
+  (when (featurep! :tools flyspell)
     (add-hook 'tuareg-mode-local-vars-hook #'flyspell-prog-mode))
 
 
   (def-package! merlin
+    :unless (featurep! +lsp)
     :defer t
     :init
     (defun +ocaml|init-merlin ()
@@ -34,14 +39,27 @@
     :config
     (setq merlin-completion-with-doc t)
 
-    (map! :map tuareg-mode-map
-          :localleader
-          :n "t" #'merlin-type-enclosing
-          :n "a" #'tuareg-find-alternate-file))
+    (map! :localleader
+          :map tuareg-mode-map
+          "t" #'merlin-type-enclosing
+          "a" #'tuareg-find-alternate-file)
+
+    (def-package! merlin-eldoc
+      :hook (merlin-mode . merlin-eldoc-setup))
+
+    (def-package! merlin-iedit
+      :when (featurep! :editor multiple-cursors)
+      :config
+      (map! :map tuareg-mode-map
+            :v "R" #'merlin-iedit-occurrences))
+
+    (def-package! merlin-imenu
+      :when (featurep! :emacs imenu)
+      :hook (merlin-mode . merlin-use-merlin-imenu)))
 
 
   (def-package! flycheck-ocaml
-    :when (featurep! :feature syntax-checker)
+    :when (featurep! :tools flycheck)
     :init
     (defun +ocaml|init-flycheck ()
       "Activate `flycheck-ocaml` if the current project possesses a .merlin file."
@@ -51,22 +69,6 @@
         ;; Enable Flycheck checker
         (flycheck-ocaml-setup)))
     (add-hook 'merlin-mode-hook #'+ocaml|init-flycheck))
-
-
-  (def-package! merlin-eldoc
-    :hook (merlin-mode . merlin-eldoc-setup))
-
-
-  (def-package! merlin-iedit
-    :when (featurep! :editor multiple-cursors)
-    :config
-    (map! :map tuareg-mode-map
-          :v "R" #'merlin-iedit-occurrences))
-
-
-  (def-package! merlin-imenu
-    :when (featurep! :emacs imenu)
-    :hook (merlin-mode . merlin-use-merlin-imenu))
 
 
   (def-package! utop

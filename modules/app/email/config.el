@@ -11,6 +11,9 @@
 ;;
 ;; Packages
 
+(add-to-list 'auto-mode-alist '("\\.\\(?:offlineimap\\|mbsync\\)rc\\'" . conf-mode))
+
+
 (def-package! mu4e
   :commands (mu4e mu4e-compose-new)
   :init
@@ -30,8 +33,6 @@
         mu4e-compose-format-flowed t ; visual-line-mode + auto-fill upon sending
         mu4e-view-show-addresses t
         mu4e-sent-messages-behavior 'sent
-        mu4e-index-cleanup nil
-        mu4e-index-lazy-check t
         mu4e-hide-index-messages t
         ;; try to show images
         mu4e-view-show-images t
@@ -58,6 +59,9 @@
           (:flags . 4)
           (:from . 25)
           (:subject)))
+
+  ;; set mail user agent
+  (setq mail-user-agent 'mu4e-user-agent)
 
   ;; Use fancy icons
   (setq mu4e-headers-has-child-prefix '("+" . "")
@@ -92,7 +96,7 @@
   (defun +email*refresh (&rest _) (mu4e-headers-rerun-search))
   (advice-add #'mu4e-mark-execute-all :after #'+email*refresh)
 
-  (when (featurep! :feature spellcheck)
+  (when (featurep! :tools flyspell)
     (add-hook 'mu4e-compose-mode-hook #'flyspell-mode))
 
   ;; Wrap text in messages
@@ -114,11 +118,7 @@
   :after mu4e
   :config
   (mu4e-maildirs-extension)
-  (setq mu4e-maildirs-extension-title nil
-        ;; mu4e-maildirs-extension-ignored-regex "^*~*"
-        mu4e-maildirs-extension-action-text "\t[g] Update mail and index\n"
-        mu4e-maildirs-extension-maildir-expanded-prefix "-"
-        mu4e-maildirs-extension-maildir-default-prefix "|"))
+  (setq mu4e-maildirs-extension-title nil))
 
 
 (def-package! org-mu4e

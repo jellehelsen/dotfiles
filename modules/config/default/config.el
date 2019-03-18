@@ -1,23 +1,18 @@
 ;;; config/default/config.el -*- lexical-binding: t; -*-
 
-(if (featurep! +bindings) (load! "+bindings"))
+(defvar +default-minibuffer-maps
+  `(minibuffer-local-map
+    minibuffer-local-ns-map
+    minibuffer-local-completion-map
+    minibuffer-local-must-match-map
+    minibuffer-local-isearch-map
+    read-expression-map
+    ,@(if (featurep! :completion ivy) '(ivy-minibuffer-map)))
+  "A list of all the keymaps used for the minibuffer.")
 
 
 ;;
-;; Packages
-
-(def-package! emacs-snippets
-  :if (featurep! +snippets)
-  :after yasnippet)
-
-
-;;
-;; Config
-
-;; Don't store authinfo in plain text!
-(defvar auth-sources
-  (list (expand-file-name "authinfo.gpg" doom-etc-dir)
-        "~/.authinfo.gpg"))
+;;; Reasonable defaults
 
 (after! epa
   (setq epa-file-encrypt-to
@@ -32,109 +27,131 @@
         epa-pinentry-mode 'loopback))
 
 
-;; disable :unless predicates with (sp-pair "'" nil :unless nil)
-;; disable :post-handlers with (sp-pair "{" nil :post-handlers nil)
-;; ...or specific :post-handlers with (sp-pair "{" nil :post-handlers '(:rem ("| " "SPC")))
-(after! smartparens
-  ;; Autopair quotes more conservatively; if I'm next to a word/before another
-  ;; quote, I likely don't want another pair.
-  (let ((unless-list '(sp-point-before-word-p
-                       sp-point-after-word-p
-                       sp-point-before-same-p)))
-    (sp-pair "'"  nil :unless unless-list)
-    (sp-pair "\"" nil :unless unless-list))
+;;
+;;; Keybinding fixes
 
-  ;; Expand {|} => { | }
-  ;; Expand {|} => {
-  ;;   |
-  ;; }
-  (dolist (brace '("(" "{" "["))
-    (sp-pair brace nil
-             :post-handlers '(("||\n[i]" "RET") ("| " "SPC"))
-             ;; I likely don't want a new pair if adjacent to a word or opening brace
-             :unless '(sp-point-before-word-p sp-point-before-same-p)))
+;; This section is dedicated to "fixing" certain keys so that they behave
+;; sensibly (and consistently with similar contexts).
 
-  ;; Major-mode specific fixes
-  (sp-local-pair '(ruby-mode enh-ruby-mode) "{" "}"
-                 :pre-handlers '(:rem sp-ruby-pre-handler)
-                 :post-handlers '(:rem sp-ruby-post-handler))
+;; Consistently use q to quit windows
+(after! tabulated-list
+  (define-key tabulated-list-mode-map "q" #'quit-window))
 
-  ;; Don't do square-bracket space-expansion where it doesn't make sense to
-  (sp-local-pair '(emacs-lisp-mode org-mode markdown-mode gfm-mode)
-                 "[" nil :post-handlers '(:rem ("| " "SPC")))
-
-  ;; Reasonable default pairs for comments
-  (sp-local-pair (append sp--html-modes '(markdown-mode gfm-mode))
-                 "<!--" "-->" :actions '(insert) :post-handlers '(("| " "SPC")))
-
-  (sp-local-pair
-   '(js2-mode typescript-mode rjsx-mode rust-mode
-     c-mode c++-mode objc-mode java-mode php-mode
-     css-mode scss-mode less-css-mode stylus-mode)
-   "/*" "*/"
-   :actions '(insert)
-   :post-handlers '(("| " "SPC") ("|\n*/[i][d-2]" "RET") ("\n* ||\n*/[i][d-2]" "*")))
-
-  ;; Highjacks backspace to:
-  ;;  a) balance spaces inside brackets/parentheses ( | ) -> (|)
-  ;;  b) delete space-indented `tab-width' steps at a time
-  ;;  c) close empty multiline brace blocks in one step:
-  ;;     {
-  ;;     |
-  ;;     }
-  ;;     becomes {|}
-  ;;  d) refresh smartparens' :post-handlers, so SPC and RET expansions work
-  ;;     even after a backspace.
-  ;;  e) properly delete smartparen pairs when they are encountered, without the
-  ;;     need for strict mode.
-  ;;  f) do none of this when inside a string
-  (advice-add #'delete-backward-char :override #'doom/delete-backward-char)
-
-  ;; Makes `newline-and-indent' smarter when dealing with comments
-  (advice-add #'newline-and-indent :around #'doom*newline-indent-and-continue-comments))
+;; OS specific fixes
+(when IS-MAC
+  ;; Fix MacOS shift+tab
+  (define-key input-decode-map [S-iso-lefttab] [backtab])
+  ;; Fix conventional OS keys in Emacs
+  (map! "s-`" #'other-frame  ; fix frame-switching
+        ;; fix OS window/frame navigation/manipulation keys
+        "s-w" #'delete-window
+        "s-W" #'delete-frame
+        "s-n" #'+default/new-buffer
+        "s-N" #'make-frame
+        "s-q" (if (daemonp) #'delete-frame #'save-buffers-kill-terminal)
+        "C-s-f" #'toggle-frame-fullscreen
+        ;; Restore somewhat common navigation
+        "s-l" #'goto-line
+        ;; Restore OS undo, save, copy, & paste keys (without cua-mode, because
+        ;; it imposes some other functionality and overhead we don't need)
+        "s-f" #'swiper
+        "s-z" #'undo
+        "s-Z" #'redo
+        "s-c" (if (featurep 'evil) #'evil-yank #'copy-region-as-kill)
+        "s-v" #'yank
+        "s-s" #'save-buffer
+        ;; Buffer-local font scaling
+        "s-+" (λ! (text-scale-set 0))
+        "s-=" #'text-scale-increase
+        "s--" #'text-scale-decrease
+        ;; Conventional text-editing keys & motions
+        "s-a" #'mark-whole-buffer
+        :g "s-/" (λ! (save-excursion (comment-line 1)))
+        :n "s-/" #'evil-commentary-line
+        :v "s-/" #'evil-commentary
+        :gni [s-return]    #'+default/newline-below
+        :gni [S-s-return]  #'+default/newline-above
+        :gi  [s-backspace] #'doom/backward-kill-to-bol-and-indent
+        :gi  [s-left]      #'doom/backward-to-bol-or-indent
+        :gi  [s-right]     #'doom/forward-to-last-non-comment-or-eol
+        :gi  [M-backspace] #'backward-kill-word
+        :gi  [M-left]      #'backward-word
+        :gi  [M-right]     #'forward-word))
 
 
-(when (featurep 'evil)
-  (when (featurep! +evil-commands)
-    (load! "+evil-commands"))
+;;
+;;; Keybind schemes
 
-  (when (featurep! +bindings)
-    (defvar +default-repeat-forward-key ";")
-    (defvar +default-repeat-backward-key ",")
+;; Custom help keys -- these aren't under `+bindings' because they ought to be
+;; universal.
+(map! :map help-map
+      "'"   #'describe-char
+      "a"   #'apropos ; replaces `apropos-command'
+      "A"   #'doom/describe-autodefs
+      "B"   #'doom/open-bug-report
+      "C-c" #'describe-coding-system ; replaces `describe-copying' b/c not useful
+      "d"   #'doom/describe-module ; replaces `apropos-documentation' b/c `apropos' covers this
+      "D"   #'doom/open-manual
+      "E"   #'doom/open-vanilla-sandbox
+      "F"   #'describe-face ; replaces `Info-got-emacs-command-node' b/c redundant w/ `Info-goto-node'
+      "h"   #'doom/describe-symbol ; replaces `view-hello-file' b/c annoying
+      "C-k" #'describe-key-briefly
+      "L"   #'global-command-log-mode ; replaces `describe-language-environment' b/c remapped to C-l
+      "C-l" #'describe-language-environment
+      "M"   #'doom/describe-active-minor-mode
+      "C-m" #'info-emacs-manual
+      "n"   #'doom/open-news ; replaces `view-emacs-news' b/c it's on C-n too
+      "O"   #'+lookup/online
+      "p"   #'doom/describe-package ; replaces `finder-by-keyword'
+      "P"   #'find-library ; replaces `describe-package' b/c redundant w/ `doom/describe-package'
+      "r" nil ; replaces `info-emacs-manual' b/c it's on C-m now
+      (:prefix "r"
+        "r"   #'doom/reload
+        "t"   #'doom/reload-theme
+        "p"   #'doom/reload-packages
+        "f"   #'doom/reload-font
+        "P"   #'doom/reload-project)
+      "T"   #'doom/toggle-profiler
+      "V"   #'set-variable
+      "C-v" #'doom/version
+      "W"   #'+default/man-or-woman)
 
-    (eval-when-compile
-      (defmacro do-repeat! (command next-func prev-func)
-        "Makes ; and , the universal repeat-keys in evil-mode. These keys can be
-customized by changing `+default-repeat-forward-key' and
-`+default-repeat-backward-key'."
-        (let ((fn-sym (intern (format "+evil*repeat-%s" (doom-unquote command)))))
-          `(progn
-             (defun ,fn-sym (&rest _)
-               (define-key! evil-motion-state-map
-                 +default-repeat-forward-key #',next-func
-                 +default-repeat-backward-key #',prev-func))
-             (advice-add #',command :before #',fn-sym)))))
+(after! which-key
+  (which-key-add-key-based-replacements "C-h r" "reload")
+  (when (featurep 'evil)
+    (which-key-add-key-based-replacements (concat doom-leader-key     " r") "reload")
+    (which-key-add-key-based-replacements (concat doom-leader-alt-key " r") "reload")))
 
-    ;; n/N
-    (do-repeat! evil-ex-search-next evil-ex-search-next evil-ex-search-previous)
-    (do-repeat! evil-ex-search-previous evil-ex-search-next evil-ex-search-previous)
-    (do-repeat! evil-ex-search-forward evil-ex-search-next evil-ex-search-previous)
-    (do-repeat! evil-ex-search-backward evil-ex-search-next evil-ex-search-previous)
 
-    ;; f/F/t/T/s/S
-    (setq evil-snipe-repeat-keys nil
-          evil-snipe-override-evil-repeat-keys nil) ; causes problems with remapped ;
-    (do-repeat! evil-snipe-f evil-snipe-repeat evil-snipe-repeat-reverse)
-    (do-repeat! evil-snipe-F evil-snipe-repeat evil-snipe-repeat-reverse)
-    (do-repeat! evil-snipe-t evil-snipe-repeat evil-snipe-repeat-reverse)
-    (do-repeat! evil-snipe-T evil-snipe-repeat evil-snipe-repeat-reverse)
-    (do-repeat! evil-snipe-s evil-snipe-repeat evil-snipe-repeat-reverse)
-    (do-repeat! evil-snipe-S evil-snipe-repeat evil-snipe-repeat-reverse)
-    (do-repeat! evil-snipe-x evil-snipe-repeat evil-snipe-repeat-reverse)
-    (do-repeat! evil-snipe-X evil-snipe-repeat evil-snipe-repeat-reverse)
+(when (featurep! +bindings)
+  ;; Make M-x harder to miss
+  (define-key! 'override
+    "M-x" #'execute-extended-command
+    "A-x" #'execute-extended-command)
 
-    ;; */#
-    (do-repeat! evil-visualstar/begin-search-forward
-                evil-ex-search-next evil-ex-search-previous)
-    (do-repeat! evil-visualstar/begin-search-backward
-                evil-ex-search-previous evil-ex-search-next)))
+  ;; A Doom convention where C-s on popups and interactive searches will invoke
+  ;; ivy/helm for their superior filtering.
+  (define-key! :keymaps +default-minibuffer-maps
+    "C-s"    (if (featurep! :completion ivy)
+                 #'counsel-minibuffer-history
+               #'helm-minibuffer-history))
+
+  ;; Smarter C-a/C-e for both Emacs and Evil. C-a will jump to indentation.
+  ;; Pressing it again will send you to the true bol. Same goes for C-e, except
+  ;; it will ignore comments+trailing whitespace before jumping to eol.
+  (map! :gi "C-a" #'doom/backward-to-bol-or-indent
+        :gi "C-e" #'doom/forward-to-last-non-comment-or-eol
+        ;; Standardize the behavior of M-RET/M-S-RET as a "add new item
+        ;; below/above" key.
+        :gni [M-return]    #'+default/newline-below
+        :gni [M-S-return]  #'+default/newline-above
+        :gni [C-return]    #'+default/newline-below
+        :gni [C-S-return]  #'+default/newline-above))
+
+
+;;
+;;; Bootstrap configs
+
+(if (featurep 'evil)
+    (load! "+evil")
+  (load! "+emacs"))

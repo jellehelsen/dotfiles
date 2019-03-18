@@ -1,19 +1,7 @@
 ;;; core-lib.el -*- lexical-binding: t; -*-
 
-;; Built-in packages we use a lot of
-(require 'subr-x)
-(require 'cl-lib)
-
-(eval-and-compile
-  (unless EMACS26+
-    (with-no-warnings
-      ;; if-let and when-let are deprecated in Emacs 26+ in favor of their
-      ;; if-let* variants, so we alias them for 25 users.
-      (defalias 'if-let* #'if-let)
-      (defalias 'when-let* #'when-let))))
-
 ;;
-;; Helpers
+;;; Helpers
 
 (defun doom--resolve-path-forms (spec &optional directory)
   "Converts a simple nested series of or/and forms into a series of
@@ -22,23 +10,27 @@
 For example
 
   (doom--resolve-path-forms
-    '(or \"some-file\" (and path-var \"/an/absolute/path\"))
+    '(or A (and B C))
     \"~\")
 
-Returns
+Returns (approximately):
 
-  '(let ((_directory \"~\"))
-     (or (file-exists-p (expand-file-name \"some-file\" _directory))
-         (and (file-exists-p (expand-file-name path-var _directory))
-              (file-exists-p \"/an/absolute/path\"))))
+  '(let* ((_directory \"~\")
+          (A (expand-file-name A _directory))
+          (B (expand-file-name B _directory))
+          (C (expand-file-name C _directory)))
+     (or (and (file-exists-p A) A)
+         (and (if (file-exists-p B) B)
+              (if (file-exists-p C) C))))
 
 This is used by `associate!', `file-exists-p!' and `project-file-exists-p!'."
   (declare (pure t) (side-effect-free t))
   (cond ((stringp spec)
-         `(file-exists-p
-           ,(if (file-name-absolute-p spec)
-                spec
-              `(expand-file-name ,spec ,directory))))
+         `(let ((--file-- ,(if (file-name-absolute-p spec)
+                             spec
+                           `(expand-file-name ,spec ,directory))))
+            (and (file-exists-p --file--)
+                 --file--)))
         ((and (listp spec)
               (memq (car spec) '(or and)))
          `(,(car spec)
@@ -46,12 +38,14 @@ This is used by `associate!', `file-exists-p!' and `project-file-exists-p!'."
                       collect (doom--resolve-path-forms i directory))))
         ((or (symbolp spec)
              (listp spec))
-         `(file-exists-p ,(if (and directory
-                                   (or (not (stringp directory))
-                                       (file-name-absolute-p directory)))
-                              `(expand-file-name ,spec ,directory)
-                            spec)))
-        (t spec)))
+         `(let ((--file-- ,(if (and directory
+                                    (or (not (stringp directory))
+                                        (file-name-absolute-p directory)))
+                               `(expand-file-name ,spec ,directory)
+                             spec)))
+            (and (file-exists-p --file--)
+                 --file--)))
+        (spec)))
 
 (defun doom--resolve-hook-forms (hooks)
   (declare (pure t) (side-effect-free t))
@@ -75,7 +69,7 @@ This is used by `associate!', `file-exists-p!' and `project-file-exists-p!'."
 
 
 ;;
-;; Public library
+;;; Public library
 
 (defun doom-unquote (exp)
   "Return EXP unquoted."
@@ -100,6 +94,23 @@ This is used by `associate!', `file-exists-p!' and `project-file-exists-p!'."
   (declare (pure t) (side-effect-free t))
   (cl-check-type :test keyword)
   (substring (symbol-name keyword) 1))
+
+(defmacro doom-log (format-string &rest args)
+  "Log to *Messages* if `doom-debug-mode' is on.
+Does not interrupt the minibuffer if it is in use, but still logs to *Messages*.
+Accepts the same arguments as `message'."
+  `(when doom-debug-mode
+     (let ((inhibit-message (active-minibuffer-window)))
+       (message
+        ,(concat (propertize "DOOM " 'face 'font-lock-comment-face)
+                 format-string
+                 (when doom--current-module
+                   (propertize
+                    (format " [%s/%s]"
+                            (doom-keyword-name (car doom--current-module))
+                            (cdr doom--current-module))
+                    'face 'warning)))
+        ,@args))))
 
 (defun FILE! ()
   "Return the emacs lisp file this macro is called from."
@@ -141,9 +152,58 @@ serve as a predicated alternative to `after!'."
            (put ',fun 'permanent-local-hook t)
            (add-hook 'after-load-functions #',fun)))))
 
+(defmacro defer-feature! (feature &optional mode)
+  "Pretend FEATURE hasn't been loaded yet, until FEATURE-hook is triggered.
+
+Some packages (like `elisp-mode' and `lisp-mode') are loaded immediately at
+startup, which will prematurely trigger `after!' (and `with-eval-after-load')
+blocks. To get around this we make Emacs believe FEATURE hasn't been loaded yet,
+then wait until FEATURE-hook (or MODE-hook, if MODE is provided) is triggered to
+reverse this and trigger `after!' blocks at a more reasonable time."
+  (let ((advice-fn (intern (format "doom|defer-feature-%s" feature)))
+        (mode (or mode feature)))
+    `(progn
+       (setq features (delq ',feature features))
+       (advice-add #',mode :before #',advice-fn)
+       (defun ,advice-fn (&rest _)
+         ;; Some plugins (like yasnippet) will invoke a mode early, e.g. to
+         ;; parse some code. This would prematurely trigger this function. This
+         ;; checks for that:
+         (when (and ,(intern (format "%s-hook" mode))
+                    (not delay-mode-hooks))
+           ;; Otherwise, announce to the world this package has been loaded, so
+           ;; `after!' handlers can respond and configure elisp-mode as
+           ;; expected.
+           (provide ',feature)
+           (advice-remove #',mode #',advice-fn))))))
+
 (defmacro after! (targets &rest body)
-  "A smart wrapper around `with-eval-after-load'. Supresses warnings during
-compilation. This will no-op on features that have been disabled by the user."
+  "A smart wrapper around `with-eval-after-load' that:
+
+1. Suppresses warnings at compile-time
+2. No-ops for TARGETS that are disabled by the user (via `package!')
+3. Supports compound TARGETS statements (see below)
+
+BODY is evaluated once TARGETS are loaded. TARGETS can either be:
+
+- An unquoted package symbol (the name of a package)
+
+    (after! helm ...)
+
+- An unquoted list of package symbols
+
+    (after! (magit git-gutter) ...)
+
+- An unquoted, nested list of compound package lists, using :or/:any and/or :and/:all
+
+    (after! (:or package-a package-b ...)  ...)
+    (after! (:and package-a package-b ...) ...)
+    (after! (:and package-a (:or package-b package-c) ...) ...)
+
+  Note that:
+  - :or and :any are equivalent
+  - :and and :all are equivalent
+  - If these are omitted, :and is assumed."
   (declare (indent defun) (debug t))
   (unless (and (symbolp targets)
                (memq targets (bound-and-true-p doom-disabled-packages)))
@@ -234,7 +294,9 @@ Examples:
     (add-hook! :append :local (one-mode second-mode) (setq v 5) (setq a 2))
 
 Body forms can access the hook's arguments through the let-bound variable
-`args'."
+`args'.
+
+\(fn [:append :local] HOOKS FUNCTIONS)"
   (declare (indent defun) (debug t))
   (let ((hook-fn 'add-hook)
         append-p local-p)
@@ -265,7 +327,9 @@ Body forms can access the hook's arguments through the let-bound variable
 
 (defmacro remove-hook! (&rest args)
   "Convenience macro for `remove-hook'. Takes the same arguments as
-`add-hook!'."
+`add-hook!'.
+
+\(fn [:append :local] HOOKS FUNCTIONS)"
   (declare (indent defun) (debug t))
   `(add-hook! :remove ,@args))
 
@@ -285,6 +349,33 @@ Body forms can access the hook's arguments through the let-bound variable
                  (val (pop rest)))
              (push `(setq-local ,var ,val) forms)))
          (nreverse forms))))
+
+(defun advice-add! (symbols where functions)                            
+  "Variadic version of `advice-add'.
+
+SYMBOLS and FUNCTIONS can be lists of functions."
+  (let ((functions (if (functionp functions)
+                       (list functions)
+                     functions)))
+    (dolist (s (doom-enlist symbols))
+      (dolist (f (doom-enlist functions))
+        (advice-add s where f)))))
+
+(defun advice-remove! (symbols where-or-fns &optional functions)
+  "Variadic version of `advice-remove'.
+
+WHERE-OR-FNS is ignored if FUNCTIONS is provided. This lets you substitute
+advice-add with advice-remove and evaluate them without having to modify every
+statement."
+  (unless functions
+    (setq functions where-or-fns
+          where-or-fns nil))
+  (let ((functions (if (functionp functions)
+                       (list functions)
+                     functions)))
+    (dolist (s (doom-enlist symbols))
+      (dolist (f (doom-enlist functions))
+        (advice-remove s f)))))
 
 (cl-defmacro associate! (mode &key modes match files when)
   "Enables a minor mode if certain conditions are met.
@@ -332,49 +423,20 @@ The available conditions are:
                        mode modes match files when)))))
 
 (defmacro file-exists-p! (spec &optional directory)
-  "Returns t if the files in SPEC all exist.
+  "Returns non-nil if the files in SPEC all exist.
 
-SPEC can be a single file or a list of forms/files. It understands nested (and
-...) and (or ...), as well.
+Returns the last file found to meet the rules set by SPEC. SPEC can be a single
+file or a list of forms/files. It understands nested (and ...) and (or ...), as
+well.
 
-DIRECTORY is where to look for the files in SPEC if they aren't absolute. This
-doesn't apply to variables, however.
+DIRECTORY is where to look for the files in SPEC if they aren't absolute.
 
 For example:
-
   (file-exists-p! (or doom-core-dir \"~/.config\" \"some-file\") \"~\")"
   (if directory
       `(let ((--directory-- ,directory))
          ,(doom--resolve-path-forms spec '--directory--))
     (doom--resolve-path-forms spec)))
-
-(defmacro define-key! (keymaps key def &rest rest)
-  "Like `define-key', but accepts a variable number of KEYMAPS and/or KEY+DEFs.
-
-KEYMAPS can also be (or contain) 'global or 'local, to make this equivalent to
-using `global-set-key' and `local-set-key'.
-
-KEY is a key string or vector. It is *not* piped through `kbd'."
-  (declare (indent defun))
-  (or (cl-evenp (length rest))
-      (signal 'wrong-number-of-arguments (list 'evenp (length rest))))
-  (if (and (listp keymaps)
-           (not (eq (car-safe keymaps) 'quote)))
-      `(dolist (map (list ,@keymaps))
-         ,(macroexpand `(define-key! map ,key ,def ,@rest)))
-    (when (eq (car-safe keymaps) 'quote)
-      (pcase (cadr keymaps)
-        (`global (setq keymaps '(current-global-map)))
-        (`local  (setq keymaps '(current-local-map)))
-        (x (error "%s is not a valid keymap" x))))
-    `(let ((map ,keymaps))
-       (define-key map ,key ,def)
-       ,@(let (forms)
-           (while rest
-             (let ((key (pop rest))
-                   (def (pop rest)))
-               (push `(define-key map ,key ,def) forms)))
-           (nreverse forms)))))
 
 (defmacro load! (filename &optional path noerror)
   "Load a file relative to the current executing file (`load-file-name').

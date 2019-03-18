@@ -17,6 +17,7 @@
   (defvar evil-mc-key-map (make-sparse-keymap))
   :config
   (global-evil-mc-mode +1)
+  (setq evil-mc-enable-bar-cursor (not (or IS-MAC IS-WINDOWS)))
 
   (after! smartparens
     ;; Make evil-mc cooperate with smartparens better
@@ -33,8 +34,7 @@
   (add-to-list 'evil-mc-custom-known-commands '(evil-escape (:default . evil-mc-execute-default-evil-normal-state)))
 
   ;; Activate evil-mc cursors upon switching to insert mode
-  (defun +evil-mc|resume-cursors () (setq evil-mc-frozen nil))
-  (add-hook 'evil-insert-state-entry-hook #'+evil-mc|resume-cursors)
+  (add-hook 'evil-insert-state-entry-hook #'evil-mc-resume-cursors)
 
   ;; disable evil-escape in evil-mc; causes unwanted text on invocation
   (add-to-list 'evil-mc-incompatible-minor-modes 'evil-escape-mode nil #'eq)
@@ -47,14 +47,19 @@
       t))
   (add-hook 'doom-escape-hook #'+multiple-cursors|escape-multiple-cursors)
 
-  ;;
+  ;; Forward declare these so that ex completion and evil-mc support is
+  ;; recognized before the autoloaded functions are loaded.
   (evil-add-command-properties '+evil:align :evil-mc t)
-  (evil-add-command-properties '+evil:mc :evil-mc t))
+  (evil-set-command-properties '+multiple-cursors:evil-mc
+                               :move-point nil
+                               :ex-arg 'global-match
+                               :ex-bang t
+                               :evil-mc t))
 
 
-(def-package! multiple-cursors
-  :defer t
-  :config
+(after! multiple-cursors-core
+  (setq mc/list-file (concat doom-etc-dir "mc-lists.el"))
+
   ;; TODO multiple-cursors config for Emacs users?
 
   ;; mc doesn't play well with evil, this attempts to assuage some of its

@@ -44,11 +44,12 @@ Possible values:
 (defvar +doom-dashboard-menu-sections
   '(("Reload last session"
      :icon (all-the-icons-octicon "history" :face 'font-lock-keyword-face)
-     :when (and (bound-and-true-p persp-mode)
-                (file-exists-p (expand-file-name persp-auto-save-fname
-                                                 persp-save-dir)))
+     :when (cond ((require 'persp-mode nil t)
+                  (file-exists-p (expand-file-name persp-auto-save-fname persp-save-dir)))
+                 ((require 'desktop nil t)
+                  (file-exists-p (desktop-full-file-name))))
      :face (:inherit (font-lock-keyword-face bold))
-     :action +workspace/load-last-session)
+     :action doom/quickload-session)
     ("Open org-agenda"
      :icon (all-the-icons-octicon "calendar" :face 'font-lock-keyword-face)
      :when (fboundp 'org-agenda)
@@ -65,7 +66,7 @@ Possible values:
     ("Open private configuration"
      :icon (all-the-icons-octicon "tools" :face 'font-lock-keyword-face)
      :when (file-directory-p doom-private-dir)
-     :action +default/find-in-config)
+     :action doom/open-private-config)
     ("Open user manual"
      :icon (all-the-icons-octicon "book" :face 'font-lock-keyword-face)
      :when (file-exists-p (expand-file-name "index.org" doom-docs-dir))
@@ -107,12 +108,13 @@ PLIST can have the following properties:
       initial-buffer-choice
       (when (or (daemonp)
                 (not (cl-loop for arg in (cdr command-line-args)
-                              if (and (string-match-p "^[^-]" arg)
-                                      (file-exists-p arg))
+                              if (or (equal arg "--restore")
+                                     (and (string-match-p "^[^-]" arg)
+                                          (file-exists-p arg)))
                               return t)))
         #'+doom-dashboard-initial-buffer))
 
-(add-hook 'window-setup-hook #'+doom-dashboard|init)
+(add-hook 'doom-init-ui-hook #'+doom-dashboard|init 'append)
 
 
 ;;
@@ -138,39 +140,38 @@ PLIST can have the following properties:
   [remap backward-button] #'+doom-dashboard/backward-button
   "n"       #'forward-button
   "p"       #'backward-button
-  "\C-n"    #'forward-button
-  "\C-p"    #'backward-button
+  "C-n"     #'forward-button
+  "C-p"     #'backward-button
   [down]    #'forward-button
   [up]      #'backward-button
   [tab]     #'forward-button
   [backtab] #'backward-button)
 
-(when (featurep 'evil)
-  (evil-define-key* 'normal +doom-dashboard-mode-map
-    "j" #'forward-button
-    "k" #'backward-button
-    "n"       #'forward-button
-    "p"       #'backward-button
-    "\C-n"    #'forward-button
-    "\C-p"    #'backward-button
-    [down]    #'forward-button
-    [up]      #'backward-button
-    [tab]     #'forward-button
-    [backtab] #'backward-button)
-  (define-key! +doom-dashboard-mode-map
-    [left-margin mouse-1]      #'ignore
-    [remap evil-next-visual-line]     #'forward-button
-    [remap evil-previous-visual-line] #'backward-button
-    [remap evil-delete]        #'ignore
-    [remap evil-delete-line]   #'ignore
-    [remap evil-insert]        #'ignore
-    [remap evil-append]        #'ignore
-    [remap evil-replace]       #'ignore
-    [remap evil-replace-state] #'ignore
-    [remap evil-change]        #'ignore
-    [remap evil-change-line]   #'ignore
-    [remap evil-visual-char]   #'ignore
-    [remap evil-visual-line]   #'ignore))
+(map! :when (featurep 'evil)
+      :map +doom-dashboard-mode-map
+      :n "j"       #'forward-button
+      :n "k"       #'backward-button
+      :n "n"       #'forward-button
+      :n "p"       #'backward-button
+      :n "C-n"     #'forward-button
+      :n "C-p"     #'backward-button
+      :n [down]    #'forward-button
+      :n [up]      #'backward-button
+      :n [tab]     #'forward-button
+      :n [backtab] #'backward-button
+      [left-margin mouse-1]      #'ignore
+      [remap evil-next-visual-line]     #'forward-button
+      [remap evil-previous-visual-line] #'backward-button
+      [remap evil-delete]        #'ignore
+      [remap evil-delete-line]   #'ignore
+      [remap evil-insert]        #'ignore
+      [remap evil-append]        #'ignore
+      [remap evil-replace]       #'ignore
+      [remap evil-replace-state] #'ignore
+      [remap evil-change]        #'ignore
+      [remap evil-change-line]   #'ignore
+      [remap evil-visual-char]   #'ignore
+      [remap evil-visual-line]   #'ignore)
 
 
 ;;
@@ -195,7 +196,7 @@ PLIST can have the following properties:
     (add-hook 'window-configuration-change-hook #'+doom-dashboard|resize)
     (add-hook 'window-size-change-functions #'+doom-dashboard|resize)
     (add-hook 'kill-buffer-query-functions #'+doom-dashboard|reload-on-kill)
-    (add-hook 'doom-enter-buffer-hook #'+doom-dashboard|reload-on-kill)
+    (add-hook 'doom-switch-buffer-hook #'+doom-dashboard|reload-on-kill)
     ;; `persp-mode' integration: update `default-directory' when switching
     (add-hook 'persp-created-functions #'+doom-dashboard|record-project)
     (add-hook 'persp-activated-functions #'+doom-dashboard|detect-project)
@@ -227,7 +228,8 @@ whose dimensions may not be fully initialized by the time this is run."
 
 (defun +doom-dashboard|resize (&rest _)
   "Recenter the dashboard, and reset its margins and fringes."
-  (let ((windows (get-buffer-window-list (doom-fallback-buffer) nil t)))
+  (let ((windows (get-buffer-window-list (doom-fallback-buffer) nil t))
+        buffer-list-update-hook)
     (dolist (win windows)
       (set-window-start win 0)
       (set-window-fringes win 0 0)
@@ -273,7 +275,8 @@ project (which may be different across perspective)."
 
 (defun +doom-dashboard-initial-buffer ()
   "Returns buffer to display on startup. Designed for `initial-buffer-choice'."
-  (get-buffer-create +doom-dashboard-name))
+  (let (buffer-list-update-hook)
+    (get-buffer-create +doom-dashboard-name)))
 
 (defun +doom-dashboard-p (buffer)
   "Returns t if BUFFER is the dashboard buffer."
@@ -417,20 +420,21 @@ controlled by `+doom-dashboard-pwd-policy'."
                                                     #',action)))
                          'face (or face 'font-lock-keyword-face)
                          'follow-link t
-                         'help-echo label)
+                         'help-echo
+                         (format "%s (%s)" label
+                                 (propertize (symbol-name action) 'face 'font-lock-constant-face)))
                         (format "%-37s" (buffer-string)))
                       ;; Lookup command keys dynamically
-                      (or (let ((maps (list global-map)))
-                            (when (bound-and-true-p evil-normal-state-map)
-                              (push evil-motion-state-map maps)
-                              (push evil-normal-state-map maps))
-                            (when-let* ((key (where-is-internal action maps t)))
-                              (propertize (with-temp-buffer
-                                            (save-excursion (insert (key-description key)))
-                                            (while (re-search-forward "<\\([^>]+\\)>" nil t)
-                                              (replace-match (upcase (substring (match-string 1) 0 3))))
-                                            (buffer-string))
-                                          'face 'font-lock-constant-face)))
+                      (or (when-let* ((key (where-is-internal action nil t)))
+                            (with-temp-buffer
+                              (save-excursion (insert (key-description key)))
+                              (while (re-search-forward "<\\([^>]+\\)>" nil t)
+                                (let ((str (match-string 1)))
+                                  (replace-match
+                                   (upcase (if (< (length str) 3)
+                                               str
+                                             (substring str 0 3))))))
+                              (propertize (buffer-string) 'face 'font-lock-constant-face)))
                           ""))))
            (if (display-graphic-p)
                "\n\n"

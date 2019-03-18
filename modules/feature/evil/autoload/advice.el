@@ -1,6 +1,6 @@
 ;;; feature/evil/autoload/advice.el -*- lexical-binding: t; -*-
 
-(defun +evil--insert-newline (&optional above noextranewline)
+(defun +evil--insert-newline (&optional above _noextranewline)
   (let ((pos (save-excursion (beginning-of-line-text) (point)))
         comment-auto-fill-only-comments)
     (require 'smartparens)
@@ -33,7 +33,7 @@
                (if comment-line-break-function
                    (funcall comment-line-break-function)
                  (comment-indent-new-line)))
-              ;; Find a better way to do this
+              ;; TODO Find a better way to do this
               ((and (eq major-mode 'haskell-mode)
                     (fboundp 'haskell-indentation-newline-and-indent))
                (setq evil-auto-indent nil)
@@ -133,8 +133,7 @@ more information on modifiers."
                                   (unless global 1))))
                            path))
                         ("P"
-                         (let* ((default-directory (file-name-directory (expand-file-name path)))
-                                (project-root (doom-project-root)))
+                         (let ((project-root (doom-project-root (file-name-directory (expand-file-name path)))))
                            (unless project-root
                              (user-error "Not in a project"))
                            (abbreviate-file-name project-root)))
@@ -186,3 +185,23 @@ more information on modifiers."
   "Call `doom/escape' if `evil-force-normal-state' is called interactively."
   (when (called-interactively-p 'any)
     (call-interactively #'doom/escape)))
+
+;;;###autoload
+(defun +evil*make-numbered-markers-global (orig-fn char)
+  (or (and (>= char ?2) (<= char ?9))
+      (funcall orig-fn char)))
+
+;;;###autoload
+(defun +evil*set-jump (orig-fn &rest args)
+  "Set a jump point and ensure ORIG-FN doesn't set any new jump points."
+  (evil-set-jump (if (markerp (car args)) (car args)))
+  (let ((evil--jumps-jumping t))
+    (apply orig-fn args)))
+
+;;;###autoload
+(defun +evil*fix-dabbrev-in-minibuffer ()
+  "Make `try-expand-dabbrev' from `hippie-expand' work in minibuffer. See
+`he-dabbrev-beg', so we need to redefine syntax for '/'."
+  (set-syntax-table (let* ((table (make-syntax-table)))
+                      (modify-syntax-entry ?/ "." table)
+                      table)))

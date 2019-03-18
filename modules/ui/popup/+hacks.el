@@ -32,6 +32,10 @@
 ;;
 ;; External functions
 
+;; `buff-menu'
+(define-key Buffer-menu-mode-map (kbd "RET") #'Buffer-menu-other-window)
+
+
 ;; `company'
 (progn
   (defun +popup*dont-select-me (orig-fn &rest args)
@@ -59,8 +63,8 @@
 ;; `evil'
 (progn
   (defun +popup*evil-command-window (hist cmd-key execute-fn)
-    "The evil command window has a mind of its own (uses `switch-to-buffer'). We
-monkey patch it to use pop-to-buffer, and to remember the previous window."
+    "Monkey patch the evil command window to use `pop-to-buffer' instead of
+`switch-to-buffer', allowing the popup manager to handle it."
     (when (eq major-mode 'evil-command-window-mode)
       (user-error "Cannot recursively open command line window"))
     (dolist (win (window-list))
@@ -149,8 +153,8 @@ the command buffer."
 
 ;; `helpful'
 (progn
-  ;; Open link in origin window (non-popup) instead of inside the popup window.
-  (defun +popup*helpful--navigate (button)
+  (defun +popup*helpful-open-in-origin-window (button)
+    "Open links in non-popup, originating window rather than helpful's window."
     (let ((path (substring-no-properties (button-get button 'path)))
           enable-local-variables
           origin)
@@ -162,7 +166,7 @@ the command buffer."
        (setq origin (selected-window))
        (recenter))
       (select-window origin)))
-  (advice-add #'helpful--navigate :override #'+popup*helpful--navigate))
+  (advice-add #'helpful--navigate :override #'+popup*helpful-open-in-origin-window))
 
 
 ;; `helm'
@@ -175,12 +179,14 @@ the command buffer."
                ((symbol-function 'org-completing-read)
                 (lambda (&rest args)
                   (when-let* ((win (get-buffer-window "*Org Links*")))
-                    ;; While helm opened as a popup, helm commands will mistaken
-                    ;; the *Org Links* popup for the "originated window", and
-                    ;; try to manipulate it, but since that is a popup too (as
-                    ;; is a dedicated side window), Emacs errors and complains
-                    ;; it can't do that. So we get rid of it.
+                    ;; While helm is opened as a popup, it will mistaken the
+                    ;; *Org Links* popup for the "originated window", and will
+                    ;; target it for actions invoked by the user. However, since
+                    ;; *Org Links* is a popup too (they're dedicated side
+                    ;; windows), Emacs complains about being unable to split a
+                    ;; side window. The simple fix: get rid of *Org Links*!
                     (delete-window win)
+                    ;; But it must exist for org to clean up later.
                     (get-buffer-create "*Org Links*"))
                   (apply old-org-completing-read args))))
       (apply orig-fn args)))
@@ -227,6 +233,7 @@ the command buffer."
 
 ;; `org'
 (after! org
+  (defvar +popup--disable-internal nil)
   ;; Org has a scorched-earth window management system I'm not fond of. i.e. it
   ;; kills all windows and monopolizes the frame. No thanks. We can do better
   ;; ourselves.
@@ -243,12 +250,12 @@ the command buffer."
   (defun +popup*org-src-pop-to-buffer (orig-fn buffer context)
     "Hand off the src-block window to the popup system by using `display-buffer'
 instead of switch-to-buffer-*."
-    (if (and (eq org-src-window-setup 'other-window)
+    (if (and (eq org-src-window-setup 'popup-window)
              +popup-mode)
         (pop-to-buffer buffer)
       (funcall orig-fn buffer context)))
   (advice-add #'org-src-switch-to-buffer :around #'+popup*org-src-pop-to-buffer)
-  (setq org-src-window-setup 'other-window)
+  (setq org-src-window-setup 'popup-window)
 
   ;; Ensure todo, agenda, and other minor popups are delegated to the popup system.
   (defun +popup*org-pop-to-buffer (orig-fn buf &optional norecord)
@@ -259,10 +266,26 @@ instead of switch-to-buffer-*."
   (advice-add #'org-switch-to-buffer-other-window :around #'+popup*org-pop-to-buffer)
 
   ;; `org-agenda'
-  (setq org-agenda-window-setup 'other-window
+  (setq org-agenda-window-setup 'popup-window
         org-agenda-restore-windows-after-quit nil)
-  ;; Don't monopolize frame!
-  (advice-add #'org-agenda :around #'+popup*suppress-delete-other-windows))
+  ;; Don't monopolize the frame!
+  (defun +popup*org-agenda-suppress-delete-other-windows (orig-fn &rest args)
+    (cond ((not +popup-mode)
+           (apply orig-fn args))
+          ((eq org-agenda-window-setup 'popup-window)
+           (let ((org-agenda-window-setup 'other-window)
+                 org-agenda-restore-windows-after-quit)
+             (cl-letf (((symbol-function 'delete-other-windows)
+                        (symbol-function 'ignore)))
+               (apply orig-fn args))))
+          ((memq org-agenda-window-setup '(current-window other-window))
+           (with-popup-rules! nil
+             (cl-letf (((symbol-function 'delete-other-windows)
+                        (symbol-function 'ignore)))
+               (apply orig-fn args))))
+          ((with-popup-rules! nil
+             (apply orig-fn args)))))
+  (advice-add #'org-agenda-prepare-window :around #'+popup*org-agenda-suppress-delete-other-windows))
 
 
 ;; `persp-mode'
@@ -293,6 +316,14 @@ instead of switch-to-buffer-*."
   (set-popup-rule! "\\(^\\*Contents\\|'s annots\\*$\\)" :ignore t))
 
 
+;; `profiler'
+(defun doom*profiler-report-find-entry-in-other-window (orig-fn function)
+  (cl-letf (((symbol-function 'find-function)
+             (symbol-function 'find-function-other-window)))
+    (funcall orig-fn function)))
+(advice-add #'profiler-report-find-entry :around #'doom*profiler-report-find-entry-in-other-window)
+
+
 ;; `wgrep'
 (progn
   ;; close the popup after you're done with a wgrep buffer
@@ -317,7 +348,7 @@ instead of switch-to-buffer-*."
 
 ;; `windmove'
 (progn
-  ;; Users should be about to hop into popups easily, but Elisp shouldn't.
+  ;; Users should be able to hop into popups easily, but Elisp shouldn't.
   (defun doom*ignore-window-parameters (orig-fn &rest args)
     "Allow *interactive* window moving commands to traverse popups."
     (cl-letf (((symbol-function #'windmove-find-other-window)

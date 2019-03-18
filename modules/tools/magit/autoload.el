@@ -48,6 +48,13 @@
 ;;
 ;; Commands
 
+(defun +magit--refresh-vc-in-buffer (buffer)
+  (with-current-buffer buffer
+    (when (fboundp 'vc-refresh-state)
+      (vc-refresh-state))
+    (when (fboundp '+version-control|update-git-gutter)
+      (+version-control|update-git-gutter))))
+
 ;;;###autoload
 (defun +magit/quit (&optional _kill-buffer)
   "Clean up magit buffers after quitting `magit-status' and refresh version
@@ -61,12 +68,13 @@ control in buffers."
                              (eq major-mode 'magit-status-mode)))
                          (window-list))))
     (mapc #'+magit--kill-buffer (magit-mode-get-buffers))
-    (dolist (buffer (buffer-list))
-      (with-current-buffer buffer
-        (when (fboundp 'vc-refresh-state)
-          (vc-refresh-state))
-        (when (fboundp '+version-control|update-git-gutter)
-          (+version-control|update-git-gutter))))))
+    (let ((buffers (doom-buffer-list)))
+      (if (not (fboundp 'make-thread))
+          (mapc #'+magit--refresh-vc-in-buffer buffers)
+        (mapc #'+magit--refresh-vc-in-buffer (doom-visible-buffers buffers))
+        ;; TODO Partition buffer list
+        (dolist (buffer (doom-buried-buffers buffers))
+          (make-thread (lambda () (+magit--refresh-vc-in-buffer buffer))))))))
 
 (defun +magit--kill-buffer (buf)
   "TODO"
@@ -84,12 +92,15 @@ control in buffers."
   "History for `+magit/clone' prompt.")
 ;;;###autoload
 (defun +magit/clone (url-or-repo dir)
-  "Delegates to `magit-clone' or `magithub-clone' depending on the repo url
-format."
+  "Like `magit-clone', but supports additional formats on top of absolute URLs:
+
++ USER/REPO: assumes {`+magit-default-clone-url'}/USER/REPO
++ REPO: assumes {`+magit-default-clone-url'}/{USER}/REPO, where {USER} is
+  ascertained from your global gitconfig."
   (interactive
    (progn
-     (require 'magithub)
-     (let* ((user (ghubp-username))
+     (require 'ghub)
+     (let* ((user (ghub--username (ghub--host)))
             (repo (read-from-minibuffer
                    "Clone repository (user/repo or url): "
                    (if user (concat user "/"))
@@ -98,19 +109,16 @@ format."
        (list repo
              (read-directory-name
               "Destination: "
-              magithub-clone-default-directory
+              magit-clone-default-directory
               name nil name)))))
-  (require 'magithub)
-  (if (string-match "^\\([^/]+\\)/\\([^/]+\\)$" url-or-repo)
-      (let ((repo `((owner (login . ,(match-string 1 url-or-repo)))
-                    (name . ,(match-string 2 url-or-repo)))))
-        (and (or (magithub-request
-                  (ghubp-get-repos-owner-repo repo))
-                 (let-alist repo
-                   (user-error "Repository %s/%s does not exist"
-                               .owner.login .name)))
-             (magithub-clone repo dir)))
-    (magit-clone url-or-repo dir)))
+  (magit-clone
+   (cond ((string-match-p "^[^/]+$" url-or-repo)
+          (require 'ghub)
+          (format +magit-default-clone-url (ghub--username (ghub--host)) url-or-repo))
+         ((string-match-p "^\\([^/]+\\)/\\([^/]+\\)/?$" url-or-repo)
+          (apply #'format +magit-default-clone-url (split-string url-or-repo "/" t)))
+         (url-or-repo))
+   dir))
 
 
 ;;

@@ -186,3 +186,12 @@
 
 #+RESULTS:
 : ~/.nvm/versions/node/v10.11.0/bin/:/home/jelle/.nvm/versions/node/v10.11.0/bin/:/home/jelle/.rbenv/bin/:/home/jelle/.rbenv/shims/:/home/jelle/.local/bin/:/usr/local/sbin/:/usr/local/bin/:/usr/sbin/:/usr/bin/:/sbin/:/bin/:/usr/games/:/usr/local/games/:/snap/bin/
+
+* Defaults
+#+BEGIN_SRC emacs-lisp
+(setq-default indent-tabs-mode nil)
+(setq tab-width 2)
+#+END_SRC
+
+#+RESULTS:
+: 2

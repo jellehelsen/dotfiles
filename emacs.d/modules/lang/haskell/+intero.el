@@ -16,15 +16,15 @@ This is necessary because `intero-mode' doesn't do its own error checks."
   (setq haskell-compile-cabal-build-command "stack build --fast")
   (set-lookup-handlers! 'intero-mode :definition #'intero-goto-definition)
   (set-company-backend! 'intero-mode 'intero-company)
-  (when (featurep! :feature syntax-checker)
+  (when (featurep! :tools flycheck)
     (flycheck-add-next-checker 'intero '(warning . haskell-hlint)))
 
   (when (featurep 'evil)
     (add-hook 'intero-mode-hook #'evil-normalize-keymaps))
-  (map! :map intero-mode-map
-        :localleader
-        :n "t" #'intero-type-at
-        :n "i" #'intero-info
-        :n "l" #'intero-repl-load
-        :nv "e" #'intero-repl-eval-region
-        :n "a" #'intero-apply-suggestions))
+  (map! :localleader
+        :map intero-mode-map
+        "t" #'intero-type-at
+        "i" #'intero-info
+        "l" #'intero-repl-load
+        "e" #'intero-repl-eval-region
+        "a" #'intero-apply-suggestions))

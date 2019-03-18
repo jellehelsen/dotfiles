@@ -3,39 +3,27 @@
 (defvar +emacs-lisp-enable-extra-fontification t
   "If non-nil, highlight special forms, and defined functions and variables.")
 
+(defvar +emacs-lisp-outline-regexp "[ \t]*;;;;* [^ \t\n]"
+  "Regexp to use for `outline-regexp' in `emacs-lisp-mode'.
+This marks a foldable marker for `outline-minor-mode' in elisp buffers.")
 
-;;
-;; elisp-mode deferral hack
 
 ;; `elisp-mode' is loaded at startup. In order to lazy load its config we need
 ;; to pretend it isn't loaded
-(delq 'elisp-mode features)
-;; ...until the first time `emacs-lisp-mode' runs
-(advice-add #'emacs-lisp-mode :before #'+emacs-lisp|init)
-
-(defun +emacs-lisp|init (&rest _)
-  ;; Some plugins (like yasnippet) run `emacs-lisp-mode' early, to parse some
-  ;; elisp. This would prematurely trigger this function. In these cases,
-  ;; `emacs-lisp-mode-hook' is let-bound to nil or its hooks are delayed, so if
-  ;; we see either, keep pretending elisp-mode isn't loaded.
-  (when (and emacs-lisp-mode-hook (not delay-mode-hooks))
-    ;; Otherwise, announce to the world elisp-mode has been loaded, so `after!'
-    ;; handlers can respond and configure elisp-mode as expected.
-    (provide 'elisp-mode)
-    (advice-remove #'emacs-lisp-mode #'+emacs-lisp|init)))
+(defer-feature! elisp-mode emacs-lisp-mode)
 
 
 ;;
 ;; Config
 
-(add-to-list 'auto-mode-alist '("\\.Cask\\'" . emacs-lisp-mode))
-
-(after! elisp-mode
-  (set-repl-handler! 'emacs-lisp-mode #'+emacs-lisp/repl)
+(def-package! elisp-mode
+  :mode ("\\.Cask\\'" . emacs-lisp-mode)
+  :config
+  (set-repl-handler! 'emacs-lisp-mode #'+emacs-lisp/open-repl)
   (set-eval-handler! 'emacs-lisp-mode #'+emacs-lisp-eval)
   (set-lookup-handlers! 'emacs-lisp-mode
     :definition    #'elisp-def
-    :documentation #'info-lookup-symbol)
+    :documentation #'+emacs-lisp-lookup-documentation)
   (set-docsets! 'emacs-lisp-mode "Emacs Lisp")
   (set-pretty-symbols! 'emacs-lisp-mode :lambda "lambda")
   (set-rotate-patterns! 'emacs-lisp-mode
@@ -52,14 +40,15 @@
     mode-name "Elisp"
     ;; Don't treat autoloads or sexp openers as outline headers, we have
     ;; hideshow for that.
-    outline-regexp ";;;;* [^ \t\n]")
+    outline-regexp +emacs-lisp-outline-regexp)
 
   ;; variable-width indentation is superior in elisp
   (add-to-list 'doom-detect-indentation-excluded-modes 'emacs-lisp-mode nil #'eq)
 
   (add-hook! 'emacs-lisp-mode-hook
     #'(;; 3rd-party functionality
-       auto-compile-on-save-mode outline-minor-mode
+       auto-compile-on-save-mode
+       outline-minor-mode
        ;; initialization
        +emacs-lisp|extend-imenu))
 
@@ -71,7 +60,7 @@
   (font-lock-add-keywords
    'emacs-lisp-mode
    (append `(;; custom Doom cookies
-             ("^;;;###\\(autodef\\|if\\)[ \n]" (1 font-lock-warning-face t)))
+             ("^;;;###\\(autodef\\|if\\|package\\)[ \n]" (1 font-lock-warning-face t)))
            ;; highlight defined, special variables & functions
            (when +emacs-lisp-enable-extra-fontification
              `((+emacs-lisp-highlight-vars-and-faces . +emacs-lisp--face)))))
@@ -79,7 +68,11 @@
   (add-hook! 'emacs-lisp-mode-hook #'(rainbow-delimiters-mode highlight-quoted-mode))
 
   ;; Recenter window after following definition
-  (advice-add #'elisp-def :after #'doom*recenter))
+  (advice-add #'elisp-def :after #'doom*recenter)
+
+  (map! :localleader
+        :map emacs-lisp-mode-map
+        "e" #'macrostep-expand))
 
 
 ;;
@@ -94,21 +87,21 @@
 (when (featurep! :feature evil)
   (after! macrostep
     (evil-define-key* 'normal macrostep-keymap
-      (kbd "RET") #'macrostep-expand
-      "e"         #'macrostep-expand
-      "u"         #'macrostep-collapse
-      "c"         #'macrostep-collapse
+      [return]  #'macrostep-expand
+      "e"       #'macrostep-expand
+      "u"       #'macrostep-collapse
+      "c"       #'macrostep-collapse
 
-      [tab]       #'macrostep-next-macro
-      "\C-n"      #'macrostep-next-macro
-      "J"         #'macrostep-next-macro
+      [tab]     #'macrostep-next-macro
+      "\C-n"    #'macrostep-next-macro
+      "J"       #'macrostep-next-macro
 
-      [backtab]   #'macrostep-prev-macro
-      "K"         #'macrostep-prev-macro
-      "\C-p"      #'macrostep-prev-macro
+      [backtab] #'macrostep-prev-macro
+      "K"       #'macrostep-prev-macro
+      "\C-p"    #'macrostep-prev-macro
 
-      "q"         #'macrostep-collapse-all
-      "C"         #'macrostep-collapse-all)
+      "q"       #'macrostep-collapse-all
+      "C"       #'macrostep-collapse-all)
 
     ;; `evil-normalize-keymaps' seems to be required for macrostep or it won't
     ;; apply for the very first invocation
@@ -117,14 +110,22 @@
 
 ;; `overseer'
 (autoload 'overseer-test "overseer" nil t)
+(remove-hook 'emacs-lisp-mode-hook 'overseer-enable-mode)
 
 
 (def-package! flycheck-cask
-  :when (featurep! :feature syntax-checker)
+  :when (featurep! :tools flycheck)
   :defer t
   :init
   (add-hook! 'emacs-lisp-mode-hook
     (add-hook 'flycheck-mode-hook #'flycheck-cask-setup nil t)))
+
+
+(def-package! elisp-demos
+  :defer t
+  :init
+  (advice-add 'describe-function-1 :after #'elisp-demos-advice-describe-function-1)
+  (advice-add 'helpful-update :after #'elisp-demos-advice-helpful-update))
 
 
 ;;
@@ -132,7 +133,8 @@
 
 (def-project-mode! +emacs-lisp-ert-mode
   :modes (emacs-lisp-mode)
-  :match "/test[/-].+\\.el$")
+  :match "/test[/-].+\\.el$"
+  :add-hooks (overseer-enable-mode))
 
 (associate! buttercup-minor-mode
   :modes (emacs-lisp-mode)

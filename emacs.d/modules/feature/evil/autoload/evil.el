@@ -11,15 +11,9 @@
           (evil-set-initial-state mode state))
       (evil-set-initial-state modes state))))
 
-;; FIXME obsolete :evil-state
-;;;###autoload
-(def-setting! :evil-state (modes state)
-  :obsolete set-evil-initial-state!
-  `(set-evil-initial-state! ,modes ,state))
-
 
 ;;
-;; Commands
+;;; Commands
 
 ;;;###autoload
 (defun +evil/visual-indent ()
@@ -56,10 +50,10 @@
     (call-interactively #'evil-paste-after)))
 
 (defun +evil--window-swap (direction)
-  "Move current window to the next window in DIRECTION. If there are no windows
-there and there is only one window, split in that direction and place this
-window there. If there are no windows and this isn't the only window, use
-evil-window-move-* (e.g. `evil-window-move-far-left')"
+  "Move current window to the next window in DIRECTION.
+If there are no windows there and there is only one window, split in that
+direction and place this window there. If there are no windows and this isn't
+the only window, use evil-window-move-* (e.g. `evil-window-move-far-left')."
   (when (window-dedicated-p)
     (user-error "Cannot swap a dedicated window"))
   (let* ((this-window (selected-window))
@@ -117,7 +111,7 @@ integration."
 
 
 ;;
-;; Evil commands/operators
+;;; Evil commands/operators
 
 ;;;###autoload (autoload '+evil:apply-macro "feature/evil/autoload/evil" nil t)
 (evil-define-operator +evil:apply-macro (beg end)
@@ -160,7 +154,8 @@ integration."
   (doom/clone-and-narrow-buffer beg end bang))
 
 
-;; --- custom arg handlers ----------------
+;;
+;;; Custom arg handlers
 
 (defvar +evil--flag nil)
 
@@ -247,7 +242,8 @@ the first match on each line)."
    -1 1 bang))
 
 
-;; --- wgrep ------------------------------
+;;
+;;; wgrep
 
 ;;;###autoload (autoload '+evil-delete "feature/evil/autoload/evil" nil t)
 (evil-define-operator +evil-delete (beg end type register yank-handler)

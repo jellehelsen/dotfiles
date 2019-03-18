@@ -3,9 +3,23 @@
 (def-package! elixir-mode
   :defer t
   :init
-  ;; disable default smartparens config
+  ;; Disable default smartparens config. There are too many pairs; we only want
+  ;; a subset of them (defined below).
   (provide 'smartparens-elixir)
   :config
+  (set-pretty-symbols! 'elixir-mode
+    ;; Functional
+    :def "def"
+    :lambda "fn"
+    ;; :src_block "do"
+    ;; :src_block_end "end"
+    ;; Flow
+    :not "!"
+    :in "in" :not-in "not in"
+    :and "and" :or "or"
+    :for "for"
+    :return "return" :yield "use")
+
   ;; ...and only complete the basics
   (after! smartparens
     (sp-with-modes 'elixir-mode
@@ -29,7 +43,7 @@
       (remove-hook 'alchemist-iex-mode-hook fn)))
 
   (def-package! flycheck-credo
-    :when (featurep! :feature syntax-checker)
+    :when (featurep! :tools flycheck)
     :config (flycheck-credo-setup)))
 
 

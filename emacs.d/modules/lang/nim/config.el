@@ -31,12 +31,12 @@ windows."
       (replace-regexp-in-string "[꞉* |<>\"?*]" "" path))
     (advice-add #'nimsuggest--get-temp-file-name :filter-return #'doom*nimsuggest--get-temp-file-name))
 
-  (map! :map nim-mode-map
-        :localleader
-        :n "b" #'nim-compile))
+  (map! :localleader
+        :map nim-mode-map
+        "b" #'nim-compile))
 
 
 (def-package! flycheck-nim
-  :when (featurep! :feature syntax-checker)
+  :when (featurep! :tools flycheck)
   :after nim-mode)
 

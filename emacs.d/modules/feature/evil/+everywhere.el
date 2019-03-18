@@ -24,7 +24,6 @@
     comint
     company
     custom
-    dired
     eldoc
     elisp-mode
     ert
@@ -68,6 +67,8 @@ variable for an explanation of the defaults (in comments). See
     diff-mode
     dired
     doc-view
+    ebib
+    edbi
     edebug
     ediff
     eglot
@@ -89,9 +90,11 @@ variable for an explanation of the defaults (in comments). See
     git-timemachine
     go-mode
     grep
-    help
     guix
+    hackernews
     helm
+    help
+    helpful
     ibuffer
     image
     image-dired
@@ -139,6 +142,7 @@ variable for an explanation of the defaults (in comments). See
     simple
     slime
     (term term ansi-term multi-term)
+    tetris
     tide
     transmission
     typescript-mode
@@ -148,9 +152,10 @@ variable for an explanation of the defaults (in comments). See
     vdiff
     view
     vlf
-    which-key
+    w3m
     wdired
     wgrep
+    which-key
     woman
     xref
     youtube-dl
@@ -158,8 +163,7 @@ variable for an explanation of the defaults (in comments). See
 
 (defun +evil-collection-init (module)
   (unless (memq (or (car-safe module) module) +evil-collection-disabled-list)
-    (when doom-debug-mode
-      (message "Loaded evil-collection-%s" (or (car-safe module) module)))
+    (doom-log "Initialized evil-collection-%s" (or (car-safe module) module))
     (with-demoted-errors "evil-collection error: %s"
       (evil-collection-init (list module)))))
 
@@ -183,6 +187,16 @@ variable for an explanation of the defaults (in comments). See
   (+evil-collection-init 'elisp-mode))
 (add-transient-hook! 'occur-mode
   (+evil-collection-init (if EMACS26+ 'replace "replace")))
+
+(after! helpful
+  (evil-define-key* 'normal helpful-mode-map
+    "o" #'ace-link-help
+    "]l" #'forward-button
+    "[l" #'backward-button))
+
+(evil-define-key* 'normal process-menu-mode-map
+  "q" #'kill-this-buffer
+  "d" #'process-menu-delete-process)
 
 ;; Load the rest
 (dolist (mode evil-collection-mode-list)

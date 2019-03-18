@@ -2,6 +2,8 @@
 
 (defvar +lookup--last-provider nil)
 
+(defvar +lookup--handler-alist nil)
+
 ;;;###autodef
 (defun set-lookup-handlers! (modes &rest plist)
   "Define a jump target for major MODES.
@@ -10,9 +12,11 @@ This overwrites previously defined handlers for MODES. If used on minor modes,
 they are combined with handlers defined for other minor modes or the major mode
 it's activated in.
 
-If the CAR of PLIST is nil, other properties are ignored and all existing jump
-handlers for MODES are cleared. Otherwise, PLIST accepts the following
-properties:
+This can be passed nil as its second argument to unset handlers for MODES. e.g.
+
+  (set-lookup-handlers! 'python-mode nil)
+
+Otherwise, these properties are available to be set:
 
 :definition FN
   Run when jumping to a symbol's definition.
@@ -28,21 +32,43 @@ properties:
   Used by `+lookup/file'.
 :xref-backend FN
   Defines an xref backend for a major-mode. If you define :definition and
-  :references along with :xref-backend, those will have higher precedence."
+  :references along with :xref-backend, those will have higher precedence.
+:async BOOL
+  Indicates that the supplied handlers *after* this property are asynchronous.
+  Note: async handlers do not fall back to the default handlers, due to their
+  nature. To get around this, you must write specialized wrappers to wait for
+  the async response and return 'fallback.
+
+\(fn MODE-OR-MODES &key ASYNC DEFINITION REFERENCES DOCUMENTATION FILE XREF-BACKEND)"
   (declare (indent defun))
   (dolist (mode (doom-enlist modes))
     (let ((hook (intern (format "%s-hook" mode)))
           (fn   (intern (format "+lookup|init-%s" mode))))
       (cond ((null (car plist))
              (remove-hook hook fn)
+             (setq +lookup--handler-alist
+                   (delq (assq mode +lookup--handler-alist)
+                         +lookup--handler-alist))
              (unintern fn nil))
-            ((fset fn
+            ((let ((old-plist (cdr (assq mode +lookup--handler-alist)))
+                   async)
+               (while plist
+                 (let ((prop (pop plist))
+                       (fns (pop plist)))
+                   (if (eq prop :async)
+                       (setq async t)
+                     (dolist (fn (doom-enlist fns))
+                       (put fn '+lookup-async async))
+                     (setq old-plist (plist-put old-plist prop fns)))))
+               (setq plist old-plist)
+               (setf (alist-get mode +lookup--handler-alist) plist))
+             (fset fn
                    (lambda ()
                      (when (or (eq major-mode mode)
                                (and (boundp mode)
                                     (symbol-value mode)))
                        (cl-destructuring-bind
-                           (&key definition references documentation file xref-backend)
+                           (&key definition references documentation file xref-backend async)
                            plist
                          (when definition
                            (add-hook '+lookup-definition-functions definition nil t))
@@ -56,15 +82,9 @@ properties:
                            (add-hook 'xref-backend-functions xref-backend nil t))))))
              (add-hook hook fn))))))
 
-;; FIXME obsolete :lookup
-;;;###autoload
-(def-setting! :lookup (modes &rest plist)
-  :obsolete set-lookup-handlers!
-  `(set-lookup-handlers! ,modes ,@plist))
-
 
 ;;
-;; Library
+;; Helpers
 
 ;; Helpers
 (defun +lookup--online-provider (&optional force-p namespace)
@@ -80,48 +100,64 @@ properties:
           provider))))
 
 (defun +lookup--symbol-or-region (&optional initial)
-  (cond (initial)
+  (cond ((stringp initial)
+         initial)
         ((use-region-p)
          (buffer-substring-no-properties (region-beginning)
                                          (region-end)))
         ((require 'xref nil t)
          (xref-backend-identifier-at-point (xref-find-backend)))))
 
-(defun +lookup--jump-to (prop identifier &optional other-window)
-  (cl-loop with origin = (point-marker)
-           for fn
-           in (plist-get (list :definition +lookup-definition-functions
-                               :references +lookup-references-functions
-                               :documentation +lookup-documentation-functions
-                               :file +lookup-file-functions)
-                         prop)
-           for cmd = (or (command-remapping fn) fn)
-           if (condition-case e
-                  (save-window-excursion
-                    (when (or (if (commandp cmd)
-                                  (call-interactively cmd)
-                                (funcall cmd identifier))
-                              (/= (point-marker) origin))
-                      (point-marker)))
-                (error (ignore (message "%s" e))))
-           return
-           (progn
-             (funcall (if other-window
-                          #'pop-to-buffer
-                        #'pop-to-buffer-same-window)
-                      (marker-buffer it))
-             (goto-char it))))
+(defun +lookup--run-hooks (hook identifier origin &optional other-window)
+  (doom-log "Looking up '%s' with '%s'" identifier hook)
+  (condition-case-unless-debug e
+      (if (get hook '+lookup-async)
+          (progn
+            (when other-window
+              ;; If async, we can't catch the window change or destination buffer
+              ;; reliably, so we set up the new window ahead of time.
+              (switch-to-buffer-other-window (current-buffer))
+              (goto-char (marker-position origin)))
+            (if (commandp hook)
+                (call-interactively hook)
+              (funcall hook identifier))
+            t)
+        (save-window-excursion
+          (when (or (if (commandp hook)
+                        (call-interactively hook)
+                      (funcall hook identifier))
+                    (null origin)
+                    (/= (point-marker) origin))
+            (point-marker))))
+    ((error user-error)
+     (message "%s" e)
+     nil)))
 
-(defun +lookup--file-search (identifier)
-  (unless identifier
-    (let ((query (rxt-quote-pcre identifier)))
-      (ignore-errors
-        (cond ((featurep! :completion ivy)
-               (+ivy-file-search nil :query query)
-               t)
-              ((featurep! :completion helm)
-               (+helm-file-search nil :query query)
-               t))))))
+(defun +lookup--jump-to (prop identifier &optional other-window)
+  (let ((ret
+         (condition-case e
+             (run-hook-wrapped
+              (plist-get (list :definition '+lookup-definition-functions
+                               :references '+lookup-references-functions
+                               :documentation '+lookup-documentation-functions
+                               :file '+lookup-file-functions)
+                         prop)
+              '+lookup--run-hooks
+              identifier
+              (point-marker)
+              other-window)
+           (quit (user-error "Aborted %s lookup" prop)))))
+    (cond ((null ret)
+           (message "Could not find '%s'" identifier)
+           nil)
+          ((markerp ret)
+           (funcall (if other-window
+                        #'switch-to-buffer-other-window
+                      #'switch-to-buffer)
+                    (marker-buffer ret))
+           (goto-char ret)
+           (recenter)
+           t))))
 
 
 ;;
@@ -165,8 +201,7 @@ falling back to git-grep)."
 (defun +lookup-evil-goto-definition-backend (identifier)
   "Uses `evil-goto-definition' to conduct a text search for IDENTIFIER in the
 current buffer."
-  (and (featurep 'evil)
-       evil-mode
+  (and (fboundp 'evil-goto-definition)
        (ignore-errors
          (cl-destructuring-bind (beg . end)
              (bounds-of-thing-at-point 'symbol)
@@ -216,8 +251,7 @@ evil-mode is active."
          current-prefix-arg))
   (cond ((null identifier) (user-error "Nothing under point"))
 
-        ((and +lookup-definition-functions
-              (+lookup--jump-to :definition identifier other-window)))
+        ((+lookup--jump-to :definition identifier other-window))
 
         ((error "Couldn't find the definition of '%s'" identifier))))
 
@@ -233,27 +267,21 @@ search otherwise."
          current-prefix-arg))
   (cond ((null identifier) (user-error "Nothing under point"))
 
-        ((and +lookup-references-functions
-              (+lookup--jump-to :references identifier other-window)))
+        ((+lookup--jump-to :references identifier other-window))
 
         ((error "Couldn't find references of '%s'" identifier))))
 
 ;;;###autoload
-(defun +lookup/documentation (identifier &optional other-window)
+(defun +lookup/documentation (identifier &optional arg)
   "Show documentation for IDENTIFIER (defaults to symbol at point or selection.
 
-Goes down a list of possible backends:
-
-1. The :documentation spec defined with by `set-lookup-handlers!'
-2. If the +docsets flag is active for :feature lookup, use `+lookup/in-docsets'
-3. Fall back to an online search, with `+lookup/online'"
+First attempts the :documentation handler specified with `set-lookup-handlers!'
+for the current mode/buffer (if any), then falls back to the backends in
+`+lookup-documentation-functions'."
   (interactive
    (list (+lookup--symbol-or-region)
          current-prefix-arg))
-  (cond ((null identifier) (user-error "Nothing under point"))
-
-        ((and +lookup-documentation-functions
-              (+lookup--jump-to :documentation identifier other-window)))
+  (cond ((+lookup--jump-to :documentation identifier t))
 
         ((user-error "Couldn't find documentation for '%s'" identifier))))
 
@@ -281,8 +309,7 @@ Otherwise, falls back on `find-file-at-point'."
         ((ffap-url-p path)
          (find-file-at-point path))
 
-        ((not (and +lookup-file-functions
-                   (+lookup--jump-to :file path)))
+        ((not (+lookup--jump-to :file path))
          (let ((fullpath (expand-file-name path)))
            (when (and buffer-file-name (file-equal-p fullpath buffer-file-name))
              (user-error "Already here"))

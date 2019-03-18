@@ -6,7 +6,7 @@
 ;;;###autoload
 (defvar +eval-repls nil
   "An alist mapping major modes to plists that describe REPLs. Used by
-`+eval/open-repl' and filled with the `:repl' setting.")
+`+eval/open-repl-other-window' and filled with the `:repl' setting.")
 
 ;;;###autodef
 (defun set-repl-handler! (modes command)
@@ -19,12 +19,6 @@ COMMAND can either be a function that takes no arguments, or an interactive
 command that will be called interactively."
   (dolist (mode (doom-enlist modes))
     (setf (alist-get mode +eval-repls) command)))
-
-;; FIXME obsolete :repl
-;;;###autoload
-(def-setting! :repl (mode command)
-  :obsolete set-repl-handler!
-  `(set-repl-handler! ,mode ,command))
 
 
 ;;
@@ -62,9 +56,3 @@ command that will be called interactively."
              (or (cdr (assq mode quickrun--major-mode-alist))
                  (string-remove-suffix "-mode" (symbol-name mode)))
              command :mode mode)))))
-
-;; FIXME obsolete :eval
-;;;###autoload
-(def-setting! :eval (mode command)
-  :obsolete set-eval-handler!
-  `(set-eval-handler! ,mode ,command))

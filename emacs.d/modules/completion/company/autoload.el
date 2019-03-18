@@ -47,12 +47,6 @@ To have BACKENDS apply to any mode that is a parent of MODES, set MODES to
         (setf (alist-get mode +company-backend-alist)
               (cons type backends))))))
 
-;; FIXME obsolete :company-backend
-;;;###autoload
-(def-setting! :company-backend (modes &rest backends)
-  :obsolete set-company-backend!
-  `(set-company-backend! ,modes ,@backends))
-
 
 ;;
 ;; Library
@@ -85,6 +79,12 @@ To have BACKENDS apply to any mode that is a parent of MODES, set MODES to
 
 ;;
 ;; Commands
+
+;;;###autoload
+(defun +company-has-completion-p ()
+  "Return non-nil if a completion candidate exists at point."
+  (and (company-manual-begin)
+       (= company-candidates-length 1)))
 
 ;;;###autoload
 (defun +company/toggle-auto-completion ()

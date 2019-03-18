@@ -1,12 +1,5 @@
 ;;; lang/ruby/config.el -*- lexical-binding: t; -*-
 
-(defvar +ruby-mode-line-indicator '("" +ruby--version)
-  "Format for the ruby version/env indicator in the mode-line.")
-
-(defvar-local +ruby--version nil
-  "The ruby version in the current buffer.")
-
-
 ;;
 ;; Packages
 
@@ -26,22 +19,19 @@
   (set-electric! '(ruby-mode enh-ruby-mode) :words '("else" "end" "elsif"))
   (set-repl-handler! '(ruby-mode enh-ruby-mode) #'inf-ruby)
 
+  (when (featurep! +lsp)
+    (add-hook 'enh-ruby-mode-hook #'lsp!))
+
   (after! company-dabbrev-code
     (add-to-list 'company-dabbrev-code-modes 'enh-ruby-mode nil #'eq)
     (add-to-list 'company-dabbrev-code-modes 'ruby-mode nil #'eq))
 
   ;; so class and module pairs work
-  (setq-hook! (ruby-mode enh-ruby-mode) sp-max-pair-length 6)
-
-  ;; Add ruby version string to the major mode in the modeline
-  (defun +ruby|adjust-mode-line ()
-    (setq mode-name +ruby-mode-line-indicator))
-  (add-hook 'enh-ruby-mode-hook #'+ruby|adjust-mode-line)
-
-  (add-hook 'enh-ruby-mode-hook #'+ruby|update-version))
+  (setq-hook! (ruby-mode enh-ruby-mode) sp-max-pair-length 6))
 
 
 (def-package! robe
+  :unless (featurep! +lsp)
   :hook (enh-ruby-mode . robe-mode)
   :config
   (set-repl-handler! 'enh-ruby-mode #'robe-start)
@@ -51,17 +41,17 @@
     :documentation #'robe-doc)
   (map! :localleader
         :map robe-mode-map
-        :n "'"  #'robe-start
+        "'"  #'robe-start
         ;; robe mode specific
-        :n "h"  #'robe-doc
-        :n "rr" #'robe-rails-refresh
+        "h"  #'robe-doc
+        "rr" #'robe-rails-refresh
         ;; inf-enh-ruby-mode
         :prefix "s"
-        :n "f" #'ruby-send-definition
-        :n "F" #'ruby-send-definition-and-go
-        :n "r" #'ruby-send-region
-        :n "R" #'ruby-send-region-and-go
-        :n "i" #'ruby-switch-to-inf))
+        "f"  #'ruby-send-definition
+        "F"  #'ruby-send-definition-and-go
+        "r"  #'ruby-send-region
+        "R"  #'ruby-send-region-and-go
+        "i"  #'ruby-switch-to-inf))
 
 
 ;; NOTE Must be loaded before `robe-mode'
@@ -72,12 +62,12 @@
 (def-package! rubocop
   :hook (enh-ruby-mode . rubocop-mode)
   :config
-  (map! :map rubocop-mode-map
-        :localleader
-        :nv "f" #'rubocop-check-current-file
-        :nv "F" #'rubocop-autocorrect-current-file
-        :nv "p" #'rubocop-check-project
-        :nv "P" #'rubocop-autocorrect-project))
+  (map! :localleader
+        :map rubocop-mode-map
+        "f" #'rubocop-check-current-file
+        "F" #'rubocop-autocorrect-current-file
+        "p" #'rubocop-check-project
+        "P" #'rubocop-autocorrect-project))
 
 
 ;;
@@ -91,10 +81,10 @@
         :localleader
         :map enh-ruby-mode-map
         :prefix "k"
-        :n "k" #'rake
-        :n "r" #'rake-rerun
-        :n "R" #'rake-regenerate-cache
-        :n "f" #'rake-find-task))
+        "k" #'rake
+        "r" #'rake-rerun
+        "R" #'rake-regenerate-cache
+        "f" #'rake-find-task))
 
 (def-package! bundler
   :defer t
@@ -103,12 +93,12 @@
         :localleader
         :map enh-ruby-mode-map
         :prefix "b"
-        :n "c" #'bundle-check
-        :n "C" #'bundle-console
-        :n "i" #'bundle-install
-        :n "u" #'bundle-update
-        :n "e" #'bundle-exec
-        :n "o" #'bundle-open))
+        "c" #'bundle-check
+        "C" #'bundle-console
+        "i" #'bundle-install
+        "u" #'bundle-update
+        "e" #'bundle-exec
+        "o" #'bundle-open))
 
 ;; `rvm'
 (setq rspec-use-rvm t)
@@ -131,25 +121,29 @@
       ;; Rake
       (("task" "namespace") () "end")))
 
-  (if (featurep! :feature evil)
-      (add-hook 'rspec-mode-hook #'evil-normalize-keymaps)
-    (setq rspec-verifiable-mode-keymap (make-sparse-keymap)
-          rspec-mode-keymap (make-sparse-keymap)))
+  (when (featurep! :feature evil)
+    (add-hook 'rspec-mode-hook #'evil-normalize-keymaps))
   :config
-  (map! :map rspec-mode-map
-        :localleader
+  (map! :localleader
         :prefix "t"
-        :n "r" #'rspec-rerun
-        :n "a" #'rspec-verify-all
-        :n "s" #'rspec-verify-single
-        :n "v" #'rspec-verify
-        :n "c" #'rspec-verify-continue
-        :n "e" #'rspec-toggle-example-pendingness
-        :n "f" #'rspec-verify-method
-        :n "l" #'rspec-run-last-failed
-        :n "m" #'rspec-verify-matching
-        :n "t" #'rspec-toggle-spec-and-target-find-example
-        :n "T" #'rspec-toggle-spec-and-target))
+        :map (rspec-verifiable-mode-map rspec-dired-mode-map rspec-mode-map)
+        "a" #'rspec-verify-all
+        "r" #'rspec-rerun
+        :map (rspec-verifiable-mode-map rspec-mode-map)
+        "v" #'rspec-verify
+        "c" #'rspec-verify-continue
+        "l" #'rspec-run-last-failed
+        "T" #'rspec-toggle-spec-and-target
+        "t" #'rspec-toggle-spec-and-target-find-example
+        :map rspec-verifiable-mode-map
+        "f" #'rspec-verify-method
+        "m" #'rspec-verify-matching
+        :map rspec-mode-map
+        "s" #'rspec-verify-single
+        "e" #'rspec-toggle-example-pendingness
+        :map rspec-dired-mode-map
+        "v" #'rspec-dired-verify
+        "s" #'rspec-dired-verify-single))
 
 
 (def-package! minitest
@@ -157,10 +151,10 @@
   :config
   (when (featurep! :feature evil)
     (add-hook 'minitest-mode-hook #'evil-normalize-keymaps))
-  (map! :map minitest-mode-map
-        :localleader
+  (map! :localleader
+        :map minitest-mode-map
         :prefix "t"
-        :n "r" #'minitest-rerun
-        :n "a" #'minitest-verify-all
-        :n "s" #'minitest-verify-single
-        :n "v" #'minitest-verify))
+        "r" #'minitest-rerun
+        "a" #'minitest-verify-all
+        "s" #'minitest-verify-single
+        "v" #'minitest-verify))

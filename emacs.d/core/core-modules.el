@@ -12,9 +12,13 @@
   "A list of module root directories. Order determines priority.")
 
 (defconst doom-obsolete-modules
-  '((:tools (rotate-text (:editor rotate-text)))
-    (:emacs (electric-indent (:emacs electric)))
-    (:feature (version-control (:emacs vc) (:ui vc-gutter))))
+  '((:feature (version-control (:emacs vc) (:ui vc-gutter))
+              (spellcheck (:tools flyspell))
+              (syntax-checker (:tools flycheck)))
+    (:tools (rotate-text (:editor rotate-text)))
+    (:emacs (electric-indent (:emacs electric))
+            (hideshow (:editor fold)))
+    (:ui (doom-modeline (:ui modeline))))
   "An alist of deprecated modules, mapping deprecated modules to an optional new
 location (which will create an alias). Each CAR and CDR is a (CATEGORY .
 MODULES). E.g.
@@ -29,7 +33,24 @@ A warning will be put out if these deprecated modules are used.")
 
 
 ;;
-;; Bootstrap API
+;;; Custom hooks
+
+(defvar doom-before-init-modules-hook nil
+  "A list of hooks to run before Doom's modules' config.el files are loaded, but
+after their init.el files are loaded.")
+
+(defvar doom-init-modules-hook nil
+  "A list of hooks to run after Doom's modules' config.el files have loaded, but
+before the user's private module.")
+
+(defvaralias 'doom-after-init-modules-hook 'after-init-hook)
+
+(define-obsolete-variable-alias 'doom-post-init-hook 'doom-init-modules-hook "2.1.0")
+(define-obsolete-variable-alias 'doom-init-hook 'doom-before-init-modules-hook "2.1.0")
+
+
+;;
+;;; Bootstrap API
 
 (defun doom-initialize-modules (&optional force-p)
   "Loads the init.el in `doom-private-dir' and sets up hooks for a healthy
@@ -47,23 +68,23 @@ non-nil."
                      (doom--current-flags (plist-get plist :flags)))
                  (load! "init" (plist-get plist :path) t)))
              doom-modules)
-    (run-hook-wrapped 'doom-init-hook #'doom-try-run-hook)
+    (run-hook-wrapped 'doom-before-init-modules-hook #'doom-try-run-hook)
     (unless noninteractive
       (maphash (lambda (key plist)
                  (let ((doom--current-module key)
                        (doom--current-flags (plist-get plist :flags)))
                    (load! "config" (plist-get plist :path) t)))
                doom-modules)
+      (run-hook-wrapped 'doom-init-modules-hook #'doom-try-run-hook)
       (load! "config" doom-private-dir t)
       (unless custom-file
         (setq custom-file (concat doom-local-dir "custom.el")))
       (when (stringp custom-file)
-        (load custom-file t t t))
-      (run-hook-wrapped 'doom-post-init-hook #'doom-try-run-hook))))
+        (load custom-file t t t)))))
 
 
 ;;
-;; Module API
+;;; Module API
 
 (defun doom-module-p (category module)
   "Returns t if CATEGORY MODULE is enabled (ie. present in `doom-modules')."
@@ -173,7 +194,6 @@ non-nil, return paths of possible modules, activated or otherwise."
       (let ((noninteractive t)
             doom-modules
             doom-init-modules-p)
-        (message "Initializing modules")
         (load! "init" doom-private-dir t)
         (or doom-modules
             (make-hash-table :test 'equal
@@ -182,7 +202,7 @@ non-nil, return paths of possible modules, activated or otherwise."
 
 
 ;;
-;; Use-package modifications
+;;; Use-package modifications
 
 (autoload 'use-package "use-package-core" nil nil t)
 
@@ -191,23 +211,24 @@ non-nil, return paths of possible modules, activated or otherwise."
       use-package-minimum-reported-time (if doom-debug-mode 0 0.1)
       use-package-expand-minimally (not noninteractive))
 
-;; Adds the :after-call custom keyword to `use-package' (and consequently,
-;; `def-package!'). :after-call takes a symbol or list of symbols. These symbols
-;; can be functions or hook variables.
+;; Adds two new keywords to `use-package' (and consequently, `def-package!') to
+;; expand its lazy-loading capabilities. They are:
 ;;
-;;   (use-package X :after-call find-file-hook)
+;; :after-call SYMBOL|LIST
+;; :defer-incrementally SYMBOL|LIST|t
 ;;
-;; This will load X on the first invokation of `find-file-hook' (then it will
-;; remove itself from the hook/function).
+;; Check out `def-package!'s documentation for more about these two.
 (defvar doom--deferred-packages-alist '(t))
 (after! use-package-core
-  (add-to-list 'use-package-deferring-keywords :defer-incrementally nil #'eq)
-  (add-to-list 'use-package-deferring-keywords :after-call nil #'eq)
+  ;; :ensure and :pin don't work well with Doom, so we forcibly remove them.
+  (dolist (keyword '(:ensure :pin))
+    (setq use-package-keywords (delq keyword use-package-keywords)))
 
-  (setq use-package-keywords
-        (use-package-list-insert :defer-incrementally use-package-keywords :after))
-  (setq use-package-keywords
-        (use-package-list-insert :after-call use-package-keywords :after))
+  ;; Insert new deferring keywords
+  (dolist (keyword '(:defer-incrementally :after-call))
+    (add-to-list 'use-package-deferring-keywords keyword nil #'eq)
+    (setq use-package-keywords
+          (use-package-list-insert keyword use-package-keywords :after)))
 
   (defalias 'use-package-normalize/:defer-incrementally 'use-package-normalize-symlist)
   (defun use-package-handler/:defer-incrementally (name _keyword targets rest state)
@@ -215,7 +236,7 @@ non-nil, return paths of possible modules, activated or otherwise."
      `((doom-load-packages-incrementally
         ',(if (equal targets '(t))
               (list name)
-            targets)))
+            (append targets (list name)))))
      (use-package-process-keywords name rest state)))
 
   (defalias 'use-package-normalize/:after-call 'use-package-normalize-symlist)
@@ -226,8 +247,7 @@ non-nil, return paths of possible modules, activated or otherwise."
         (use-package-concat
          `((fset ',fn
                  (lambda (&rest _)
-                   (when doom-debug-mode
-                     (message "Loading deferred package %s from %s" ',name ',fn))
+                   (doom-log "Loading deferred package %s from %s" ',name ',fn)
                    (condition-case e (require ',name)
                      ((debug error)
                       (message "Failed to load deferred package %s: %s" ',name e)))
@@ -235,8 +255,9 @@ non-nil, return paths of possible modules, activated or otherwise."
                      (if (functionp hook)
                          (advice-remove hook #',fn)
                        (remove-hook hook #',fn)))
-                   (delq (assq ',name doom--deferred-packages-alist)
-                         doom--deferred-packages-alist)
+                   (setq doom--deferred-packages-alist
+                         (delq (assq ',name doom--deferred-packages-alist)
+                               doom--deferred-packages-alist))
                    (fmakunbound ',fn))))
          (let (forms)
            (dolist (hook hooks forms)
@@ -252,7 +273,7 @@ non-nil, return paths of possible modules, activated or otherwise."
 
 
 ;;
-;; Module config macros
+;;; Module config macros
 
 (defmacro doom! (&rest modules)
   "Bootstraps DOOM Emacs and its modules.
@@ -269,15 +290,16 @@ The overall load order of Doom is as follows:
 
   ~/.emacs.d/init.el
   ~/.emacs.d/core/core.el
-  `doom-pre-init-hook'
-  ~/.doom.d/init.el
-  Module init.el files
-  `doom-init-hook'
-  Module config.el files
-  ~/.doom.d/config.el
+  $DOOMDIR/init.el
+  {$DOOMDIR,~/.emacs.d}/modules/*/*/init.el
+  `doom-before-init-modules-hook'
+  {$DOOMDIR,~/.emacs.d}/modules/*/*/config.el
+  `doom-init-modules-hook'
+  $DOOMDIR/config.el
+  `doom-after-init-modules-hook'
   `after-init-hook'
   `emacs-startup-hook'
-  `doom-post-init-hook' (at end of `emacs-startup-hook')
+  `window-setup-hook'
 
 Module load order is determined by your `doom!' block. See `doom-modules-dirs'
 for a list of all recognized module trees. Order defines precedence (from most
@@ -313,10 +335,43 @@ to least)."
 
 (defvar doom-disabled-packages)
 (defmacro def-package! (name &rest plist)
-  "This is a thin wrapper around `use-package'."
-  `(use-package ,name
-     ,@(if (memq name doom-disabled-packages) `(:disabled t))
-     ,@plist))
+  "This is a thin wrapper around `use-package'.
+
+It is ignored if the NAME package is disabled.
+
+Supports two special properties over `use-package':
+
+:after-call SYMBOL|LIST
+  Takes a symbol or list of symbols representing functions or hook variables.
+  The first time any of these functions or hooks are executed, the package is
+  loaded. e.g.
+
+  (def-package! projectile
+    :after-call (pre-command-hook after-find-file dired-before-readin-hook)
+    ...)
+
+:defer-incrementally SYMBOL|LIST|t
+  Takes a symbol or list of symbols representing packages that will be loaded
+  incrementally at startup before this one. This is helpful for large packages
+  like magit or org, which load a lot of dependencies on first load. This lets
+  you load them piece-meal during idle periods, so that when you finally do need
+  the package, it'll load quicker. e.g.
+
+  NAME is implicitly added if this property is present and non-nil. No need to
+  specify it. A value of `t' implies NAME, e.g.
+
+  (def-package! x
+    ;; This is equivalent to :defer-incrementally (x)
+    :defer-incrementally t
+    ...)"
+  (unless (or (memq name doom-disabled-packages)
+              ;; At compile-time, use-package will forcibly load its package to
+              ;; prevent compile-time errors. However, Doom users can
+              ;; intentionally disable packages, resulting if file-missing
+              ;; package errors, so we preform this check at compile time:
+              (and (bound-and-true-p byte-compile-current-file)
+                   (not (locate-library (symbol-name name)))))
+    `(use-package ,name ,@plist)))
 
 (defmacro def-package-hook! (package when &rest body)
   "Reconfigures a package's `def-package!' block.
@@ -394,57 +449,6 @@ omitted. eg. (featurep! +flag1)"
                   (error "featurep! couldn't detect what module its in! (in %s)" (FILE!)))
                 (memq category (doom-module-get (car module-pair) (cdr module-pair) :flags)))))
        t))
-
-
-;;
-;; FIXME Cross-module configuration (deprecated)
-
-;; I needed a way to reliably cross-configure modules without littering my
-;; modules with `after!' blocks or testing whether they were enabled, so I wrote
-;; `set!'. If a setting doesn't exist at runtime, the `set!' call is ignored and
-;; its arguments are left unevaluated (and entirely omitted when byte-compiled).
-
-(defmacro def-setting! (keyword arglist &optional docstring &rest forms)
-  "Define a setting. Like `defmacro', this should return a form to be executed
-when called with `set!'. FORMS are not evaluated until `set!' calls it.
-
-See `doom/describe-setting' for a list of available settings.
-
-Do not use this for configuring Doom core."
-  (declare (indent defun) (doc-string 3))
-  (or (keywordp keyword)
-      (signal 'wrong-type-argument (list 'keywordp keyword)))
-  (unless (stringp docstring)
-    (push docstring forms)
-    (setq docstring nil))
-  (let ((alias (plist-get forms :obsolete)))
-    (when alias
-      (setq forms (plist-put forms :obsolete 'nil)))
-    `(fset ',(intern (format "doom--set%s" keyword))
-           (lambda ,arglist
-             ,(if (and (not docstring) (fboundp alias))
-                  (documentation alias t)
-                docstring)
-             ,(when alias
-                `(declare (obsolete ,alias "2.1.0")))
-             (prog1 (progn ,@forms)
-               ,(when alias
-                  `(unless noninteractive
-                     (message ,(format "The `%s' setting is deprecated, use `%s' instead"
-                                       keyword alias)))))))))
-
-(defmacro set! (keyword &rest values)
-  "Set an option defined by `def-setting!'. Skip if doesn't exist. See
-`doom/describe-setting' for a list of available settings.
-
-VALUES doesn't get evaluated if the KEYWORD setting doesn't exist."
-  (declare (indent defun))
-  (let ((fn (intern-soft (format "doom--set%s" keyword))))
-    (if (and fn (fboundp fn))
-        (apply fn values)
-      (when (or doom-debug-mode after-init-time)
-        (message "No setting found for %s" keyword)
-        nil))))
 
 (provide 'core-modules)
 ;;; core-modules.el ends here

@@ -1,9 +1,13 @@
 ;;; lang/cc/config.el --- c, c++, and obj-c -*- lexical-binding: t; -*-
 
-(defvar +cc-default-include-paths (list "include/")
-  "A list of default paths, relative to a project root, to search for headers in
-C/C++. Paths can be absolute. This is ignored if your project has a compilation
-database.")
+(defvar +cc-default-include-paths
+  (list "include"
+        "includes")
+  "A list of default relative paths which will be searched for up from the
+current file, to be passed to irony as extra header search paths. Paths can be
+absolute. This is ignored if your project has a compilation database.
+
+This is ignored by ccls.")
 
 (defvar +cc-default-header-file-mode 'c-mode
   "Fallback major mode for .h files if all other heuristics fail (in
@@ -20,7 +24,9 @@ database.")
                 "-stdlib=libc++")))
     (objc-mode . nil))
   "A list of default compiler options for the C family. These are ignored if a
-compilation database is present in the project.")
+compilation database is present in the project.
+
+This is ignored by ccls.")
 
 
 ;;
@@ -42,8 +48,13 @@ compilation database is present in the project.")
   ;; Activate `c-mode', `c++-mode' or `objc-mode' depending on heuristics
   (add-to-list 'auto-mode-alist '("\\.h\\'" . +cc-c-c++-objc-mode))
 
+  ;; Ensure find-file-at-point works in C modes, must be added before irony
+  ;; and/or lsp hooks are run.
+  (add-hook! (c-mode-local-vars c++-mode-local-vars objc-mode-local-vars)
+    #'+cc|init-ffap-integration)
+
   :config
-  (set-electric! '(c-mode c++-mode objc-mode java-mode) :chars '(?\n ?\}))
+  (set-electric! '(c-mode c++-mode objc-mode java-mode) :chars '(?\n ?\} ?\{))
   (set-docsets! 'c-mode "C")
   (set-docsets! 'c++-mode "C++" "Boost")
 
@@ -69,12 +80,11 @@ compilation database is present in the project.")
 
   ;;; Better fontification (also see `modern-cpp-font-lock')
   (add-hook 'c-mode-common-hook #'rainbow-delimiters-mode)
-  (add-hook! '(c-mode-hook c++-mode-hook) #'+cc|fontify-constants)
+  (add-hook! (c-mode c++-mode) #'+cc|fontify-constants)
 
   ;; Custom style, based off of linux
-  (unless (assoc "doom" c-style-alist)
-    (push '("doom"
-            (c-basic-offset . tab-width)
+  (c-add-style
+   "doom" '((c-basic-offset . tab-width)
             (c-comment-only-line-offset . 0)
             (c-hanging-braces-alist (brace-list-open)
                                     (brace-entry-open)
@@ -83,7 +93,6 @@ compilation database is present in the project.")
                                     (arglist-cont-nonempty))
             (c-cleanup-list brace-else-brace)
             (c-offsets-alist
-             (statement-block-intro . +)
              (knr-argdecl-intro . 0)
              (substatement-open . 0)
              (substatement-label . 0)
@@ -92,6 +101,8 @@ compilation database is present in the project.")
              ;; align args with open brace OR don't indent at all (if open
              ;; brace is at eolp and close brace is after arg with no trailing
              ;; comma)
+             (brace-list-intro . 0)
+             (brace-list-close . -)
              (arglist-intro . +)
              (arglist-close +cc-lineup-arglist-close 0)
              ;; don't over-indent lambda blocks
@@ -101,28 +112,19 @@ compilation database is present in the project.")
              ;; another level
              (access-label . -)
              (inclass +cc-c++-lineup-inclass +)
-             (label . 0)))
-          c-style-alist))
+             (label . 0))))
 
   ;;; Keybindings
-  ;; Disable electric keys because it interferes with smartparens and custom
-  ;; bindings. We'll do it ourselves (mostly).
-  (c-toggle-electric-state -1)
-  (c-toggle-auto-newline -1)
-  (setq c-tab-always-indent nil
-        c-electric-flag nil)
-  (dolist (key '("#" "}" "/" "*" ";" "," ":" "(" ")" "\177"))
-    (define-key c-mode-base-map key nil))
   ;; Smartparens and cc-mode both try to autoclose angle-brackets intelligently.
   ;; The result isn't very intelligent (causes redundant characters), so just do
   ;; it ourselves.
   (define-key! c++-mode-map "<" nil ">" nil)
-
   ;; ...and leave it to smartparens
   (sp-with-modes '(c++-mode objc-mode)
     (sp-local-pair "<" ">"
                    :when '(+cc-sp-point-is-template-p +cc-sp-point-after-include-p)
                    :post-handlers '(("| " "SPC"))))
+
   (sp-with-modes '(c-mode c++-mode objc-mode java-mode)
     (sp-local-pair "/*!" "*/" :post-handlers '(("||\n[i]" "RET") ("[d-1]< | " "SPC")))))
 
@@ -132,28 +134,29 @@ compilation database is present in the project.")
 
 
 (def-package! irony
-  :when (featurep! +irony)
+  :unless (featurep! +lsp)
   :commands (irony-install-server irony-mode)
   :preface
   (setq irony-server-install-prefix (concat doom-etc-dir "irony-server/"))
   :init
   (defun +cc|init-irony-mode ()
-    (when (and (memq major-mode '(c-mode c++-mode objc-mode))
-               (file-directory-p irony-server-install-prefix))
-      (irony-mode +1)))
-  (add-hook 'c-mode-common-hook #'+cc|init-irony-mode)
+    (if (file-directory-p irony-server-install-prefix)
+        (irony-mode +1)
+      (message "Irony server isn't installed")))
+  (add-hook! (c-mode-local-vars c++-mode-local-vars objc-mode-local-vars)
+    #'+cc|init-irony-mode)
   :config
   (setq irony-cdb-search-directory-list '("." "build" "build-conda"))
 
   ;; Initialize compilation database, if present. Otherwise, fall back on
   ;; `+cc-default-compiler-options'.
-  (add-hook 'irony-mode-hook #'+cc|irony-init-compile-options)
+  (add-hook 'irony-mode-hook #'+cc|init-irony-compile-options)
 
   (def-package! irony-eldoc
     :hook (irony-mode . irony-eldoc))
 
   (def-package! flycheck-irony
-    :when (featurep! :feature syntax-checker)
+    :when (featurep! :tools flycheck)
     :config (flycheck-irony-setup))
 
   (def-package! company-irony
@@ -188,17 +191,18 @@ compilation database is present in the project.")
 ;; Rtags Support
 
 (def-package! rtags
-  :when (featurep! +rtags)
+  :unless (featurep! +lsp)
   :commands rtags-executable-find
   :preface
   (setq rtags-install-path (concat doom-etc-dir "rtags/"))
   :init
   (defun +cc|init-rtags ()
     "Start an rtags server in c-mode and c++-mode buffers."
-    (when (and (memq major-mode '(c-mode c++-mode))
-               (rtags-executable-find "rdm"))
+    (when (and (require 'rtags nil t)
+               (rtags-executable-find rtags-rdm-binary-name))
       (rtags-start-process-unless-running)))
-  (add-hook 'c-mode-common-hook #'+cc|init-rtags)
+  (add-hook! (c-mode-local-vars c++-mode-local-vars objc-mode-local-vars)
+    #'+cc|init-rtags)
   :config
   (setq rtags-autostart-diagnostics t
         rtags-use-bookmarks nil
@@ -217,7 +221,6 @@ compilation database is present in the project.")
     :definition #'rtags-find-symbol-at-point
     :references #'rtags-find-references-at-point)
 
-  (add-hook 'doom-cleanup-hook #'+cc|cleanup-rtags)
   (add-hook! 'kill-emacs-hook (ignore-errors (rtags-cancel-process)))
 
   ;; Use rtags-imenu instead of imenu/counsel-imenu
@@ -226,3 +229,21 @@ compilation database is present in the project.")
   (when (featurep 'evil)
     (add-hook 'rtags-jump-hook #'evil-set-jump))
   (add-hook 'rtags-after-find-file-hook #'recenter))
+
+
+;;
+;; LSP
+
+(def-package! ccls
+  :when (featurep! +lsp)
+  :hook ((c-mode-local-vars c++-mode-local-vars objc-mode-local-vars) . +cc|init-ccls)
+  :config
+  (defun +cc|init-ccls ()
+    (setq-local company-transformers nil)
+    (setq-local company-lsp-async t)
+    (setq-local company-lsp-cache-candidates nil)
+    (lsp))
+  (after! projectile
+    (add-to-list 'projectile-globally-ignored-directories ".ccls-cache")
+    (add-to-list 'projectile-project-root-files-bottom-up ".ccls-root")
+    (add-to-list 'projectile-project-root-files-top-down-recurring "compile_commands.json")))

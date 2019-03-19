@@ -191,7 +191,14 @@
 #+BEGIN_SRC emacs-lisp
 (setq-default indent-tabs-mode nil)
 (setq tab-width 2)
+(setq-default doom-line-numbers-style 'visual)
+(setq doom-line-numbers-style 'visual)
+(setq display-line-numbers 'visual)
+(setq-default display-line-numbers 'visual)
+;; (setq visual-line-mode t)
+(setq display-line-numbers-type 'visual)
+;; (global-visual-line-mode)
 #+END_SRC
 
 #+RESULTS:
-: 2
+: visual

@@ -14,7 +14,7 @@
 * Ruby
 #+BEGIN_SRC emacs-lisp
 (projectile-rails-global-mode)
-(global-rbenv-mode)
+;; (global-rbenv-mode)
 (defun start-rails-server ()
   "Start the rails server"
   (interactive)
@@ -202,3 +202,17 @@
 
 #+RESULTS:
 : visual
+* Golang
+#+BEGIN_SRC emacs-lisp
+(setenv "PATH" (concat "~/go/bin/:" (getenv "PATH")))
+(add-to-list 'load-path "~/go/bin/")
+#+END_SRC
+
+#+RESULTS:
+* Yaml
+#+BEGIN_SRC emacs-lisp
+(setq yaml-indent-level 2)
+#+END_SRC
+
+#+RESULTS:
+: 2

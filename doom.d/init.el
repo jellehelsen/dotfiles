@@ -74,9 +74,9 @@
        password-store    ; password manager for nerds
        pdf               ; pdf enhancements
        prodigy           ; FIXME managing external services & code builders
-       ;;rgb               ; creating color strings
+       rgb               ; creating color strings
        ;;terraform         ; infrastructure as code
-       ;;tmux              ; an API for interacting with tmux
+       tmux              ; an API for interacting with tmux
        ;;upload            ; map local to remote projects via ssh/ftp
        wakatime
 
@@ -145,7 +145,7 @@
 
        :collab
        ;;floobits          ; peer programming for a price
-       ;;impatient-mode    ; show off code over HTTP
+       impatient-mode    ; show off code over HTTP
 
        :config
        ;; For literate config users. This will tangle+compile a config.org

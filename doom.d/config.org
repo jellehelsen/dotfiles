@@ -192,6 +192,8 @@
 (setq-default indent-tabs-mode nil)
 (setq tab-width 2)
 (setq-default tab-width 2)
+(setq evil-shift-width 2)
+(setq-default evil-shift-width 2)
 (setq-default doom-line-numbers-style 'visual)
 (setq doom-line-numbers-style 'visual)
 (setq display-line-numbers 'visual)

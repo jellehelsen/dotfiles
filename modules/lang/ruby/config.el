@@ -8,14 +8,14 @@
   :mode ("\\.\\(?:rb\\|rake\\|rabl\\|ru\\|builder\\|gemspec\\|jbuilder\\|thor\\)\\'" .  +ruby|init)
   :mode ("/\\(?:Berks\\|Cap\\|Gem\\|Guard\\|Pod\\|Puppet\\|Rake\\|Thor\\|Vagrant\\)file\\'" .  +ruby|init)
   :preface
-  (after! ruby-mode (require 'enh-ruby-mode))
+  (after! ruby-mode
+    (require 'enh-ruby-mode))
   (defun +ruby|init ()
     "Enable `enh-ruby-mode' if ruby is available, otherwise `ruby-mode'."
     (if (executable-find "ruby")
         (enh-ruby-mode)
       (ruby-mode)))
   :config
-  (set-env! "RBENV_ROOT")
   (set-electric! '(ruby-mode enh-ruby-mode) :words '("else" "end" "elsif"))
   (set-repl-handler! '(ruby-mode enh-ruby-mode) #'inf-ruby)
 
@@ -100,7 +100,7 @@
         "e" #'bundle-exec
         "o" #'bundle-open))
 
-;; `rvm'
+;;;###package `rvm'
 (setq rspec-use-rvm t)
 
 (after! rbenv

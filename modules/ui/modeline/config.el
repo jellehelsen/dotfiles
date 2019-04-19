@@ -5,8 +5,9 @@
 (def-package! doom-modeline
   :hook (after-init . doom-modeline-mode)
   :init
-  ;; prevent flash of unstyled modeline at startup
-  (setq-default mode-line-format nil)
+  (unless after-init-time
+    ;; prevent flash of unstyled modeline at startup
+    (setq-default mode-line-format nil))
   ;; We display project info in the modeline ourselves
   (setq projectile-dynamic-mode-line nil)
   ;; Set these early so they don't trigger variable watchers
@@ -17,6 +18,14 @@
         doom-modeline-minor-modes nil
         doom-modeline-major-mode-icon nil
         doom-modeline-buffer-file-name-style 'relative-from-project)
+
+  ;; Fix modeline icons in daemon-spawned graphical frames. We have our own
+  ;; mechanism for disabling all-the-icons, so we don't need doom-modeline to do
+  ;; it for us. However, this may cause unwanted padding in the modeline in
+  ;; daemon-spawned terminal frames. If it bothers you, you may prefer
+  ;; `doom-modeline-icon' set to `nil'.
+  (when (daemonp)
+    (setq doom-modeline-icon t))
   :config
   (add-hook 'doom-modeline-mode-hook #'size-indication-mode) ; filesize in modeline
   (add-hook 'doom-modeline-mode-hook #'column-number-mode)   ; cursor column in modeline
@@ -40,6 +49,7 @@
     (if (eq major-mode 'magit-status-mode)
         (doom-modeline-set-project-modeline)
       (hide-mode-line-mode)))
+  (remove-hook 'magit-mode-hook #'doom-modeline-set-project-modeline)
   (add-hook 'magit-mode-hook #'+modeline|hide-in-non-status-buffer)
 
   ;; Show indentation style in modeline. I'm not using

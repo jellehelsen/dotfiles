@@ -53,7 +53,6 @@ detected.")
 (setq-hook! '(eshell-mode-hook term-mode-hook) hscroll-margin 0)
 
 (defun doom*optimize-literal-mode-for-large-files (buffer)
-  "TODO"
   (with-current-buffer buffer
     (when find-file-literally
       (setq buffer-read-only t)
@@ -233,32 +232,19 @@ savehist file."
         `(("." . ,(concat doom-cache-dir "undo-tree-hist/"))))
   (global-undo-tree-mode +1)
 
-  (defun doom*shut-up-undo-tree (&rest _) (message ""))
-  (advice-add #'undo-tree-load-history :after #'doom*shut-up-undo-tree)
-
-  ;; compress undo history with xz
-  (defun doom*undo-tree-make-history-save-file-name (file)
-    (cond ((executable-find "zstd") (concat file ".zst"))
-          ((executable-find "gzip") (concat file ".gz"))
-          (file)))
-  (advice-add #'undo-tree-make-history-save-file-name :filter-return
-              #'doom*undo-tree-make-history-save-file-name)
+  ;; compress undo history with xz/gzip
+  (and (fset 'doom*undo-tree-make-history-save-file-name
+             (cond ((executable-find "zstd") (lambda (file) (concat file ".zst")))
+                   ((executable-find "gzip") (lambda (file) (concat file ".gz")))))
+       (advice-add #'undo-tree-make-history-save-file-name :filter-return
+                   #'doom*undo-tree-make-history-save-file-name))
 
   (defun doom*strip-text-properties-from-undo-history (&rest _)
     (dolist (item buffer-undo-list)
       (and (consp item)
            (stringp (car item))
            (setcar item (substring-no-properties (car item))))))
-  (advice-add #'undo-list-transfer-to-tree :before #'doom*strip-text-properties-from-undo-history)
-
-  (defun doom*compress-undo-tree-history (orig-fn &rest args)
-    (cl-letf* ((jka-compr-verbose nil)
-               (old-write-region (symbol-function #'write-region))
-               ((symbol-function #'write-region)
-                (lambda (start end filename &optional append _visit &rest args)
-                  (apply old-write-region start end filename append 0 args))))
-      (apply orig-fn args)))
-  (advice-add #'undo-tree-save-history :around #'doom*compress-undo-tree-history))
+  (advice-add #'undo-list-transfer-to-tree :before #'doom*strip-text-properties-from-undo-history))
 
 
 (def-package! command-log-mode
@@ -266,7 +252,8 @@ savehist file."
   :config
   (setq command-log-mode-auto-show t
         command-log-mode-open-log-turns-on-mode nil
-        command-log-mode-is-global t))
+        command-log-mode-is-global t
+        command-log-mode-window-size 50))
 
 
 ;; `helpful' --- a better *help* buffer

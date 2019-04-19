@@ -80,28 +80,76 @@ If any hook returns non-nil, all hooks after it are ignored.")
 (defalias 'define-key! #'general-def)
 (defalias 'unmap! #'general-unbind)
 
-;; We avoid `general-create-definer' to ensure that :states, :wk-full-keys and
-;; :keymaps cannot be overwritten.
+;; `map!' uses this instead of `define-leader-key!' because it consumes 20-30%
+;; more startup time, so we reimplement it ourselves.
+(defmacro doom--define-leader-key (&rest keys)
+  (let (prefix forms wkforms)
+    (while keys
+      (let ((key (pop keys))
+            (def (pop keys)))
+        (if (keywordp key)
+            (when (memq key '(:prefix :infix))
+              (setq prefix def))
+          (when prefix
+            (setq key `(general--concat t ,prefix ,key)))
+          (let* ((udef (cdr-safe (doom-unquote def)))
+                 (bdef (if (general--extended-def-p udef)
+                           (general--extract-def (general--normalize-extended-def udef))
+                         def)))
+            (unless (eq bdef :ignore)
+              (push `(define-key doom-leader-map (general--kbd ,key)
+                       ,bdef)
+                    forms))
+            (when-let* ((desc (plist-get udef :which-key)))
+              (push `(which-key-add-key-based-replacements
+                       (general--concat t doom-leader-alt-key ,key)
+                       ,desc)
+                    wkforms)
+              (push `(which-key-add-key-based-replacements
+                       (general--concat t doom-leader-key ,key)
+                       ,desc)
+                    wkforms))))))
+    (macroexp-progn
+     (append (nreverse forms)
+             (when wkforms
+               `((after! which-key
+                   ,@(nreverse wkforms))))))))
+
 (defmacro define-leader-key! (&rest args)
+  "Define <leader> keys.
+
+Uses `general-define-key' under the hood, but does not support :states,
+:wk-full-keys or :keymaps. Use `map!' for a more convenient interface.
+
+See `doom-leader-key' and `doom-leader-alt-key' to change the leader prefix."
   `(general-define-key
     :states nil
     :wk-full-keys nil
     :keymaps 'doom-leader-map
     ,@args))
 
-(general-create-definer define-localleader-key!
-  :major-modes t
-  :prefix doom-localleader-alt-key)
+(defmacro define-localleader-key! (&rest args)
+  "Define <localleader> key.
 
-;; :non-normal-prefix doesn't apply to non-evil sessions (only evil's emacs
-;; state), so we must redefine `define-localleader-key!' to behave differently
-;; where evil is present.
-(after! evil
-  (general-create-definer define-localleader-key!
-    :states '(normal visual motion emacs)
-    :major-modes t
-    :prefix doom-localleader-key
-    :non-normal-prefix doom-localleader-alt-key))
+Uses `general-define-key' under the hood, but does not support :major-modes,
+:states, :prefix or :non-normal-prefix. Use `map!' for a more convenient
+interface.
+
+See `doom-localleader-key' and `doom-localleader-alt-key' to change the
+localleader prefix."
+  (if (featurep 'evil)
+      ;; :non-normal-prefix doesn't apply to non-evil sessions (only evil's
+      ;; emacs state)
+      `(general-define-key
+        :states '(normal visual motion emacs)
+        :major-modes t
+        :prefix doom-localleader-key
+        :non-normal-prefix doom-localleader-alt-key
+        ,@args)
+    `(general-define-key
+      :major-modes t
+      :prefix doom-localleader-alt-key
+      ,@args)))
 
 ;; We use a prefix commands instead of general's :prefix/:non-normal-prefix
 ;; properties because general is incredibly slow binding keys en mass with them
@@ -124,67 +172,11 @@ If any hook returns non-nil, all hooks after it are ignored.")
           (concat "\\(?:"
                   (cl-loop for key in (append (list doom-leader-key doom-leader-alt-key)
                                               (where-is-internal 'doom/leader))
-                           if (stringp key) collect key into keys
-                           else collect (key-description key) into keys
+                           for keystr = (if (stringp key) key (key-description key))
+                           collect (regexp-quote keystr) into keys
                            finally return (string-join keys "\\|"))
                   "\\)"))))
 (add-hook 'doom-after-init-modules-hook #'doom|init-leader-keys)
-
-;; However, the prefix command approach (along with :wk-full-keys in
-;; `define-leader-key!') means that which-key is only informed of the key
-;; sequence minus `doom-leader-key'/`doom-leader-alt-key'. e.g. binding to `SPC
-;; f s' creates a wildcard label for any key that ends in 'f s'.
-;;
-;; So we forcibly inject `doom-leader-key' and `doom-leader-alt-key' into the
-;; which-key key replacement regexp for keybinds created on `doom-leader-map'.
-;; This is a dirty hack, but I'd rather this than general being responsible for
-;; 50% of Doom's startup time.
-(defun doom*general-extended-def-:which-key (_state keymap key edef kargs)
-  (with-eval-after-load 'which-key
-    (let* ((wk (general--getf2 edef :which-key :wk))
-           (major-modes (general--getf edef kargs :major-modes))
-           (keymaps (plist-get kargs :keymaps))
-           ;; index of keymap in :keymaps
-           (keymap-index (cl-dotimes (ind (length keymaps))
-                           (when (eq (nth ind keymaps) keymap)
-                             (cl-return ind))))
-           (mode (let ((mode (if (and major-modes (listp major-modes))
-                                 (nth keymap-index major-modes)
-                               major-modes)))
-                   (if (eq mode t)
-                       (general--remove-map keymap)
-                     mode)))
-           (key (key-description key))
-           (key-regexp (concat (if (general--getf edef kargs :wk-full-keys)
-                                   "\\`"
-                                 ;; Modification begin
-                                 (if (memq 'doom-leader-map keymaps)
-                                     (concat "\\`" doom-which-key-leader-prefix-regexp " ")))
-                                 ;; Modification end
-                               (regexp-quote key)
-                               "\\'"))
-           (prefix (plist-get kargs :prefix))
-           (binding (or (when (and (plist-get edef :def)
-                                   (not (plist-get edef :keymp)))
-                          (plist-get edef :def))
-                        (when (and prefix (string= key prefix))
-                          (plist-get kargs :prefix-command))))
-           (replacement (cond ((stringp wk)
-                               (cons nil wk))
-                              (wk)))
-           (match/replacement
-            (cons
-             (cons (when (general--getf edef kargs :wk-match-keys)
-                     key-regexp)
-                   (when (and (general--getf edef kargs :wk-match-binding)
-                              binding
-                              (symbolp binding))
-                     (symbol-name binding)))
-             replacement)))
-      (general--add-which-key-replacement mode match/replacement)
-      (when (and (consp replacement) (not (functionp replacement)))
-        (general--add-which-key-title-prefix mode key (cdr replacement))))))
-(advice-add #'general-extended-def-:which-key :override #'doom*general-extended-def-:which-key)
 
 
 ;;
@@ -271,7 +263,7 @@ For example, :nvi will map to (list 'normal 'visual 'insert). See
                (pcase key
                  (:leader
                   (doom--map-commit)
-                  (setq doom--map-fn 'define-leader-key!))
+                  (setq doom--map-fn 'doom--define-leader-key))
                  (:localleader
                   (doom--map-commit)
                   (setq doom--map-fn 'define-localleader-key!))

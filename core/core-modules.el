@@ -18,7 +18,8 @@
     (:tools (rotate-text (:editor rotate-text)))
     (:emacs (electric-indent (:emacs electric))
             (hideshow (:editor fold)))
-    (:ui (doom-modeline (:ui modeline))))
+    (:ui (doom-modeline (:ui modeline)))
+    (:ui (fci (:ui fill-column))))
   "An alist of deprecated modules, mapping deprecated modules to an optional new
 location (which will create an alias). Each CAR and CDR is a (CATEGORY .
 MODULES). E.g.
@@ -56,13 +57,11 @@ before the user's private module.")
   "Loads the init.el in `doom-private-dir' and sets up hooks for a healthy
 session of Dooming. Will noop if used more than once, unless FORCE-P is
 non-nil."
-  (when (or force-p (not doom-init-modules-p))
+  (when (and (or force-p
+                 (not doom-init-modules-p))
+             (not (setq doom-modules nil))
+             (load! "init" doom-private-dir t))
     (setq doom-init-modules-p t)
-
-    (load! "init" doom-private-dir t)
-    (unless doom-modules
-      (setq doom-modules (make-hash-table :test 'equal)))
-
     (maphash (lambda (key plist)
                (let ((doom--current-module key)
                      (doom--current-flags (plist-get plist :flags)))
@@ -248,17 +247,17 @@ non-nil, return paths of possible modules, activated or otherwise."
          `((fset ',fn
                  (lambda (&rest _)
                    (doom-log "Loading deferred package %s from %s" ',name ',fn)
-                   (condition-case e (require ',name)
+                   (condition-case e
+                       (require ',name)
                      ((debug error)
                       (message "Failed to load deferred package %s: %s" ',name e)))
-                   (dolist (hook (cdr (assq ',name doom--deferred-packages-alist)))
-                     (if (functionp hook)
-                         (advice-remove hook #',fn)
-                       (remove-hook hook #',fn)))
-                   (setq doom--deferred-packages-alist
-                         (delq (assq ',name doom--deferred-packages-alist)
-                               doom--deferred-packages-alist))
-                   (fmakunbound ',fn))))
+                   (when-let* ((deferral-list (assq ',name doom--deferred-packages-alist)))
+                     (dolist (hook (cdr deferral-list))
+                       (if (functionp hook)
+                           (advice-remove hook #',fn)
+                         (remove-hook hook #',fn)))
+                     (setq doom--deferred-packages-alist
+                           (delq deferral-list doom--deferred-packages-alist))))))
          (let (forms)
            (dolist (hook hooks forms)
              (push (if (functionp hook)

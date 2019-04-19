@@ -17,25 +17,38 @@
 (defun +ivy-rich-buffer-name (candidate)
   "Display the buffer name.
 
-Displays buffers in other projects in `font-lock-doc-face', and
-temporary/special buffers in `font-lock-comment-face'."
-  (with-current-buffer (get-buffer candidate)
-    (propertize candidate
-     'face (cond ((string-match-p "^ *\\*" candidate)
-                  'font-lock-comment-face)
-                 ((not buffer-file-name) nil)
-                 ((not (file-in-directory-p
-                        buffer-file-name
-                        (or (doom-project-root)
-                            default-directory)))
-                  'font-lock-doc-face)))))
+Buffers that are considered unreal (see `doom-real-buffer-p') are dimmed with
+`+ivy-buffer-unreal-face'."
+  (let ((b (get-buffer candidate)))
+    (cond ((ignore-errors
+             (file-remote-p
+              (buffer-local-value 'default-directory b)))
+           (ivy-append-face candidate 'ivy-remote))
+          ((doom-unreal-buffer-p b)
+           (ivy-append-face candidate +ivy-buffer-unreal-face))
+          ((not (buffer-file-name b))
+           (ivy-append-face candidate 'ivy-subdir))
+          ((buffer-modified-p b)
+           (ivy-append-face candidate 'ivy-modified-buffer))
+          (candidate))))
+
+;;;###autoload
+(defun +ivy-rich-buffer-icon (candidate)
+  "Display the icon for CANDIDATE buffer.
+
+Otherwise show the fundamental-mode icon."
+  (with-current-buffer candidate
+    (let ((icon (all-the-icons-icon-for-mode major-mode)))
+      (if (symbolp icon)
+          (all-the-icons-icon-for-mode 'fundamental-mode)
+        icon))))
 
 
 ;;
 ;; Library
 
 (defun +ivy--switch-buffer-preview ()
-  (let (ivy-use-virtual-buffers)
+  (let (ivy-use-virtual-buffers ivy--virtual-buffers)
     (counsel--switch-buffer-update-fn)))
 
 (defalias '+ivy--switch-buffer-preview-all #'counsel--switch-buffer-update-fn)
@@ -55,16 +68,14 @@ temporary/special buffers in `font-lock-comment-face'."
           (current
            (setq prompt "Switch to buffer: "
                  action #'ivy--switch-buffer-action))
-          (t
-           (setq prompt "Switch to buffer in other window: "
+          ((setq prompt "Switch to buffer in other window: "
                  action #'ivy--switch-buffer-other-window-action)))
     (when +ivy-buffer-preview
       (cond ((not (and ivy-use-virtual-buffers
                        (eq +ivy-buffer-preview 'everything)))
              (setq update #'+ivy--switch-buffer-preview
                    unwind #'+ivy--switch-buffer-unwind))
-            (t
-             (setq update #'+ivy--switch-buffer-preview-all
+            ((setq update #'+ivy--switch-buffer-preview-all
                    unwind #'+ivy--switch-buffer-unwind))))
     (ivy-read prompt 'internal-complete-buffer
               :action action
@@ -303,8 +314,8 @@ order.
                          (projectile-project-name))
                         ((file-relative-name directory project-root))))))
     (require 'counsel)
-    (let ((counsel-more-chars-alist
-           (if query '((t . 1)) counsel-more-chars-alist)))
+    (let ((ivy-more-chars-alist
+           (if query '((t . 1)) ivy-more-chars-alist)))
       (pcase engine
         ('grep
          (let ((args (if recursive " -R"))
@@ -339,31 +350,32 @@ order.
            return (intern (format format tool))))
 
 ;;;###autoload
-(defun +ivy/project-search (&optional all-files-p)
+(defun +ivy/project-search (&optional arg initial-query directory)
   "Performs a project search from the project root.
 
 Uses the first available search backend from `+ivy-project-search-engines'. If
-ALL-FILES-P (universal argument), include all files, even hidden or compressed
-ones, in the search."
+ARG (universal argument), include all files, even hidden or compressed ones, in
+the search."
   (interactive "P")
   (funcall (or (+ivy--get-command "+ivy/%s")
                #'+ivy/grep)
-           (or all-files-p current-prefix-arg)))
+           arg
+           initial-query
+           directory))
 
 ;;;###autoload
-(defun +ivy/project-search-from-cwd (&optional all-files-p)
+(defun +ivy/project-search-from-cwd (&optional arg initial-query)
   "Performs a project search recursively from the current directory.
 
 Uses the first available search backend from `+ivy-project-search-engines'. If
-ALL-FILES-P (universal argument), include all files, even hidden or compressed
-ones."
+ARG (universal argument), include all files, even hidden or compressed ones."
   (interactive "P")
   (funcall (or (+ivy--get-command "+ivy/%s-from-cwd")
                #'+ivy/grep-from-cwd)
-           (or all-files-p current-prefix-arg)))
+           arg
+           initial-query))
 
 
-;; Relative to project root
 ;;;###autoload (autoload '+ivy/rg "completion/ivy/autoload/ivy")
 ;;;###autoload (autoload '+ivy/rg-from-cwd "completion/ivy/autoload/ivy")
 ;;;###autoload (autoload '+ivy/ag "completion/ivy/autoload/ivy")

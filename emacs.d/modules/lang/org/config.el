@@ -16,47 +16,6 @@
 
 
 ;;
-;;; Bootstrap
-
-(def-package! org
-  :defer-incrementally
-  (calendar find-func format-spec org-macs org-compat org-faces org-entities
-   org-list org-pcomplete org-src org-footnote org-macro ob org org-agenda
-   org-capture)
-  :init
-  (add-hook! 'org-load-hook
-    #'(+org|setup-ui
-       +org|setup-popup-rules
-       +org|setup-agenda
-       +org|setup-keybinds
-       +org|setup-hacks
-       +org|setup-pretty-code
-       +org|setup-custom-links))
-
-  (add-hook! 'org-mode-hook
-    #'(org-bullets-mode           ; "prettier" bullets
-       org-indent-mode            ; margin-based indentation
-       toc-org-enable             ; auto-table of contents
-       auto-fill-mode             ; line wrapping
-       ;; `show-paren-mode' causes flickering with indentation margins made by
-       ;; `org-indent-mode', so we simply turn off show-paren-mode altogether."
-       doom|disable-show-paren-mode
-
-       +org|enable-auto-reformat-tables
-       +org|enable-auto-update-cookies
-       +org|smartparens-compatibility-config
-       +org|unfold-to-2nd-level-or-point))
-
-  :config
-  ;; Sub-modules
-  (if (featurep! +attach)  (load! "+attach"))
-  (if (featurep! +babel)   (load! "+babel"))
-  (if (featurep! +capture) (load! "+capture"))
-  (if (featurep! +export)  (load! "+export"))
-  (if (featurep! +present) (load! "+present")))
-
-
-;;
 ;;; Packages
 
 ;; `toc-org'
@@ -76,6 +35,7 @@
   (add-hook 'org-load-hook #'+org|setup-evil-keybinds)
   (add-hook 'evil-org-mode-hook #'evil-normalize-keymaps)
   :config
+  (add-hook 'org-open-at-point-functions #'evil-set-jump)
   ;; change `evil-org-key-theme' instead
   (advice-add #'evil-org-set-key-theme :override #'ignore)
   (def-package! evil-org-agenda
@@ -114,55 +74,6 @@
 
 
 ;;
-;;; `org-mode' hooks
-
-(defun +org|unfold-to-2nd-level-or-point ()
-  "My version of the 'overview' #+STARTUP option: expand first-level headings.
-Expands the first level, but no further. If point was left somewhere deeper,
-unfold to point on startup."
-  (unless org-agenda-inhibit-startup
-    (when (eq org-startup-folded t)
-      (outline-hide-sublevels 2))
-    (when (outline-invisible-p)
-      (ignore-errors
-        (save-excursion
-          (outline-previous-visible-heading 1)
-          (org-show-subtree))))))
-
-(defun +org|smartparens-compatibility-config ()
-  "Instruct `smartparens' not to impose itself in org-mode."
-  (after! smartparens
-    (defun +org-sp-point-in-checkbox-p (_id action _context)
-      (and (eq action 'insert)
-           (sp--looking-at-p "\\s-*]")))
-    (defun +org-sp-point-at-bol-p (_id action _context)
-      (and (eq action 'insert)
-           (eq (char-before) ?*)
-           (sp--looking-back-p "^\\**" (line-beginning-position))))
-
-    ;; make delimiter auto-closing a little more conservative
-    (sp-with-modes 'org-mode
-      (sp-local-pair "*" nil :unless '(:add sp-point-before-word-p +org-sp-point-at-bol-p))
-      (sp-local-pair "_" nil :unless '(:add sp-point-before-word-p))
-      (sp-local-pair "/" nil :unless '(:add sp-point-before-word-p +org-sp-point-in-checkbox-p))
-      (sp-local-pair "~" nil :unless '(:add sp-point-before-word-p))
-      (sp-local-pair "=" nil :unless '(:add sp-point-before-word-p)))))
-
-(defun +org|enable-auto-reformat-tables ()
-  "Realign tables & update formulas when exiting insert mode (`evil-mode')."
-  (when (featurep 'evil)
-    (add-hook 'evil-insert-state-exit-hook #'+org|realign-table-maybe nil t)
-    (add-hook 'evil-replace-state-exit-hook #'+org|realign-table-maybe nil t)
-    (advice-add #'evil-replace :after #'+org*realign-table-maybe)))
-
-(defun +org|enable-auto-update-cookies ()
-  "Update statistics cookies when saving or exiting insert mode (`evil-mode')."
-  (when (featurep 'evil)
-    (add-hook 'evil-insert-state-exit-hook #'+org|update-cookies nil t))
-  (add-hook 'before-save-hook #'+org|update-cookies nil t))
-
-
-;;
 ;;; `org-load' hooks
 
 (defun +org|setup-agenda ()
@@ -178,25 +89,6 @@ unfold to point on startup."
    org-agenda-span 10
    org-agenda-start-on-weekday nil
    org-agenda-start-day "-3d"))
-
-
-(defun +org|setup-popup-rules ()
-  "Defines popup rules for org-mode (does nothing if :ui popup is disabled)."
-  (set-popup-rules!
-    '(("^\\*Org Links" :slot -1 :vslot -1 :size 2 :ttl 0)
-      ("^\\*\\(?:Agenda Com\\|Calendar\\|Org \\(?:Export Dispatcher\\|Select\\)\\)"
-       :slot -1 :vslot -1 :size #'+popup-shrink-to-fit :ttl 0)
-      ("^\\*Org Agenda"    :size 0.35 :select t :ttl nil)
-      ("^\\*Org Src"       :size 0.3 :quit nil :select t :autosave t :ttl nil)
-      ("^CAPTURE.*\\.org$" :size 0.2 :quit nil :select t :autosave t))))
-
-
-(defun +org|setup-pretty-code ()
-  "Setup the default pretty symbols for"
-  (set-pretty-symbols! 'org-mode
-    :name "#+NAME:"
-    :src_block "#+BEGIN_SRC"
-    :src_block_end "#+END_SRC"))
 
 
 (defun +org|setup-custom-links ()
@@ -340,16 +232,86 @@ between the two."
         "C-c C-S-l" #'+org/remove-link
         "C-c C-i"   #'org-toggle-inline-images
         [remap doom/backward-to-bol-or-indent]          #'org-beginning-of-line
-        [remap doom/forward-to-last-non-comment-or-eol] #'org-end-of-line))
+        [remap doom/forward-to-last-non-comment-or-eol] #'org-end-of-line
+
+        :localleader
+        "," #'org-switchb
+        "." #'org-goto
+        (:when (featurep! :completion ivy)
+          "." #'counsel-org-goto
+          "/" #'counsel-org-goto-all)
+        (:when (featurep! :completion helm)
+          "." #'helm-org-in-buffer-headings
+          "/" #'helm-org-agenda-files-headings)
+        "d" #'org-deadline
+        "f" #'org-footnote-new
+        "t" #'org-todo
+        "T" #'org-todo-list
+        "l" #'org-insert-link
+        "L" #'org-store-link
+        "r" #'org-refile
+        "s" #'org-schedule
+        "'" #'org-edit-special
+        (:prefix ("c" . "clock")
+          "c" #'org-clock-in
+          "C" #'org-clock-out
+          "d" #'org-clock-mark-default-task
+          "e" #'org-clock-modify-effort-estimate
+          "l" #'org-clock-in-last
+          "g" #'org-clock-goto
+          "G" (λ! (org-clock-goto 'select))
+          "x" #'org-clock-cancel
+          "=" #'org-clock-timestamps-up
+          "-" #'org-clock-timestamps-down)
+        (:prefix ("e" . "export")
+          :desc "to markdown"         "m" #'org-md-export-to-markdown
+          :desc "to markdown & open"  "M" #'org-md-export-as-markdown
+          :desc "to reveal.js"        "r" #'org-reveal-export-to-html
+          :desc "to reveal.js & open" "R" #'org-reveal-export-to-html-and-browse
+          (:prefix ("b" . "from beamer")
+            :desc "to latex"            "l" #'org-beamer-export-to-latex
+            :desc "to latex & open"     "L" #'org-beamer-export-as-latex
+            :desc "as pdf"              "p" #'org-beamer-export-to-pdf))
+        (:prefix ("g" . "goto")
+          "g" #'org-goto
+          (:when (featurep! :completion ivy)
+            "g" #'counsel-org-goto
+            "G" #'counsel-org-goto-all)
+          "a" #'org-agenda-goto
+          "A" #'org-agenda-clock-goto
+          "c" #'org-clock-goto
+          "C" (λ! (org-clock-goto 'select))
+          "i" #'org-id-goto
+          "r" #'org-refile-goto-last-stored
+          "x" #'org-capture-goto-last-stored)
+        (:prefix ("b" . "tables")
+          "a" #'org-table-align
+          "e" #'org-table-edit-field
+          "h" #'org-table-field-info
+          (:prefix ("i" . "insert")
+            "-" #'org-table-insert-hline
+            "h" #'+org/table-insert-column-left
+            "j" #'+org/table-insert-row-below
+            "k" #'org-table-insert-row
+            "l" #'+org/table-insert-column-right)
+          (:prefix ("m" . "move")
+            "h" #'org-table-move-column-left
+            "j" #'org-table-move-row-down
+            "k" #'org-table-move-row-up
+            "l" #'org-table-move-column-right)
+          (:prefix ("f" . "formula")
+            "c" #'org-table-create
+            "r" #'org-table-recalculate
+            "e" #'org-table-edit-formulas
+            "=" #'org-table-eval-formulas))))
 
 
 (defun +org|setup-evil-keybinds (&rest args)
-  ;; In case this hook is used in an advice on `evil-org-set-key-theme', this
-  ;; prevents recursive requires.
-  (unless args (require 'evil-org))
+  (unless args ; lookout for recursive requires
+    (require 'evil-org))
 
+  ;; Only fold the current tree, rather than recursively
   (add-hook 'org-tab-first-hook #'+org|cycle-only-current-subtree t)
-  (advice-add #'org-return-indent :after #'+org*fix-newline-and-indent-in-src-blocks)
 
   ;; Fix o/O creating new list items in the middle of nested plain lists. Only
   ;; has an effect when `evil-org-special-o/O' has `item' in it (not the
@@ -373,18 +335,33 @@ between the two."
         (:when IS-MAC
           :ni [s-return]   (λ! (+org/insert-item 'below))
           :ni [s-S-return] (λ! (+org/insert-item 'above)))
-        ;; dedent with shift-tab in insert mode
-        :i [backtab] #'+org/dedent
         ;; navigate table cells (from insert-mode)
-        :i "C-l" #'+org/table-next-field
-        :i "C-h" #'+org/table-previous-field
-        :i "C-k" #'+org/table-previous-row
-        :i "C-j" #'+org/table-next-row
-        ;; expand tables or move fields
-        :ni "C-S-l" #'+org/table-append-field-or-shift-right
-        :ni "C-S-h" #'+org/table-prepend-field-or-shift-left
-        :ni "C-S-k" #'org-metaup
-        :ni "C-S-j" #'org-metadown
+        :i "C-l" (general-predicate-dispatch 'org-end-of-line
+                   (org-at-table-p) 'org-table-next-field)
+        :i "C-h" (general-predicate-dispatch 'org-beginning-of-line
+                   (org-at-table-p) 'org-table-previous-field)
+        :i "C-k" (general-predicate-dispatch 'org-up-element
+                   (org-at-table-p) '+org/table-previous-row)
+        :i "C-j" (general-predicate-dispatch 'org-down-element
+                   (org-at-table-p) 'org-table-next-row)
+        ;; expanding tables (prepend/append columns/rows)
+        :ni "C-S-l" (general-predicate-dispatch 'org-shiftmetaright
+                      (org-at-table-p) 'org-table-insert-column)
+        :ni "C-S-h" (general-predicate-dispatch 'org-shiftmetaleft
+                      (org-at-table-p) '+org/table-insert-column-left)
+        :ni "C-S-k" (general-predicate-dispatch 'org-shiftmetaup
+                      (org-at-table-p) 'org-table-insert-row)
+        :ni "C-S-j" (general-predicate-dispatch 'org-shiftmetadown
+                      (org-at-table-p) '+org/table-insert-row-below)
+        ;; shifting table rows/columns
+        :ni "C-M-S-l" (general-predicate-dispatch 'org-metaright
+                        (org-at-table-p) 'org-table-move-column-right)
+        :ni "C-M-S-h" (general-predicate-dispatch 'org-metaleft
+                        (org-at-table-p) 'org-table-move-column-left)
+        :ni "C-M-S-k" (general-predicate-dispatch 'org-metaup
+                        (org-at-table-p) 'org-table-move-row-up)
+        :ni "C-M-S-j" (general-predicate-dispatch 'org-metadown
+                        (org-at-table-p) 'org-table-move-row-down)
         ;; more intuitive RET keybinds
         :i [return] #'org-return-indent
         :i "RET"    #'org-return-indent
@@ -397,8 +374,8 @@ between the two."
         :m "[h"  #'org-previous-visible-heading
         :m "]l"  #'org-next-link
         :m "[l"  #'org-previous-link
-        :m "]s"  #'org-babel-next-src-block
-        :m "[s"  #'org-babel-previous-src-block
+        :m "]c"  #'org-babel-next-src-block
+        :m "[c"  #'org-babel-previous-src-block
         :m "^"   #'evil-org-beginning-of-line
         :m "0"   (λ! (let (visual-line-mode) (org-beginning-of-line)))
         :n "gQ"  #'org-fill-paragraph
@@ -412,6 +389,7 @@ between the two."
         :n "zO"  #'outline-show-subtree
         :n "zr"  #'+org/show-next-fold-level
         :n "zR"  #'outline-show-all
+        :n "zi"  #'org-toggle-inline-images
 
         :map org-read-date-minibuffer-local-map
         "C-h"   (λ! (org-eval-in-calendar '(calendar-backward-day 1)))
@@ -421,36 +399,15 @@ between the two."
         "C-S-h" (λ! (org-eval-in-calendar '(calendar-backward-month 1)))
         "C-S-l" (λ! (org-eval-in-calendar '(calendar-forward-month 1)))
         "C-S-k" (λ! (org-eval-in-calendar '(calendar-backward-year 1)))
-        "C-S-j" (λ! (org-eval-in-calendar '(calendar-forward-year 1)))
-
-        :localleader
-        :map org-mode-map
-        "d" #'org-deadline
-        "b" #'org-switchb
-        "t" #'org-todo
-        "T" #'org-todo-list
-        "l" #'org-store-link
-        (:prefix ("c" . "clock")
-          "c" #'org-clock-in
-          "C" #'org-clock-out
-          "g" #'org-clock-goto
-          "G" (λ! (org-clock-goto 'select))
-          "x" #'org-clock-cancel)
-        (:prefix ("e" . "export")
-          :desc "to markdown"         "m" #'org-md-export-to-markdown
-          :desc "to markdown & open"  "M" #'org-md-export-as-markdown
-          :desc "to reveal.js"        "r" #'org-reveal-export-to-html
-          :desc "to reveal.js & open" "R" #'org-reveal-export-to-html-and-browse
-          (:prefix ("b" . "from beamer")
-            :desc "to latex"            "l" #'org-beamer-export-to-latex
-            :desc "to latex & open"     "L" #'org-beamer-export-as-latex
-            :desc "as pdf"              "p" #'org-beamer-export-to-pdf))))
+        "C-S-j" (λ! (org-eval-in-calendar '(calendar-forward-year 1)))))
 
 
 (defun +org|setup-hacks ()
   "Getting org to behave."
   ;; Don't open separate windows
   (setf (alist-get 'file org-link-frame-setup) #'find-file)
+  ;; Open directory links in Emacs
+  (add-to-list 'org-file-apps '(directory . emacs))
 
   (defun +org|delayed-recenter ()
     "`recenter', but after a tiny delay. Necessary to prevent certain race
@@ -458,8 +415,8 @@ conditions where a window's buffer hasn't changed at the time this hook is run."
     (run-at-time 0.1 nil #'recenter))
   (add-hook 'org-follow-link-hook #'+org|delayed-recenter)
 
-  ;; Fix variable height org-level-N faces in the eldoc string
-  (defun +org*format-outline-path (orig-fn path &optional width prefix separator)
+  ;; Fix variable height text (e.g. org headings) in the eldoc string
+  (defun +org*strip-properties-from-outline (orig-fn path &optional width prefix separator)
     (let ((result (funcall orig-fn path width prefix separator))
           (separator (or separator "/")))
       (string-join
@@ -469,19 +426,13 @@ conditions where a window's buffer hasn't changed at the time this hook is run."
                 for face = (nth (% n org-n-level-faces) org-level-faces)
                 collect (org-add-props part nil 'face `(:foreground ,(face-foreground face nil t) :weight bold)))
        separator)))
-  (advice-add #'org-format-outline-path :around #'+org*format-outline-path)
+  (advice-add #'org-format-outline-path :around #'+org*strip-properties-from-outline)
 
-  (setq org-file-apps
-        `(("pdf" . default)
-          ("\\.x?html?\\'" . default)
-          ("/docs/" . emacs)
-          (auto-mode . emacs)
-          (directory . emacs)
-          (t . ,(cond (IS-MAC "open -R \"%s\"")
-                      (IS-LINUX "xdg-open \"%s\"")))))
-
+  ;; Prevent from temporarily-opened agenda buffers from being associated with
+  ;; the current workspace, or being added to recentf. They haven't been opened
+  ;; interactively, so shouldn't be treated as if they were.
   (defun +org|exclude-agenda-buffers-from-workspace ()
-    (when org-agenda-new-buffers
+    (when (and org-agenda-new-buffers (bound-and-true-p persp-mode))
       (let (persp-autokill-buffer-on-remove)
         (persp-remove-buffer org-agenda-new-buffers
                              (get-current-persp)
@@ -496,7 +447,72 @@ conditions where a window's buffer hasn't changed at the time this hook is run."
 
 
 ;;
-;;; In case org has already been loaded (or you're running `doom/reload')
+;;; Bootstrap
 
-(when (featurep 'org)
-  (run-hooks 'org-load-hook))
+(def-package! org
+  :defer-incrementally
+  (calendar find-func format-spec org-macs org-compat org-faces org-entities
+   org-list org-pcomplete org-src org-footnote org-macro ob org org-agenda
+   org-capture)
+  :init
+  (add-hook! 'org-mode-hook
+    #'(org-bullets-mode           ; "prettier" bullets
+       org-indent-mode            ; margin-based indentation
+       toc-org-enable             ; auto-table of contents
+       auto-fill-mode             ; line wrapping
+       ;; `show-paren-mode' causes flickering with indentation margins made by
+       ;; `org-indent-mode', so we simply turn off show-paren-mode altogether."
+       doom|disable-show-paren-mode
+
+       +org|enable-auto-reformat-tables
+       +org|enable-auto-update-cookies
+       +org|unfold-to-2nd-level-or-point))
+
+  :config
+  (+org|setup-ui)
+  (+org|setup-agenda)
+  (+org|setup-keybinds)
+  (+org|setup-hacks)
+  (+org|setup-custom-links)
+
+
+  ;; Cross-module configuration
+  (set-popup-rules!
+    '(("^\\*Org Links" :slot -1 :vslot -1 :size 2 :ttl 0)
+      ("^\\*\\(?:Agenda Com\\|Calendar\\|Org \\(?:Export Dispatcher\\|Select\\)\\)"
+       :slot -1 :vslot -1 :size #'+popup-shrink-to-fit :ttl 0)
+      ("^\\*Org Agenda"    :size 0.35 :select t :ttl nil)
+      ("^\\*Org Src"       :size 0.3 :quit nil :select t :autosave t :ttl nil)
+      ("^CAPTURE.*\\.org$" :size 0.2 :quit nil :select t :autosave t)))
+
+  (set-pretty-symbols! 'org-mode
+    :name "#+NAME:"
+    :src_block "#+BEGIN_SRC"
+    :src_block_end "#+END_SRC")
+
+  (after! smartparens
+    (defun +org-sp-point-in-checkbox-p (_id action _context)
+      (and (eq action 'insert)
+           (sp--looking-at-p "\\s-*]")))
+
+    (defun +org-sp-point-at-bol-p (_id action _context)
+      (and (eq action 'insert)
+           (eq (char-before) ?*)
+           (sp--looking-back-p "^\\**" (line-beginning-position))))
+
+    ;; make delimiter auto-closing a little more conservative
+    (sp-with-modes 'org-mode
+      (sp-local-pair "*" "*" :unless '(:add sp-point-before-word-p +org-sp-point-at-bol-p))
+      (sp-local-pair "_" "_" :unless '(:add sp-point-before-word-p))
+      (sp-local-pair "/" "/" :unless '(:add sp-point-before-word-p +org-sp-point-in-checkbox-p))
+      (sp-local-pair "~" "~" :unless '(:add sp-point-before-word-p))
+      (sp-local-pair "=" "=" :unless '(:add sp-point-before-word-p))))
+
+
+  ;; Sub-modules
+  (if (featurep! +attach)   (load! "+attach"))
+  (if (featurep! +babel)    (load! "+babel"))
+  (if (featurep! +capture)  (load! "+capture"))
+  (if (featurep! +export)   (load! "+export"))
+  (if (featurep! +present)  (load! "+present"))
+  (if (featurep! +protocol) (load! "+protocol")))

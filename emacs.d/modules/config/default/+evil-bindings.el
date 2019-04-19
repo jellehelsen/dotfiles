@@ -10,7 +10,7 @@
 
 
 ;;
-;; Global keybindings
+;;; Global keybindings
 
 (map! (:map override
         ;; A little sandbox to run code in
@@ -52,6 +52,9 @@
         :map vc-annotate-mode-map
         [remap quit-window] #'kill-this-buffer)
 
+      (:map (help-mode-map helpful-mode-map)
+        :n "o" 'ace-link-help)
+
       ;; misc
       :n "C-S-f"  #'toggle-frame-fullscreen
 
@@ -67,6 +70,7 @@
       :n  "gp"    #'+evil/reselect-paste
       :n  "g="    #'widen
       :v  "g="    #'+evil:narrow-buffer
+      :nv "z="    #'flyspell-correct-word-generic
       :nv "g@"    #'+evil:apply-macro
       :nv "gc"    #'evil-commentary
       :nv "gx"    #'evil-exchange
@@ -95,11 +99,14 @@
         "L"       #'+evil/window-move-right
         "C-S-w"   #'ace-swap-window
         ;; Window undo/redo
+        (:prefix "m"
+          "m"       #'doom/window-maximize-buffer
+          "v"       #'doom/window-maximize-vertically
+          "s"       #'doom/window-maximize-horizontally)
         "u"       #'winner-undo
         "C-u"     #'winner-undo
         "C-r"     #'winner-redo
         "o"       #'doom/window-enlargen
-        "O"       #'doom/window-zoom
         ;; Delete window
         "c"       #'+workspace/close-window-or-workspace
         "C-C"     #'ace-delete-window)
@@ -156,7 +163,7 @@
 
 
 ;;
-;; Module keybinds
+;;; Module keybinds
 
 ;;; :feature
 (map! (:when (featurep! :feature debugger)
@@ -199,10 +206,14 @@
             [delete]      #'+snippets/delete-forward-char-or-field)))
 
       (:when (featurep! :tools flyspell)
-        :m "]s" #'evil-next-flyspell-error
-        :m "[s" #'evil-prev-flyspell-error
-        :m "]S" #'flyspell-correct-word-generic
-        :m "[S" #'flyspell-correct-previous-word-generic
+        ;; Keybinds that have no Emacs+evil analogues (i.e. don't exist):
+        ;;   zq - mark word at point as good word
+        ;;   zw - mark word at point as bad
+        ;;   zu{q,w} - undo last marking
+        ;; Keybinds that evil define:
+        ;;   z= - correct flyspell word at point
+        ;;   ]s - jump to previous spelling error
+        ;;   [s - jump to next spelling error
         (:map flyspell-mouse-map
           "RET"     #'flyspell-correct-word-generic
           [return]  #'flyspell-correct-word-generic
@@ -293,6 +304,7 @@
           :map counsel-ag-map
           "C-SPC"    #'ivy-call-and-recenter ; preview
           "C-l"      #'ivy-done
+          "C-c C-e"  #'+ivy/wgrep-occur      ; search/replace on results
           [backtab]  #'+ivy/wgrep-occur      ; search/replace on results
           [C-return] (+ivy-do-action! #'+ivy-git-grep-other-window-action))
         (:after swiper
@@ -340,9 +352,9 @@
           (:after helm-buffers
             :map helm-buffer-map
             [C-return] #'helm-buffer-switch-other-window)
-          (:after helm-regexp
-            :map helm-moccur-map
-            [C-return] #'helm-moccur-run-goto-line-ow)
+          (:after helm-occur
+            :map helm-occur-map
+            [C-return] #'helm-occur-run-goto-line-ow)
           (:after helm-grep
             :map helm-grep-map
             [C-return] #'helm-grep-run-other-window-action))))
@@ -463,14 +475,13 @@
       (:when (featurep! :tools gist)
         :after gist
         :map gist-list-menu-mode-map
-        :n "RET"    #'+gist/open-current
-        :n [return] #'+gist/open-current
-        :n "b"   #'gist-browse-current-url
+        :n "go"  #'gist-browse-current-url
+        :n "gr"  #'gist-list-reload
         :n "c"   #'gist-add-buffer
         :n "d"   #'gist-kill-current
+        :n "e"   #'gist-edit-current-description
         :n "f"   #'gist-fork
-        :n "q"   #'quit-window
-        :n "r"   #'gist-list-reload
+        :n "q"   #'kill-this-buffer
         :n "s"   #'gist-star
         :n "S"   #'gist-unstar
         :n "y"   #'gist-print-current-url))
@@ -484,7 +495,7 @@
 
 
 ;;
-;; <leader>
+;;; <leader>
 
 (map! :leader
       :desc "Eval expression"       ";"    #'eval-expression
@@ -509,16 +520,18 @@
       (cond ((featurep! :completion ivy)   #'ivy-resume)
             ((featurep! :completion helm)  #'helm-resume))
 
+      :desc "Search for symbol in project" "*" #'+default/search-project-for-symbol-at-point
+
       :desc "Find file in project"  "SPC"  #'projectile-find-file
       :desc "Blink cursor line"     "DEL"  #'+nav-flash/blink-cursor
       :desc "Jump to bookmark"      "RET"  #'bookmark-jump
 
       ;; Prefixed key groups
       (:prefix ("/" . "search")
-        :desc "Jump to symbol across buffers" "I" #'imenu-anywhere
         :desc "Search buffer"                 "b" #'swiper
         :desc "Search current directory"      "d" #'+default/search-from-cwd
         :desc "Jump to symbol"                "i" #'imenu
+        :desc "Jump to symbol across buffers" "I" #'imenu-anywhere
         :desc "Jump to link"                  "l" #'ace-link
         :desc "Look up online"                "o" #'+lookup/online-select
         :desc "Search project"                "p" #'+default/search-project)
@@ -567,7 +580,7 @@
         :desc "Bury buffer"                 "z"   #'bury-buffer)
 
       (:prefix ("c" . "code")
-        :desc "Compile project"             "c"   #'projectile-compile-project
+        :desc "Compile"                     "c"   #'compile
         :desc "Jump to definition"          "d"   #'+lookup/definition
         :desc "Jump to references"          "D"   #'+lookup/references
         :desc "Evaluate buffer/region"      "e"   #'+eval/buffer-or-region
@@ -712,12 +725,23 @@
         :desc "Browse project"               "." #'+default/browse-project
         :desc "Find file in project"         "/" #'projectile-find-file
         :desc "Run cmd in project root"      "!" #'projectile-run-shell-command-in-root
-        :desc "Compile project"              "c" #'projectile-compile-project
+        :desc "Add new project"              "a" #'projectile-add-known-project
+        :desc "Switch to project buffer"     "b" #'projectile-switch-to-buffer
+        :desc "Compile in project"           "c" #'projectile-compile-project
+        :desc "Remove known project"         "d" #'projectile-remove-known-project
+        :desc "Find file in known project"   "f" #'projectile-find-file-in-known-projects
+        :desc "Kill project buffers"         "k" #'projectile-kill-buffers
+        :desc "Invalidate project cache"     "i" #'projectile-invalidate-cache
         :desc "Find other file"              "o" #'projectile-find-other-file
         :desc "Switch project"               "p" #'projectile-switch-project
-        :desc "Recent project files"         "r" #'projectile-recentf
+        :desc "Find recent project files"    "r" #'projectile-recentf
+        :desc "Scratch buffer"               "s" #'doom/open-project-scratch-buffer
         :desc "List project tasks"           "t" #'+default/project-tasks
-        :desc "Invalidate cache"             "x" #'projectile-invalidate-cache)
+        (:prefix ("x" . "terminal")
+          :desc "Open eshell in project"     "e" #'projectile-run-eshell
+          :desc "Open ielm in project"       "i" #'projectile-run-ielm
+          :desc "Open term in project"       "t" #'projectile-run-term
+          :desc "Open shell in project"      "s" #'projectile-run-shell))
 
       (:prefix ("q" . "session")
         :desc "Quit Emacs"                   "q" #'evil-quit-all
@@ -762,7 +786,7 @@
 
 
 ;;
-;; Universal motion repeating keys
+;;; Universal motion repeating keys
 
 (defvar +default-repeat-keys (cons ";" ",")
   "The keys to use for repeating motions.
@@ -772,9 +796,8 @@ whose CDR is for repeating backward. They should both be kbd-able strings.")
 
 (when +default-repeat-keys
   (defmacro do-repeat! (command next-func prev-func)
-    "Makes ; and , the universal repeat-keys in evil-mode. These keys can be
-customized by changing `+default-repeat-forward-key' and
-`+default-repeat-backward-key'."
+    "Makes ; and , the universal repeat-keys in evil-mode.
+To change these keys see `+default-repeat-keys'."
     (let ((fn-sym (intern (format "+default*repeat-%s" (doom-unquote command)))))
       `(progn
          (defun ,fn-sym (&rest _)
@@ -809,7 +832,7 @@ customized by changing `+default-repeat-forward-key' and
 
 
 ;;
-;; Universal evil integration
+;;; Universal evil integration
 
 (when (featurep! :feature evil +everywhere)
   ;; Have C-u behave similarly to `doom/backward-to-bol-or-indent'.

@@ -23,6 +23,10 @@
     ;; Other
     :yield "import"))
 
+(after! projectile
+  (pushnew! projectile-project-root-files "package.json")
+  (pushnew! projectile-globally-ignored-directories "node_modules" "flow-typed"))
+
 
 ;;
 ;; Major modes
@@ -53,9 +57,6 @@
 
   (set-electric! 'js2-mode :chars '(?\} ?\) ?. ?:))
   (set-repl-handler! 'js2-mode #'+javascript/open-repl)
-
-  (after! projectile
-    (add-to-list 'projectile-globally-ignored-directories "node_modules"))
 
   (map! :map js2-mode-map
         :localleader

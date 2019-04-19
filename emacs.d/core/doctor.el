@@ -10,7 +10,7 @@
 ;; delays or freezing. This shouldn't happen often.
 (dolist (file (list "savehist"
                     "projectile.cache"))
-  (let* ((path (expand-file-name file doom-core-dir))
+  (let* ((path (expand-file-name file doom-cache-dir))
          (size (file-size path)))
     (when (and (numberp size) (> size 2000))
       (warn! "%s is too large (%.02fmb). This may cause freezes or odd startup delays"
@@ -18,7 +18,7 @@
              (/ size 1024))
       (explain! "Consider deleting it from your system (manually)"))))
 
-(when! (not (executable-find "fd"))
+(when! (not (executable-find doom-projectile-fd-binary))
   (warn! "Couldn't find the `fd' binary; project file searches will be slightly slower"))
 
 (let ((default-directory "~"))
@@ -27,3 +27,11 @@
     (warn! "Your $HOME is recognized as a project root")
     (explain! "Doom will disable bottom-up root search, which may reduce the accuracy of project\n"
               "detection.")))
+
+;; There should only be one
+(when! (and (file-equal-p doom-private-dir "~/.config/doom")
+            (file-directory-p "~/.doom.d"))
+  (warn! "Both %S and '~/.doom.d' exist on your system"
+         (abbreviate-file-name doom-private-dir))
+  (explain! "Doom will only load one of these (~/.config/doom takes precedence). Since\n"
+            "it is rarely intentional that you have both, ~/.doom.d should be removed."))

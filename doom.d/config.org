@@ -172,6 +172,7 @@
         :desc "Switch project"          :n  "p" #'projectile-switch-project
         :desc "Recent project files"    :n  "r" #'projectile-recentf
         :desc "List project tasks"      :n  "T" #'+ivy/tasks
+        :desc "Find in project (ack)"   :n  "a" #'helm-projectile-ack
         :desc "Invalidate cache"        :n  "x" #'projectile-invalidate-cache)     )
 
 #+END_SRC

@@ -27,7 +27,7 @@
 (advice-add #'toc-org-insert-toc :before #'+org*unfold-toc)
 
 (def-package! evil-org
-  :when (featurep! :feature evil +everywhere)
+  :when (featurep! :editor evil +everywhere)
   :hook (org-mode . evil-org-mode)
   :init
   (defvar evil-org-key-theme '(navigation insert textobjects))
@@ -35,7 +35,7 @@
   (add-hook 'org-load-hook #'+org|setup-evil-keybinds)
   (add-hook 'evil-org-mode-hook #'evil-normalize-keymaps)
   :config
-  (add-hook 'org-open-at-point-functions #'evil-set-jump)
+  (setq evil-org-retain-visual-state-on-shift t)
   ;; change `evil-org-key-theme' instead
   (advice-add #'evil-org-set-key-theme :override #'ignore)
   (def-package! evil-org-agenda
@@ -235,6 +235,7 @@ between the two."
         [remap doom/forward-to-last-non-comment-or-eol] #'org-end-of-line
 
         :localleader
+        "'" #'org-edit-special
         "," #'org-switchb
         "." #'org-goto
         (:when (featurep! :completion ivy)
@@ -245,13 +246,16 @@ between the two."
           "/" #'helm-org-agenda-files-headings)
         "d" #'org-deadline
         "f" #'org-footnote-new
-        "t" #'org-todo
-        "T" #'org-todo-list
+        "h" #'org-toggle-heading
+        "i" #'org-toggle-item
+        "I" #'org-toggle-inline-images
         "l" #'org-insert-link
         "L" #'org-store-link
+        "q" #'org-set-tags-command
         "r" #'org-refile
         "s" #'org-schedule
-        "'" #'org-edit-special
+        "t" #'org-todo
+        "T" #'org-todo-list
         (:prefix ("c" . "clock")
           "c" #'org-clock-in
           "C" #'org-clock-out
@@ -303,8 +307,15 @@ between the two."
             "c" #'org-table-create
             "r" #'org-table-recalculate
             "e" #'org-table-edit-formulas
-            "=" #'org-table-eval-formulas))))
+            "=" #'org-table-eval-formulas)))
 
+  (map! :map org-agenda-mode-map
+        :localleader
+        "d" #'org-agenda-deadline
+        "q" #'org-agenda-set-tags
+        "r" #'org-agenda-refile
+        "s" #'org-agenda-schedule
+        "t" #'org-agenda-todo))
 
 (defun +org|setup-evil-keybinds (&rest args)
   (unless args ; lookout for recursive requires
@@ -424,7 +435,9 @@ conditions where a window's buffer hasn't changed at the time this hook is run."
                 in (split-string (substring-no-properties result) separator)
                 for n from 0
                 for face = (nth (% n org-n-level-faces) org-level-faces)
-                collect (org-add-props part nil 'face `(:foreground ,(face-foreground face nil t) :weight bold)))
+                collect
+                (org-add-props (replace-regexp-in-string org-any-link-re "\\4" part)
+                    nil 'face `(:foreground ,(face-foreground face nil t) :weight bold)))
        separator)))
   (advice-add #'org-format-outline-path :around #'+org*strip-properties-from-outline)
 
@@ -461,8 +474,10 @@ conditions where a window's buffer hasn't changed at the time this hook is run."
        toc-org-enable             ; auto-table of contents
        auto-fill-mode             ; line wrapping
        ;; `show-paren-mode' causes flickering with indentation margins made by
-       ;; `org-indent-mode', so we simply turn off show-paren-mode altogether."
+       ;; `org-indent-mode', so we turn off show-paren-mode altogether
        doom|disable-show-paren-mode
+       ;; Shows a lot of false positives, so...
+       doom|disable-show-trailing-whitespace
 
        +org|enable-auto-reformat-tables
        +org|enable-auto-update-cookies
@@ -475,6 +490,7 @@ conditions where a window's buffer hasn't changed at the time this hook is run."
   (+org|setup-hacks)
   (+org|setup-custom-links)
 
+  (add-hook 'org-open-at-point-functions #'doom|set-jump)
 
   ;; Cross-module configuration
   (set-popup-rules!
@@ -514,5 +530,6 @@ conditions where a window's buffer hasn't changed at the time this hook is run."
   (if (featurep! +babel)    (load! "+babel"))
   (if (featurep! +capture)  (load! "+capture"))
   (if (featurep! +export)   (load! "+export"))
+  (if (featurep! +habit)    (load! "+habit"))
   (if (featurep! +present)  (load! "+present"))
   (if (featurep! +protocol) (load! "+protocol")))

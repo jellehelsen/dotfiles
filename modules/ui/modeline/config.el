@@ -1,7 +1,5 @@
 ;;; ui/modeline/config.el -*- lexical-binding: t; -*-
 
-;; TODO Add themes (default, minimal, spacemacs, etc)
-
 (def-package! doom-modeline
   :hook (after-init . doom-modeline-mode)
   :init
@@ -27,64 +25,39 @@
   (when (daemonp)
     (setq doom-modeline-icon t))
   :config
+  ;; Fix an issue where these two variables aren't defined in TTY Emacs on MacOS
+  (defvar mouse-wheel-down-event nil)
+  (defvar mouse-wheel-up-event nil)
+
   (add-hook 'doom-modeline-mode-hook #'size-indication-mode) ; filesize in modeline
   (add-hook 'doom-modeline-mode-hook #'column-number-mode)   ; cursor column in modeline
 
-  (add-hook 'doom-big-font-mode-hook #'+modeline|resize-for-big-font)
+  (add-hook 'doom-change-font-size-hook #'+modeline|resize-for-font)
   (add-hook 'doom-load-theme-hook #'doom-modeline-refresh-bars)
 
   (add-hook '+doom-dashboard-mode-hook #'doom-modeline-set-project-modeline)
 
-  ;; Don't eager-load project.el. Doom only uses projectile anyway, for now.
   (defun +modeline*project-root ()
+    "Only use projectile-project-root."
     (or doom-modeline-project-root
         (setq doom-modeline-project-root
               (file-local-name
-               (or (and (featurep 'projectile) (ignore-errors (projectile-project-root)))
+               (or (and (featurep 'projectile)
+                        (ignore-errors (projectile-project-root)))
                    default-directory)))))
   (advice-add #'doom-modeline-project-root :override #'+modeline*project-root)
 
-  ;; Magit -- modeline only where it's useful
   (defun +modeline|hide-in-non-status-buffer ()
+    "Show minimal modeline in magit-status buffer, no modeline elsewhere."
     (if (eq major-mode 'magit-status-mode)
         (doom-modeline-set-project-modeline)
       (hide-mode-line-mode)))
-  (remove-hook 'magit-mode-hook #'doom-modeline-set-project-modeline)
   (add-hook 'magit-mode-hook #'+modeline|hide-in-non-status-buffer)
-
-  ;; Show indentation style in modeline. I'm not using
-  ;; `doom-modeline-def-segment' to prevent eager macro expansion from loading
-  ;; the package too soon.
-  (defun +modeline-indent-segment ()
-    "indent modeline segment"
-    (propertize (format "%s%d"
-                        (if indent-tabs-mode "⭾" "␣")
-                        tab-width)
-                'face (if (doom-modeline--active) 'mode-line 'mode-line-inactive)
-                'mouse-face 'mode-line-highlight
-                'help-echo
-                (let ((subsegs
-                       (list (format "Indentation style: %s (%d wide)"
-                                     (if indent-tabs-mode "tabs" "spaces")
-                                     tab-width)
-                             (cond ((eq doom-inhibit-indent-detection 'editorconfig)
-                                    (propertize "✓ Editorconfig applied" 'face 'success))
-                                   (doom-inhibit-indent-detection
-                                    (propertize "✘ Indentation auto-detection disabled" 'face 'warning))
-                                   ((bound-and-true-p dtrt-indent-original-indent)
-                                    (propertize (format "✓ Indentation auto-detected (original: %s)"
-                                                        dtrt-indent-original-indent)
-                                                'face 'success)))
-                             (when (bound-and-true-p ws-butler-mode)
-                               (propertize "✓ ws-butler active (whitespace cleanup on save)"
-                                           'face 'success)))))
-                  (string-join (delq nil subsegs) "   "))))
-  (add-to-list 'doom-modeline-fn-alist '(indent . +modeline-indent-segment))
 
   ;; Remove unused segments & extra padding
   (doom-modeline-def-modeline 'main
     '(bar window-number matches buffer-info remote-host buffer-position selection-info)
-    '(misc-info persp-name irc mu4e github debug indent input-method buffer-encoding lsp major-mode process vcs checker))
+    '(misc-info persp-name irc mu4e github debug input-method buffer-encoding lsp major-mode process vcs checker))
 
   (doom-modeline-def-modeline 'special
     '(bar window-number matches buffer-info-simple buffer-position selection-info)
@@ -108,5 +81,5 @@
   :after-call isearch-mode)
 
 (def-package! evil-anzu
-  :when (featurep! :feature evil)
-  :after-call (evil-ex-start-search evil-ex-start-word-search))
+  :when (featurep! :editor evil)
+  :after-call (evil-ex-start-search evil-ex-start-word-search evil-ex-search-activate-highlight))

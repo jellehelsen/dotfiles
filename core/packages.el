@@ -14,20 +14,15 @@
 (package! all-the-icons)
 (package! hide-mode-line)
 (package! highlight-numbers)
-(package! highlight-escape-sequences
-  :recipe (:fetcher github :repo "hlissner/highlight-escape-sequences"))
 (unless (locate-library "display-line-numbers")
   (package! nlinum)
   (package! nlinum-hl)
   (package! nlinum-relative))
 (package! rainbow-delimiters)
-(package! visual-fill-column)
 (package! restart-emacs)
 
 ;; core-editor.el
-(package! ace-link)
-(package! ace-window)
-(package! avy)
+(package! better-jumper)
 (package! command-log-mode)
 (package! dtrt-indent)
 (package! helpful)
@@ -44,8 +39,11 @@
 (package! which-key)
 (package! hydra)
 
+;; core-packages.el
+(package! gnu-elpa-keyring-update)
+
 ;; autoload/debug.el
 (package! esup)
 
-;; autoload/test.el
+;; cli/test.el
 (package! buttercup)

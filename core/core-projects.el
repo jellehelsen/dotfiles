@@ -18,7 +18,10 @@ Emacs.")
 
 (def-package! projectile
   :after-call (after-find-file dired-before-readin-hook minibuffer-setup-hook)
-  :commands (projectile-project-root projectile-project-name projectile-project-p)
+  :commands (projectile-project-root
+             projectile-project-name
+             projectile-project-p
+             projectile-add-known-project) ; TODO PR autoload upstream
   :init
   (setq projectile-cache-file (concat doom-cache-dir "projectile.cache")
         projectile-enable-caching (not noninteractive)
@@ -28,7 +31,9 @@ Emacs.")
         projectile-globally-ignored-file-suffixes '(".elc" ".pyc" ".o")
         projectile-ignored-projects '("~/" "/tmp")
         projectile-kill-buffers-filter 'kill-only-files
-        projectile-files-cache-expire 604800) ; expire after a week
+        projectile-files-cache-expire 604800 ; expire after a week
+        projectile-sort-order 'recentf
+        projectile-use-git-grep t) ; use git-grep for text searches
 
   :config
   (add-hook 'dired-before-readin-hook #'projectile-track-known-projects-find-file-hook)
@@ -55,8 +60,9 @@ c) are not valid projectile projects."
     (when (bound-and-true-p projectile-projects-cache)
       (cl-loop with blacklist = (mapcar #'file-truename doom-projectile-cache-blacklist)
                for proot in (hash-table-keys projectile-projects-cache)
-               for len = (length (gethash proot projectile-projects-cache))
-               if (or (>= len doom-projectile-cache-limit)
+               if (or (not (stringp proot))
+                      (>= (length (gethash proot projectile-projects-cache))
+                          doom-projectile-cache-limit)
                       (member (substring proot 0 -1) blacklist)
                       (and doom-projectile-cache-purge-non-projects
                            (not (doom-project-p proot))))
@@ -65,7 +71,8 @@ c) are not valid projectile projects."
                and do (remhash proot projectile-projects-cache-time)
                and do (remhash proot projectile-project-type-cache))
       (projectile-serialize-cache)))
-  (add-hook 'kill-emacs-hook #'doom|cleanup-project-cache)
+  (unless noninteractive
+    (add-hook 'kill-emacs-hook #'doom|cleanup-project-cache))
 
   ;; It breaks projectile's project root resolution if HOME is a project (e.g.
   ;; it's a git repo). In that case, we disable bottom-up root searching to
@@ -90,14 +97,25 @@ c) are not valid projectile projects."
       (funcall orig-fn file name)))
   (advice-add #'projectile-locate-dominating-file :around #'doom*projectile-locate-dominating-file)
 
-  ;; If fd exists, use it for git and generic projects
-  ;; fd is a rust program that is significantly faster. It also respects
-  ;; .gitignore. This is recommended in the projectile docs
-  (when (executable-find doom-projectile-fd-binary)
+  (cond
+   ;; If fd exists, use it for git and generic projects. fd is a rust program
+   ;; that is significantly faster and respects .gitignore. This is recommended
+   ;; in the projectile docs
+   ((executable-find doom-projectile-fd-binary)
     (setq projectile-git-command (concat
                                   doom-projectile-fd-binary
                                   " . --type f -0 -H -E .git")
-          projectile-generic-command projectile-git-command)))
+          projectile-generic-command projectile-git-command))
+
+   ;; Otherwise, resort to ripgrep, which is also faster than find.
+   ((executable-find "rg")
+    (setq projectile-generic-command
+          (concat "rg -0 --files --color=never --hidden"
+                  (cl-loop for dir in projectile-globally-ignored-directories
+                           concat (format " --glob '!%s'" dir))))
+    (when IS-WINDOWS
+      (setq projectile-indexing-method 'alien
+            projectile-enable-caching nil)))))
 
 ;;
 ;; Project-based minor modes

@@ -12,8 +12,8 @@
   :init
   (set-repl-handler! 'clojure-mode #'+clojure/repl)
   (set-eval-handler! 'clojure-mode #'cider-eval-region)
-  (set-lookup-handlers! 'clojure-mode
-    :definition #'cider-find-dwim
+  (set-lookup-handlers! 'cider-mode
+    :definition #'+clojure-cider-lookup-definition
     :documentation #'cider-doc)
   (add-hook 'cider-mode-hook #'eldoc-mode)
   :config
@@ -82,11 +82,17 @@
               "R" #'cider-restart
               "b" #'cider-switch-to-repl-buffer
               "B" #'+clojure/cider-switch-to-repl-buffer-and-switch-ns
-              "c" #'cider-repl-clear-buffer)))
+              "c" #'cider-find-and-clear-repl-output)))
 
-        (:when (featurep! :feature evil +everywhere)
+        (:when (featurep! :editor evil +everywhere)
           :map cider-repl-mode-map
           :i [S-return] #'cider-repl-newline-and-indent
+          (:localleader
+            ("n" #'cider-repl-set-ns
+             "q" #'cider-quit
+             "r" #'cider-ns-refresh
+             "R" #'cider-restart
+             "c" #'cider-repl-clear-buffer))
           :map cider-repl-history-mode-map
           :i [return]  #'cider-repl-history-insert-and-quit
           :i "q"  #'cider-repl-history-quit
@@ -99,7 +105,7 @@
 (def-package! clj-refactor
   :hook (clojure-mode . clj-refactor-mode)
   :init
-  (set-lookup-handlers! 'clojure-mode
+  (set-lookup-handlers! 'clj-refactor-mode
     :references #'cljr-find-usages)
   :config
   (map! :map clojure-mode-map

@@ -73,12 +73,14 @@ following:
 ;;;###autoload
 (defun doom|persist-scratch-buffers ()
   "Save all scratch buffers to `doom-scratch-dir'."
-  (dolist (buffer (cl-delete-if-not #'buffer-live-p doom-scratch-buffers))
+  (setq doom-scratch-buffers (cl-delete-if-not #'buffer-live-p doom-scratch-buffers))
+  (dolist (buffer doom-scratch-buffers)
     (with-current-buffer buffer
       (doom|persist-scratch-buffer))))
 
 ;;;###autoload
-(add-hook 'kill-emacs-hook #'doom|persist-scratch-buffers)
+(unless noninteractive
+  (add-hook 'kill-emacs-hook #'doom|persist-scratch-buffers))
 
 
 ;;
@@ -88,7 +90,9 @@ following:
 (defun doom/open-scratch-buffer (&optional arg project-p)
   "Opens the (persistent) scratch buffer in a popup.
 
-If ARG, switch to it in the current window."
+If passed the prefix ARG, switch to it in the current window.
+If PROJECT-P is non-nil, open a persistent scratch buffer associated with the
+  current project."
   (interactive "P")
   (let (projectile-enable-caching)
     (funcall
@@ -110,12 +114,25 @@ If ARG, switch to it in the current window."
         (doom-project-name))))))
 
 ;;;###autoload
+(defun doom/switch-to-scratch-buffer (&optional project-p)
+  "Like `doom/open-scratch-buffer', but switches to it in the current window."
+  (interactive)
+  (doom/open-scratch-buffer t))
+
+;;;###autoload
 (defun doom/open-project-scratch-buffer (&optional arg)
   "Opens the (persistent) project scratch buffer in a popup.
 
-If ARG, switch to it in the current window."
+If passed the prefix ARG, switch to it in the current window."
   (interactive "P")
   (doom/open-scratch-buffer arg 'project))
+
+;;;###autoload
+(defun doom/switch-to-project-scratch-buffer ()
+  "Like `doom/open-project-scratch-buffer', but switches to it in the current
+window."
+  (interactive)
+  (doom/open-project-scratch-buffer t))
 
 ;;;###autoload
 (defun doom/revert-scratch-buffer ()

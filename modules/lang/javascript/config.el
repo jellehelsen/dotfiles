@@ -117,37 +117,35 @@
     :return "return" :yield "import"))
 
 
-;; `coffee-mode'
+;;;###package coffee-mode
 (setq coffee-indent-like-python-mode t)
 (after! coffee-mode
   (set-docsets! 'coffee-mode "CoffeeScript"))
 
 
 ;;
-;; Tools
-
-(when (featurep! +lsp)
-  (add-hook! (js2-mode rjsx-mode typescript-mode) #'lsp!))
-
+;;; Tools
 
 (def-package! tide
-  :unless (featurep! +lsp)
   :defer t
   :init
-  ;; Don't let hard errors stop the user from opening js files.
-  (defun +javascript|init-tide ()
-    "Enable `tide-mode' if node is available."
-    (cond ((not buffer-file-name)
-           (add-hook 'after-save-hook #'+javascript|init-tide nil t))
-          ((executable-find "node")
-           (tide-setup))
-          ((message "Couldn't find `node', aborting tide server"))))
-  (add-hook! (js2-mode typescript-mode) #'+javascript|init-tide)
+  (defun +javascript|init-tide-maybe ()
+    "Enable `tide-mode' if node is available, `lsp-mode' isn't enabled and this
+buffer represents a real file."
+    (unless (bound-and-true-p lsp-mode)
+      (cond ((not buffer-file-name)
+             ;; necessary because `tide-setup' will error if not a file-visiting buffer
+             (add-hook 'after-save-hook #'+javascript|init-tide-maybe nil 'local))
+            ((executable-find "node")
+             (tide-setup)
+             (remove-hook 'after-save-hook #'+javascript|init-tide-maybe 'local))
+            ((message "Couldn't find `node', aborting tide server")))))
+  (add-hook! (js2-mode typescript-mode) #'+javascript|init-tide-maybe)
 
   (defun +javascript|init-tide-in-web-mode ()
-    "Enable `tide-mode' if in a *.tsx file."
+    "Enable `tide-mode' if in a *.tsx file (and `lsp-mode' isn't active)."
     (when (string= (file-name-extension (or buffer-file-name "")) "tsx")
-      (tide-setup)))
+      (+javascript|init-tide-maybe)))
   (add-hook 'web-mode-hook #'+javascript|init-tide-in-web-mode)
   :config
   (setq tide-completion-detailed t
@@ -159,9 +157,9 @@
     (setq-default company-backends (delq 'company-tide (default-value 'company-backends))))
   (set-company-backend! 'tide-mode 'company-tide)
   ;; navigation
-  (set-lookup-handlers! 'tide-mode :async t
-    :definition #'tide-jump-to-definition
-    :references #'tide-references)
+  (set-lookup-handlers! 'tide-mode
+    :definition '(tide-jump-to-definition :async t)
+    :references '(tide-references :async t))
   ;; resolve to `doom-project-root' if `tide-project-root' fails
   (advice-add #'tide-project-root :override #'+javascript*tide-project-root)
   ;; cleanup tsserver when no tide buffers are left
@@ -173,13 +171,17 @@
   (map! :localleader
         :map tide-mode-map
         "R"   #'tide-restart-server
-        "f"   #'tide-reformat
+        "f"   #'tide-format
         "rs"  #'tide-rename-symbol
         "roi" #'tide-organize-imports))
 
 
+(when (featurep! +lsp)
+  (add-hook! (js2-mode typescript-mode) #'lsp!))
+
+
 (def-package! xref-js2
-  :when (featurep! :feature lookup)
+  :when (featurep! :tools lookup)
   :after (:or js2-mode rjsx-mode)
   :config
   (set-lookup-handlers! '(js2-mode rjsx-mode)
@@ -189,7 +191,7 @@
 (def-package! js2-refactor
   :hook ((js2-mode rjsx-mode) . js2-refactor-mode)
   :config
-  (when (featurep! :feature evil +everywhere)
+  (when (featurep! :editor evil +everywhere)
     (let ((js2-refactor-mode-map (evil-get-auxiliary-keymap js2-refactor-mode-map 'normal t t)))
       (js2r-add-keybindings-with-prefix (format "%s r" doom-localleader-key)))))
 
@@ -202,7 +204,7 @@
   (add-hook 'eslintd-fix-mode-hook #'+javascript|set-flycheck-executable-to-eslint))
 
 
-;; `skewer-mode'
+;;;###package skewer-mode
 (map! :localleader
       :prefix "s"
       (:after skewer-mode
@@ -223,7 +225,7 @@
         "e" #'skewer-html-eval-tag))
 
 
-;; `npm-mode'
+;;;###package npm-mode
 (map! :after npm-mode
       :localleader
       :map npm-mode-keymap
@@ -239,7 +241,7 @@
 
 
 ;;
-;; Projects
+;;; Projects
 
 (def-project-mode! +javascript-npm-mode
   :modes (html-mode css-mode web-mode typescript-mode js2-mode rjsx-mode json-mode markdown-mode)

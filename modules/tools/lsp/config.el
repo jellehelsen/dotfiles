@@ -2,11 +2,12 @@
 
 (setq lsp-session-file (concat doom-etc-dir "lsp-session")
       lsp-auto-guess-root t
-      lsp-keep-workspace-alive nil)
+      lsp-keep-workspace-alive nil
+      lsp-groovy-server-install-dir (concat doom-etc-dir "groovy-langserver/"))
 
 (after! lsp-mode
-  (set-lookup-handlers! 'lsp-mode
-    :documentation #'lsp-describe-thing-at-point)
+  (set-lookup-handlers! 'lsp-mode :async t
+    :documentation 'lsp-describe-thing-at-point)
 
   ;; Don't prompt to restart LSP servers while quitting Emacs
   (add-hook! 'kill-emacs-hook (setq lsp-restart 'ignore)))
@@ -18,15 +19,14 @@
   (setq lsp-prefer-flymake nil
         lsp-ui-doc-max-height 8
         lsp-ui-doc-max-width 35
-        lsp-ui-sideline-ignore-duplicate t)
+        lsp-ui-sideline-ignore-duplicate t
+        ;; lsp-ui-doc is redundant with and less invasive than
+        ;; `+lookup/documentation'
+        lsp-ui-doc-enable nil)
 
-  (define-key! lsp-ui-mode-map
-    [remap xref-find-definitions] #'lsp-ui-peek-find-definitions
-    [remap xref-find-references]  #'lsp-ui-peek-find-references
-    ;; `set-lookup-handlers!' won't work for lsp-ui-peek commands, because they
-    ;; don't switch buffers
-    [remap +lookup/definition] #'lsp-ui-peek-find-definitions
-    [remap +lookup/references] #'lsp-ui-peek-find-references))
+  (set-lookup-handlers! 'lsp-ui-mode :async t
+    :definition 'lsp-ui-peek-find-definitions
+    :references 'lsp-ui-peek-find-references))
 
 
 (def-package! company-lsp

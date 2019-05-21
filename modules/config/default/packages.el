@@ -1,6 +1,8 @@
 ;; -*- no-byte-compile: t; -*-
 ;;; config/default/packages.el
 
-(unless (featurep! :feature evil)
-  (package! winum)
+(package! avy)
+(package! ace-link)
+
+(unless (featurep! :editor evil)
   (package! expand-region))

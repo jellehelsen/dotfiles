@@ -14,7 +14,7 @@ This marks a foldable marker for `outline-minor-mode' in elisp buffers.")
 
 
 ;;
-;; Config
+;;; Config
 
 (def-package! elisp-mode
   :mode ("\\.Cask\\'" . emacs-lisp-mode)
@@ -30,7 +30,6 @@ This marks a foldable marker for `outline-minor-mode' in elisp buffers.")
     :symbols '(("t" "nil")
                ("let" "let*")
                ("when" "unless")
-               ("append" "prepend")
                ("advice-add" "advice-remove")
                ("add-hook" "remove-hook")
                ("add-hook!" "remove-hook!")))
@@ -46,15 +45,18 @@ This marks a foldable marker for `outline-minor-mode' in elisp buffers.")
   (add-to-list 'doom-detect-indentation-excluded-modes 'emacs-lisp-mode nil #'eq)
 
   (add-hook! 'emacs-lisp-mode-hook
-    #'(;; 3rd-party functionality
-       auto-compile-on-save-mode
-       outline-minor-mode
+    #'(outline-minor-mode
+       ;; fontificiation
+       rainbow-delimiters-mode
+       highlight-quoted-mode
        ;; initialization
-       +emacs-lisp|extend-imenu))
+       +emacs-lisp|extend-imenu
+       +emacs-lisp|read-only-packages))
 
-  ;; Flycheck produces a *lot* of false positives in emacs configs, so disable
-  ;; it when you're editing them
-  (add-hook 'flycheck-mode-hook #'+emacs-lisp|disable-flycheck-maybe)
+  ;; Flycheck's two emacs-lisp checkers produce a *lot* of false positives in
+  ;; emacs configs, so we disable `emacs-lisp-checkdoc' and reduce the
+  ;; `emacs-lisp' checker's verbosity.
+  (add-hook 'flycheck-mode-hook #'+emacs-lisp|reduce-flycheck-errors-in-emacs-config)
 
   ;; Special fontification for elisp
   (font-lock-add-keywords
@@ -65,8 +67,6 @@ This marks a foldable marker for `outline-minor-mode' in elisp buffers.")
            (when +emacs-lisp-enable-extra-fontification
              `((+emacs-lisp-highlight-vars-and-faces . +emacs-lisp--face)))))
 
-  (add-hook! 'emacs-lisp-mode-hook #'(rainbow-delimiters-mode highlight-quoted-mode))
-
   ;; Recenter window after following definition
   (advice-add #'elisp-def :after #'doom*recenter)
 
@@ -76,15 +76,9 @@ This marks a foldable marker for `outline-minor-mode' in elisp buffers.")
 
 
 ;;
-;; Packages
+;;; Packages
 
-;; `auto-compile'
-(setq auto-compile-display-buffer nil
-      auto-compile-use-mode-line nil)
-
-
-;; `macrostep'
-(when (featurep! :feature evil)
+(when (featurep! :editor evil)
   (after! macrostep
     (evil-define-key* 'normal macrostep-keymap
       [return]  #'macrostep-expand
@@ -108,7 +102,7 @@ This marks a foldable marker for `outline-minor-mode' in elisp buffers.")
     (add-hook 'macrostep-mode-hook #'evil-normalize-keymaps)))
 
 
-;; `overseer'
+;;;###package overseer
 (autoload 'overseer-test "overseer" nil t)
 (remove-hook 'emacs-lisp-mode-hook 'overseer-enable-mode)
 
@@ -129,7 +123,7 @@ This marks a foldable marker for `outline-minor-mode' in elisp buffers.")
 
 
 ;;
-;; Project modes
+;;; Project modes
 
 (def-project-mode! +emacs-lisp-ert-mode
   :modes (emacs-lisp-mode)

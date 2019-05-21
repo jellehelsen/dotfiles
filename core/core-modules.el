@@ -11,23 +11,44 @@
         doom-modules-dir)
   "A list of module root directories. Order determines priority.")
 
+(defvar doom-inhibit-module-warnings (not noninteractive)
+  "If non-nil, don't emit deprecated or missing module warnings at startup.")
+
 (defconst doom-obsolete-modules
   '((:feature (version-control (:emacs vc) (:ui vc-gutter))
               (spellcheck (:tools flyspell))
-              (syntax-checker (:tools flycheck)))
-    (:tools (rotate-text (:editor rotate-text)))
+              (syntax-checker (:tools flycheck))
+              (evil (:editor evil))
+              (snippets (:editor snippets))
+              (file-templates (:editor file-templates))
+              (workspaces (:ui workspaces))
+              (eval (:tools eval))
+              (lookup (:tools lookup))
+              (debugger (:tools debugger)))
+    (:tools (rotate-text (:editor rotate-text))
+            (vterm (:term vterm))
+            (password-store (:tools pass)))
     (:emacs (electric-indent (:emacs electric))
-            (hideshow (:editor fold)))
-    (:ui (doom-modeline (:ui modeline)))
-    (:ui (fci (:ui fill-column))))
-  "An alist of deprecated modules, mapping deprecated modules to an optional new
-location (which will create an alias). Each CAR and CDR is a (CATEGORY .
-MODULES). E.g.
+            (hideshow (:editor fold))
+            (eshell (:term eshell))
+            (term (:term term)))
+    (:ui (doom-modeline (:ui modeline))
+         (fci (:ui fill-column))
+         (evil-goggles (:ui ophints)))
+    (:app (email (:email mu4e))
+          (notmuch (:email notmuch))))
+  "A tree alist that maps deprecated modules to their replacement(s).
 
-  ((:emacs . electric-indent) . (:emacs electric))
-  ((:feature . version-control) (:emacs vc) (:ui . vc-gutter))
+Each entry is a three-level tree. For example:
 
-A warning will be put out if these deprecated modules are used.")
+  (:feature (version-control (:emacs vc) (:ui vc-gutter))
+            (spellcheck (:tools flyspell))
+            (syntax-checker (:tools flycheck)))
+
+This marks :feature version-control, :feature spellcheck and :feature
+syntax-checker modules obsolete. e.g. If :feature version-control is found in
+your `doom!' block, a warning is emitted before replacing it with :emacs vc and
+:ui vc-gutter.")
 
 (defvar doom--current-module nil)
 (defvar doom--current-flags nil)
@@ -203,12 +224,13 @@ non-nil, return paths of possible modules, activated or otherwise."
 ;;
 ;;; Use-package modifications
 
-(autoload 'use-package "use-package-core" nil nil t)
+(eval-and-compile
+  (autoload 'use-package "use-package-core" nil nil t)
 
-(setq use-package-compute-statistics doom-debug-mode
-      use-package-verbose doom-debug-mode
-      use-package-minimum-reported-time (if doom-debug-mode 0 0.1)
-      use-package-expand-minimally (not noninteractive))
+  (setq use-package-compute-statistics doom-debug-mode
+        use-package-verbose doom-debug-mode
+        use-package-minimum-reported-time (if doom-debug-mode 0 0.1)
+        use-package-expand-minimally (not noninteractive)))
 
 ;; Adds two new keywords to `use-package' (and consequently, `def-package!') to
 ;; expand its lazy-loading capabilities. They are:
@@ -218,10 +240,17 @@ non-nil, return paths of possible modules, activated or otherwise."
 ;;
 ;; Check out `def-package!'s documentation for more about these two.
 (defvar doom--deferred-packages-alist '(t))
-(after! use-package-core
-  ;; :ensure and :pin don't work well with Doom, so we forcibly remove them.
-  (dolist (keyword '(:ensure :pin))
-    (setq use-package-keywords (delq keyword use-package-keywords)))
+
+(with-eval-after-load 'use-package-core
+  ;; Macros are already fontified, no need for this
+  (font-lock-remove-keywords 'emacs-lisp-mode use-package-font-lock-keywords)
+
+  ;; Disable :ensure and :pin, because they don't work with Doom because we do
+  ;; our own package management.
+  (with-eval-after-load 'use-package-ensure
+    (dolist (keyword '(:ensure :pin))
+      (delq! keyword use-package-keywords)
+      (delq! keyword use-package-defaults 'assq)))
 
   ;; Insert new deferring keywords
   (dolist (keyword '(:defer-incrementally :after-call))
@@ -229,7 +258,7 @@ non-nil, return paths of possible modules, activated or otherwise."
     (setq use-package-keywords
           (use-package-list-insert keyword use-package-keywords :after)))
 
-  (defalias 'use-package-normalize/:defer-incrementally 'use-package-normalize-symlist)
+  (defalias 'use-package-normalize/:defer-incrementally #'use-package-normalize-symlist)
   (defun use-package-handler/:defer-incrementally (name _keyword targets rest state)
     (use-package-concat
      `((doom-load-packages-incrementally
@@ -238,11 +267,11 @@ non-nil, return paths of possible modules, activated or otherwise."
             (append targets (list name)))))
      (use-package-process-keywords name rest state)))
 
-  (defalias 'use-package-normalize/:after-call 'use-package-normalize-symlist)
+  (defalias 'use-package-normalize/:after-call #'use-package-normalize-symlist)
   (defun use-package-handler/:after-call (name _keyword hooks rest state)
     (if (plist-get state :demand)
         (use-package-process-keywords name rest state)
-      (let ((fn (intern (format "doom|transient-hook--load-%s" name))))
+      (let ((fn (make-symbol (format "doom|transient-hook--load-%s" name))))
         (use-package-concat
          `((fset ',fn
                  (lambda (&rest _)
@@ -253,16 +282,15 @@ non-nil, return paths of possible modules, activated or otherwise."
                       (message "Failed to load deferred package %s: %s" ',name e)))
                    (when-let* ((deferral-list (assq ',name doom--deferred-packages-alist)))
                      (dolist (hook (cdr deferral-list))
-                       (if (functionp hook)
-                           (advice-remove hook #',fn)
-                         (remove-hook hook #',fn)))
-                     (setq doom--deferred-packages-alist
-                           (delq deferral-list doom--deferred-packages-alist))))))
+                       (advice-remove hook #',fn)
+                       (remove-hook hook #',fn))
+                     (delq! deferral-list doom--deferred-packages-alist)
+                     (unintern ',fn nil)))))
          (let (forms)
            (dolist (hook hooks forms)
-             (push (if (functionp hook)
-                       `(advice-add #',hook :before #',fn)
-                     `(add-hook ',hook #',fn))
+             (push (if (string-match-p "-\\(?:functions\\|hook\\)$" (symbol-name hook))
+                       `(add-hook ',hook #',fn)
+                     `(advice-add #',hook :before #',fn))
                    forms)))
          `((unless (assq ',name doom--deferred-packages-alist)
              (push '(,name) doom--deferred-packages-alist))
@@ -308,7 +336,8 @@ to least)."
           (make-hash-table :test 'equal
                            :size (if modules (length modules) 150)
                            :rehash-threshold 1.0)))
-  (let (category m)
+  (let ((inhibit-message doom-inhibit-module-warnings)
+        category m)
     (while modules
       (setq m (pop modules))
       (cond ((keywordp m) (setq category m))
@@ -320,25 +349,33 @@ to least)."
                              (new (assq module obsolete)))
                    (let ((newkeys (cdr new)))
                      (if (null newkeys)
-                         (message "Warning: the %s module is deprecated" key)
-                       (message "Warning: the %s module is deprecated. Use %s instead."
+                         (message "WARNING %s is deprecated" key)
+                       (message "WARNING %s is deprecated, enabling %s instead"
                                 (list category module) newkeys)
                        (push category modules)
                        (dolist (key newkeys)
-                         (setq modules (append key modules)))
+                         (push (if flags
+                                   (nconc (cdr key) flags)
+                                 (cdr key))
+                               modules)
+                         (push (car key) modules))
                        (throw 'doom-modules t))))
                  (if-let* ((path (doom-module-locate-path category module)))
                      (doom-module-set category module :flags flags :path path)
-                   (message "Warning: couldn't find the %s %s module" category module))))))))
+                   (message "WARNING Couldn't find the %s %s module" category module))))))))
+  (when noninteractive
+    (setq doom-inhibit-module-warnings t))
   `(setq doom-modules ',doom-modules))
 
 (defvar doom-disabled-packages)
 (defmacro def-package! (name &rest plist)
-  "This is a thin wrapper around `use-package'.
+  "Declares and configures a package.
 
-It is ignored if the NAME package is disabled.
+This is a thin wrapper around `use-package', and is ignored if the NAME package
+is disabled by the user (with `package!').
 
-Supports two special properties over `use-package':
+See `use-package' to see what properties can be provided. Doom adds support for
+two extra properties:
 
 :after-call SYMBOL|LIST
   Takes a symbol or list of symbols representing functions or hook variables.
@@ -359,15 +396,15 @@ Supports two special properties over `use-package':
   NAME is implicitly added if this property is present and non-nil. No need to
   specify it. A value of `t' implies NAME, e.g.
 
-  (def-package! x
-    ;; This is equivalent to :defer-incrementally (x)
+  (def-package! abc
+    ;; This is equivalent to :defer-incrementally (abc)
     :defer-incrementally t
     ...)"
   (unless (or (memq name doom-disabled-packages)
-              ;; At compile-time, use-package will forcibly load its package to
-              ;; prevent compile-time errors. However, Doom users can
-              ;; intentionally disable packages, resulting if file-missing
-              ;; package errors, so we preform this check at compile time:
+              ;; At compile-time, use-package will forcibly load packages to
+              ;; prevent compile-time errors. However, if a Doom user has
+              ;; disabled packages you get file-missing package errors, so it's
+              ;; necessary to check for packages at compile time:
               (and (bound-and-true-p byte-compile-current-file)
                    (not (locate-library (symbol-name name)))))
     `(use-package ,name ,@plist)))
@@ -398,22 +435,29 @@ to have them return non-nil (or exploit that to overwrite Doom's config)."
                          (substring (symbol-name when) 1)))
        ,@body)))
 
-(defmacro require! (category module &rest plist)
-  "Loads the module specified by CATEGORY (a keyword) and MODULE (a symbol)."
-  `(let ((module-path (doom-module-locate-path ,category ',module)))
+(defmacro require! (category module &rest flags)
+  "Loads the CATEGORY MODULE module with FLAGS.
+
+CATEGORY is a keyword, MODULE is a symbol and FLAGS are symbols.
+
+  (require! :lang php +lsp)
+
+This is for testing and internal use. This is not the correct way to enable a
+module."
+  `(let ((doom-modules ,doom-modules)
+         (module-path (doom-module-locate-path ,category ',module)))
      (doom-module-set
       ,category ',module
-      ,@(when plist
-          (let ((old-plist (doom-module-get category module)))
-            (unless (plist-member plist :flags)
-              (plist-put plist :flags (plist-get old-plist :flags)))
-            (unless (plist-member plist :path)
-              (plist-put plist :path (or (plist-get old-plist :path)
-                                         (doom-module-locate-path category module)))))
-          plist))
+      (let ((plist (doom-module-get ,category ',module)))
+        ,(when flags
+           `(plist-put plist :flags `,flags))
+        (unless (plist-member plist :path)
+          (plist-put plist :path ,(doom-module-locate-path category module)))
+        plist))
      (if (directory-name-p module-path)
          (condition-case-unless-debug ex
-             (let ((doom--current-module ',(cons category module)))
+             (let ((doom--current-module ',(cons category module))
+                   (doom--current-flags ',flags))
                (load! "init" module-path :noerror)
                (let ((doom--stage 'config))
                  (load! "config" module-path :noerror)))
@@ -426,8 +470,9 @@ to have them return non-nil (or exploit that to overwrite Doom's config)."
              ,category ',module))))
 
 (defmacro featurep! (category &optional module flag)
-  "Returns t if CATEGORY MODULE is enabled. If FLAG is provided, returns t if
-CATEGORY MODULE has FLAG enabled.
+  "Returns t if CATEGORY MODULE is enabled.
+
+If FLAG is provided, returns t if CATEGORY MODULE has FLAG enabled.
 
   (featurep! :config default)
 
@@ -436,8 +481,8 @@ Module FLAGs are set in your config's `doom!' block, typically in
 
   :config (default +flag1 -flag2)
 
-When this macro is used from inside a module, CATEGORY and MODULE can be
-omitted. eg. (featurep! +flag1)"
+CATEGORY and MODULE can be omitted When this macro is used from inside a module
+(except your DOOMDIR, which is a special moduel). e.g. (featurep! +flag)"
   (and (cond (flag (memq flag (doom-module-get category module :flags)))
              (module (doom-module-p category module))
              (doom--current-flags (memq category doom--current-flags))
@@ -445,9 +490,63 @@ omitted. eg. (featurep! +flag1)"
                      (or doom--current-module
                          (doom-module-from-path (FILE!)))))
                 (unless module-pair
-                  (error "featurep! couldn't detect what module its in! (in %s)" (FILE!)))
+                  (error "featurep! call couldn't auto-detect what module its in (from %s)" (FILE!)))
                 (memq category (doom-module-get (car module-pair) (cdr module-pair) :flags)))))
        t))
+
+(defmacro after! (targets &rest body)
+  "Evaluate BODY after TARGETS have loaded.
+
+This is a wrapper around `with-eval-after-load' that:
+
+1. Suppresses warnings for disabled packages at compile-time
+2. No-ops for TARGETS that are disabled by the user (via `package!')
+3. Supports compound TARGETS statements (see below)
+
+TARGETS can either be:
+
+- An unquoted package symbol (the name of a package)
+
+    (after! helm BODY...)
+
+- An unquoted list of package symbols (i.e. BODY is evaluated once both magit
+  and git-gutter have loaded)
+
+    (after! (magit git-gutter) BODY...)
+
+- An unquoted, nested list of compound package lists, using :or/:any and/or :and/:all
+
+    (after! (:or package-a package-b ...)  BODY...)
+    (after! (:and package-a package-b ...) BODY...)
+    (after! (:and package-a (:or package-b package-c) ...) BODY...)
+
+Note that:
+- :or and :any are equivalent
+- :and and :all are equivalent
+- If these are omitted, :and is implied."
+  (declare (indent defun) (debug t))
+  (unless (and (symbolp targets)
+               (memq targets (bound-and-true-p doom-disabled-packages)))
+    (list (if (or (not (bound-and-true-p byte-compile-current-file))
+                  (dolist (next (doom-enlist targets))
+                    (unless (keywordp next)
+                      (if (symbolp next)
+                          (require next nil :no-error)
+                        (load next :no-message :no-error)))))
+              #'progn
+            #'with-no-warnings)
+          (if (symbolp targets)
+              `(with-eval-after-load ',targets ,@body)
+            (pcase (car-safe targets)
+              ((or :or :any)
+               (macroexp-progn
+                (cl-loop for next in (cdr targets)
+                         collect `(after! ,next ,@body))))
+              ((or :and :all)
+               (dolist (next (cdr targets))
+                 (setq body `((after! ,next ,@body))))
+               (car body))
+              (_ `(after! (:and ,@targets) ,@body)))))))
 
 (provide 'core-modules)
 ;;; core-modules.el ends here

@@ -12,20 +12,31 @@ It is passed a user and repository name.")
   :commands magit-file-delete
   :defer-incrementally (dash f s with-editor git-commit package eieio lv transient)
   :init
-  (setq magit-auto-revert-mode nil)  ; we already use `global-auto-revert-mode'
+  (setq magit-auto-revert-mode nil)  ; we do this ourselves
+  ;; Must be set early to prevent ~/.emacs.d/transient from being created
+  (setq transient-levels-file  (concat doom-etc-dir "transient/levels")
+        transient-values-file  (concat doom-etc-dir "transient/values")
+        transient-history-file (concat doom-etc-dir "transient/history"))
   :config
   (setq transient-default-level 5
-        transient-levels-file  (concat doom-etc-dir "transient/levels")
-        transient-values-file  (concat doom-etc-dir "transient/values")
-        transient-history-file (concat doom-etc-dir "transient/history")
         magit-revision-show-gravatars '("^Author:     " . "^Commit:     ")
         magit-diff-refine-hunk t) ; show granular diffs in selected hunk
 
-  ;; Leave it to `+magit-display-buffer' and `+magit-display-popup-buffer' to
-  ;; manage popup windows.
-  (setq magit-display-buffer-function #'+magit-display-buffer
-        magit-popup-display-buffer-action '((+magit-display-popup-buffer)))
+  ;; Magit uses `magit-display-buffer-traditional' to display windows, by
+  ;; default, which is a little primitive. `+magit-display-buffer' marries
+  ;; `magit-display-buffer-fullcolumn-most-v1' with
+  ;; `magit-display-buffer-same-window-except-diff-v1', except:
+  ;;
+  ;; 1. Magit sub-buffers (like `magit-log') that aren't spawned from a status
+  ;;    screen are opened as popups.
+  ;; 2. The status screen isn't buried when viewing diffs or logs from the
+  ;;    status screen.
+  (setq magit-display-buffer-function #'+magit-display-buffer)
   (set-popup-rule! "^\\(?:\\*magit\\|magit:\\)" :ignore t)
+
+  ;; Add --tags switch
+  (transient-append-suffix 'magit-fetch
+    "-p" '("-t" "Fetch all tags" ("-t" "--tags")))
 
   ;; so magit buffers can be switched to (except for process buffers)
   (defun +magit-buffer-p (buf)
@@ -68,13 +79,14 @@ It is passed a user and repository name.")
 
 
 (def-package! evil-magit
-  :when (featurep! :feature evil +everywhere)
+  :when (featurep! :editor evil +everywhere)
   :after magit
   :init
   (setq evil-magit-state 'normal
         evil-magit-use-z-for-folds t)
   :config
   (unmap! magit-mode-map "M-1" "M-2" "M-3" "M-4") ; replaced by z1, z2, z3, etc
+  (evil-define-key* 'normal magit-status-mode-map [escape] nil) ; q is enough
   (evil-define-key* '(normal visual) magit-mode-map
     "zz" #'evil-scroll-line-to-center
     "%"  #'magit-gitflow-popup)

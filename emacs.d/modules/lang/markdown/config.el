@@ -1,5 +1,19 @@
 ;;; lang/markdown/config.el -*- lexical-binding: t; -*-
 
+(defvar +markdown-compile-functions
+  '(+markdown-compile-marked
+    +markdown-compile-pandoc
+    +markdown-compile-markdown)
+  "A list of commands to try when attempting to build a markdown file with
+`markdown-open' or `markdown-preview', stopping at the first one to return non-nil.
+
+Each function takes three argument. The beginning position of the region to
+capture, the end position, and the output buffer.")
+
+
+;;
+;;; Packages
+
 (def-package! markdown-mode
   :mode ("/README\\(?:\\.\\(?:markdown\\|md\\)\\)?\\'" . gfm-mode)
   :init
@@ -11,7 +25,11 @@
         markdown-fontify-code-blocks-natively t
         markdown-hide-urls nil ; trigger with `markdown-toggle-url-hiding'
         markdown-enable-math t ; syntax highlighting for latex fragments
-        markdown-gfm-uppercase-checkbox t) ; for compat with org-mode
+        markdown-gfm-uppercase-checkbox t ; for compat with org-mode
+        markdown-command #'+markdown-compile
+        markdown-open-command
+        (cond (IS-MAC "open")
+              (IS-LINUX "xdg-open")))
 
   :config
   (set-flyspell-predicate! '(markdown-mode gfm-mode)
@@ -29,7 +47,7 @@
         :i "M-b" #'markdown-insert-bold
         :i "M-i" #'markdown-insert-italic
         :i "M-`" #'+markdown/insert-del
-        (:when (featurep! :feature evil +everywhere)
+        (:when (featurep! :editor evil +everywhere)
           :m "gj"  #'markdown-next-visible-heading
           :m "gk"  #'markdown-previous-visible-heading
           ;; TODO: Make context sensitive
@@ -48,10 +66,3 @@
             "t" #'markdown-toc-generate-toc
             "i" #'markdown-insert-image
             "l" #'markdown-insert-link))))
-
-
-(def-package! pandoc-mode
-  :when (featurep! +pandoc)
-  :commands pandoc-mode
-  :hook (markdown-mode . conditionally-turn-on-pandoc)
-  :init (setq markdown-command "pandoc --from=markdown --to=html --standalone --mathjax --highlight-style=pygments"))

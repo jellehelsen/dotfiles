@@ -1,6 +1,6 @@
 ;;; editor/fold/config.el -*- lexical-binding: t; -*-
 
-(when (featurep! :feature evil)
+(when (featurep! :editor evil)
   ;; Add vimish-fold, outline-mode & hideshow support to folding commands
   (define-key! 'global
     [remap evil-toggle-fold]   #'+fold/toggle
@@ -18,18 +18,20 @@
 ;; Packages
 
 (def-package! hideshow ; built-in
-  :defer t
-  :init
-  ;; Ensure `hs-minor-mode' is active when triggering these commands
-  (advice-add #'hs-toggle-hiding :before #'+fold-hideshow*ensure-mode)
-  (advice-add #'hs-hide-block    :before #'+fold-hideshow*ensure-mode)
-  (advice-add #'hs-hide-level    :before #'+fold-hideshow*ensure-mode)
-  (advice-add #'hs-show-all      :before #'+fold-hideshow*ensure-mode)
-  (advice-add #'hs-hide-all      :before #'+fold-hideshow*ensure-mode)
+  :commands (hs-toggle-hiding hs-hide-block hs-hide-level hs-show-all hs-hide-all)
   :config
   (setq hs-hide-comments-when-hiding-all nil
         ;; Nicer code-folding overlays (with fringe indicators)
         hs-set-up-overlay #'+fold-hideshow-set-up-overlay)
+
+  (defun +fold-hideshow*ensure-mode (&rest _)
+    "Ensure `hs-minor-mode' is enabled."
+    (unless (bound-and-true-p hs-minor-mode)
+      (hs-minor-mode +1)))
+  (advice-add! '(hs-toggle-hiding
+                 hs-hide-block hs-hide-level
+                 hs-show-all hs-hide-all)
+               :before #'+fold-hideshow*ensure-mode)
 
   ;; extra folding support for more languages
   (unless (assq 't hs-special-modes-alist)
@@ -51,13 +53,16 @@
                             enh-ruby-forward-sexp nil)
              (matlab-mode "if\\|switch\\|case\\|otherwise\\|while\\|for\\|try\\|catch"
                           "end"
-                          nil (lambda (_arg) (matlab-forward-sexp))))
+                          nil (lambda (_arg) (matlab-forward-sexp)))
+             (nxml-mode "<!--\\|<[^/>]*[^/]>"
+                        "-->\\|</[^/>]*[^/]>"
+                        "<!--" sgml-skip-tag-forward nil))
            hs-special-modes-alist
            '((t))))))
 
 
 (def-package! evil-vimish-fold
-  :when (featurep! :feature evil)
+  :when (featurep! :editor evil)
   :commands (evil-vimish-fold/next-fold evil-vimish-fold/previous-fold
              evil-vimish-fold/delete evil-vimish-fold/delete-all
              evil-vimish-fold/create evil-vimish-fold/create-line)

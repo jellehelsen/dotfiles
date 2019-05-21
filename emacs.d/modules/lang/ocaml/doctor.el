@@ -1,6 +1,10 @@
 ;; -*- lexical-binding: t; no-byte-compile: t; -*-
 ;;; lang/ocaml/doctor.el
 
+(assert! (or (not (featurep! +lsp))
+             (featurep! :tools lsp))
+         "This module requires (:tools lsp)")
+
 (unless (executable-find "ocamlmerlin")
   (warn! "Couldn't find ocamlmerlin. Lookup, completion and syntax checking won't work"))
 
@@ -8,7 +12,7 @@
 (unless (executable-find "ocp-indent")
   (warn! "Couldn't find ocp-indent. Auto-indentation will be less precise"))
 
-(when (featurep! :feature eval)
+(when (featurep! :tools eval)
   (unless (executable-find "utop")
     (warn! "Couldn't find utop. REPL won't be available")))
 

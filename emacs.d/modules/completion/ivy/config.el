@@ -1,8 +1,5 @@
 ;;; completion/ivy/config.el -*- lexical-binding: t; -*-
 
-(defvar +ivy-buffer-icons nil
-  "If non-nil, show buffer mode icons in `ivy-switch-buffer' and the like.")
-
 (defvar +ivy-buffer-preview nil
   "If non-nil, preview buffers while switching, à la `counsel-switch-buffer'.
 
@@ -28,6 +25,10 @@ If you want to already use git-grep or grep, set this to nil.")
 
 (defvar +ivy-buffer-unreal-face 'font-lock-comment-face
   "The face for unreal buffers in `ivy-switch-to-buffer'.")
+
+(defvar +ivy-edit-functions nil
+  "A plist mapping ivy/counsel commands to commands that generate an editable
+results buffer.")
 
 (defmacro +ivy-do-action! (action)
   "Returns an interactive lambda that sets the current ivy action and
@@ -65,46 +66,61 @@ immediately runs it on the current candidate (ending the ivy session)."
         ;; enable ability to select prompt (alternative to `ivy-immediate-done')
         ivy-use-selectable-prompt t)
 
+  ;; Ensure a jump point is registered before jumping to new locations with ivy
+  (defvar +ivy--origin nil)
+
+  (defun +ivy|record-position-maybe ()
+    (with-ivy-window
+      (setq +ivy--origin (point-marker))))
+  (setq ivy-hooks-alist '((t . +ivy|record-position-maybe)))
+
+  (defun +ivy|set-jump-point-maybe ()
+    (when (and (markerp +ivy--origin)
+               (not (equal (with-ivy-window (point-marker)) +ivy--origin)))
+      (with-current-buffer (marker-buffer +ivy--origin)
+        (better-jumper-set-jump +ivy--origin)))
+    (setq +ivy--origin nil))
+  (add-hook 'minibuffer-exit-hook #'+ivy|set-jump-point-maybe)
+
   (after! yasnippet
     (add-to-list 'yas-prompt-functions #'+ivy-yas-prompt nil #'eq))
 
   (define-key! ivy-mode-map
     [remap switch-to-buffer]              #'+ivy/switch-buffer
     [remap switch-to-buffer-other-window] #'+ivy/switch-buffer-other-window
-    [remap persp-switch-to-buffer]        #'+ivy/switch-workspace-buffer
-    [remap imenu-anywhere]                #'ivy-imenu-anywhere)
+    [remap persp-switch-to-buffer]        #'+ivy/switch-workspace-buffer)
+
+  (define-key ivy-minibuffer-map (kbd "C-c C-e") #'+ivy/woccur)
 
   (ivy-mode +1)
 
   (def-package! ivy-hydra
-    :commands (ivy-dispatching-done-hydra ivy--matcher-desc)
+    :commands (ivy-dispatching-done-hydra ivy--matcher-desc ivy-hydra/body)
     :init
     (define-key! ivy-minibuffer-map
       "C-o" #'ivy-dispatching-done-hydra
-      "M-o" #'+ivy-coo-hydra/body)))
+      "M-o" #'hydra-ivy/body)
+    :config
+    ;; ivy-hydra rebinds this, so we have to do so again
+    (define-key ivy-minibuffer-map (kbd "M-o") #'hydra-ivy/body)))
 
 
 (def-package! ivy-rich
-  :hook (ivy-mode . ivy-rich-mode)
+  :after ivy
   :config
-  (when +ivy-buffer-icons
-    (cl-pushnew '(+ivy-rich-buffer-icon (:width 2 :align right))
+  (when (featurep! +icons)
+    (cl-pushnew '(+ivy-rich-buffer-icon)
                 (cadr (plist-get ivy-rich-display-transformers-list
-                                 'ivy-switch-buffer)))
-    (after! counsel-projectile
-      (setq ivy-rich-display-transformers-list
-            (plist-put ivy-rich-display-transformers-list
-                       'counsel-projectile-switch-project
-                       '(:columns
-                         (((lambda (_) (all-the-icons-octicon "file-directory"))
-                           (:width 2 :align right))
-                          (ivy-rich-candidate)))))
-      (setq ivy-rich-display-transformers-list
-            (plist-put ivy-rich-display-transformers-list
-                       'counsel-projectile-find-file
-                       '(:columns
-                         ((all-the-icons-icon-for-file (:width 2 :align right))
-                          (ivy-rich-candidate)))))))
+                                 'ivy-switch-buffer))))
+
+  ;; Include variable value in `counsel-describe-variable'
+  (setq ivy-rich-display-transformers-list
+        (plist-put ivy-rich-display-transformers-list
+                   'counsel-describe-variable
+                   '(:columns
+                     ((counsel-describe-variable-transformer (:width 40)) ; the original transformer
+                      (+ivy-rich-describe-variable-transformer (:width 50))
+                      (ivy-rich-counsel-variable-docstring (:face font-lock-doc-face))))))
 
   ;; Remove built-in coloring of buffer list; we do our own
   (setq ivy-switch-buffer-faces-alist nil)
@@ -117,12 +133,30 @@ immediately runs it on the current candidate (ending the ivy session)."
     (when switch-buffer-alist
       (setcar switch-buffer-alist '+ivy-rich-buffer-name)))
 
-  ;; Allow these transformers to apply to more switch-buffer commands
-  (let ((ivy-switch-buffer-transformer (plist-get ivy-rich-display-transformers-list 'ivy-switch-buffer)))
-    (dolist (cmd '(+ivy--switch-buffer counsel-projectile-switch-to-buffer))
-      (setq ivy-rich-display-transformers-list
-            (plist-put ivy-rich-display-transformers-list
-                       cmd ivy-switch-buffer-transformer)))))
+  ;; Apply switch buffer transformers to `counsel-projectile-switch-to-buffer' as well
+  (setq ivy-rich-display-transformers-list
+        (plist-put ivy-rich-display-transformers-list
+                   'counsel-projectile-switch-to-buffer
+                   (plist-get ivy-rich-display-transformers-list 'ivy-switch-buffer)))
+
+  ;; Reload ivy which so changes to `ivy-rich-display-transformers-list' work
+  (ivy-rich-mode +1))
+
+
+(def-package! all-the-icons-ivy
+  :when (featurep! +icons)
+  :after ivy
+  :config
+  ;; `all-the-icons-ivy' is incompatible with ivy-rich's switch-buffer
+  ;; modifications, so we disable them and merge them ourselves
+  (setq all-the-icons-ivy-buffer-commands nil)
+
+  (all-the-icons-ivy-setup)
+  (after! counsel-projectile
+    (let ((all-the-icons-ivy-file-commands '(counsel-projectile
+                                             counsel-projectile-find-file
+                                             counsel-projectile-find-dir)))
+      (all-the-icons-ivy-setup))))
 
 
 (def-package! counsel
@@ -157,6 +191,9 @@ immediately runs it on the current candidate (ending the ivy session)."
         counsel-pt-base-command "pt -S --nocolor --nogroup -e %s")
 
   (add-to-list 'swiper-font-lock-exclude #'+doom-dashboard-mode nil #'eq)
+
+  ;; Record in jumplist when opening files via counsel-{ag,rg,pt,git-grep}
+  (add-hook 'counsel-grep-post-action-hook #'better-jumper-set-jump)
 
   ;; Factories
   (defun +ivy-action-reloading (cmd)
@@ -195,8 +232,12 @@ immediately runs it on the current candidate (ending the ivy session)."
 
 
 (def-package! counsel-projectile
-  :commands (counsel-projectile-find-file counsel-projectile-find-dir counsel-projectile-switch-to-buffer
-                                          counsel-projectile-grep counsel-projectile-ag counsel-projectile-switch-project)
+  :commands (counsel-projectile-find-file
+             counsel-projectile-find-dir
+             counsel-projectile-switch-to-buffer
+             counsel-projectile-grep
+             counsel-projectile-ag
+             counsel-projectile-switch-project)
   :init
   (map! [remap projectile-find-file]        #'+ivy/projectile-find-file
         [remap projectile-find-dir]         #'counsel-projectile-find-dir
@@ -273,7 +314,7 @@ immediately runs it on the current candidate (ending the ivy session)."
 ;;
 ;; Evil key fixes
 
-(map! :when (featurep! :feature evil +everywhere)
+(map! :when (featurep! :editor evil +everywhere)
       :after ivy
       :map (ivy-occur-mode-map ivy-occur-grep-mode-map)
       :m "j"       #'ivy-occur-next-line

@@ -28,7 +28,7 @@
 
 
 (def-package! treemacs-evil
-  :when (featurep! :feature evil +everywhere)
+  :when (featurep! :editor evil +everywhere)
   :after treemacs
   :config
   (define-key! evil-treemacs-state-map
@@ -39,3 +39,7 @@
 
 (def-package! treemacs-projectile
   :after treemacs)
+
+(def-package! treemacs-magit
+  :when (featurep! :tools magit)
+  :after treemacs magit)

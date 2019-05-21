@@ -20,10 +20,6 @@ Examples:
   (setq doom-font (font-spec :family \"Fira Mono\" :size 12))
   (setq doom-font \"Terminus (TTF):pixelsize=12:antialias=off\")")
 
-(defvar doom-big-font nil
-  "The font to use when `doom-big-font-mode' is enabled. Expects either a
-`font-spec' or a XFT font string. See `doom-font' for examples.")
-
 (defvar doom-variable-pitch-font nil
   "The font to use for variable-pitch text.
 
@@ -42,11 +38,15 @@ Expects either a `font-spec', font object, a XFT font string or XLFD string. See
 It is recommended you don't set specify a font-size, as to inherit `doom-font's
 size.")
 
-(defvar doom-unicode-font nil
-  "Fallback font for unicode glyphs. Is ignored if :feature unicode is active.
+(defvar doom-unicode-font
+  (if IS-MAC
+      (font-spec :family "Apple Color Emoji")
+    (font-spec :family "Symbola"))
+  "Fallback font for unicode glyphs.
 
-Expects either a `font-spec', font object, a XFT font string or XLFD string. See
-`doom-font' for examples.
+It defaults to Apple Color Emoji on MacOS and Symbola on Linux. Expects either a
+`font-spec', font object, a XFT font string or XLFD string. See `doom-font' for
+examples.
 
 It is recommended you don't set specify a font-size, as to inherit `doom-font's
 size.")
@@ -86,13 +86,13 @@ behavior). Do not set this directly, this is let-bound in `doom|init-theme'.")
 (defvar doom--last-frame nil)
 
 (defun doom|run-switch-window-hooks ()
-  (unless (or doom-inhibit-switch-window-hooks
-              (eq doom--last-window (selected-window))
-              (minibufferp))
-    (let ((doom-inhibit-switch-window-hooks t))
-      (run-hooks 'doom-switch-window-hook)
-      (doom-log "Window switched to %s" (selected-window))
-      (setq doom--last-window (selected-window)))))
+  (let ((gc-cons-threshold doom-gc-cons-upper-limit))
+    (unless (or doom-inhibit-switch-window-hooks
+                (eq doom--last-window (selected-window))
+                (minibufferp))
+      (let ((doom-inhibit-switch-window-hooks t))
+        (run-hooks 'doom-switch-window-hook)
+        (setq doom--last-window (selected-window))))))
 
 (defun doom|run-switch-frame-hooks (&rest _)
   (unless (or doom-inhibit-switch-frame-hooks
@@ -100,19 +100,31 @@ behavior). Do not set this directly, this is let-bound in `doom|init-theme'.")
               (frame-parameter nil 'parent-frame))
     (let ((doom-inhibit-switch-frame-hooks t))
       (run-hooks 'doom-switch-frame-hook)
-      (doom-log "Frame switched to %s" (selected-frame))
       (setq doom--last-frame (selected-frame)))))
 
 (defun doom*run-switch-buffer-hooks (orig-fn buffer-or-name &rest args)
-  (if (or doom-inhibit-switch-buffer-hooks
-          (if (eq orig-fn 'switch-to-buffer)
-              (car args) ; norecord
-            (eq (get-buffer buffer-or-name) (current-buffer))))
-      (apply orig-fn buffer-or-name args)
-    (let ((doom-inhibit-switch-buffer-hooks t))
-      (doom-log "Buffer switched in %s" (selected-window))
-      (prog1 (apply orig-fn buffer-or-name args)
-        (run-hooks 'doom-switch-buffer-hook)))))
+  (let ((gc-cons-threshold doom-gc-cons-upper-limit))
+    (if (or doom-inhibit-switch-buffer-hooks
+            (eq (current-buffer) (get-buffer buffer-or-name))
+            (and (eq orig-fn #'switch-to-buffer) (car args)))
+        (apply orig-fn buffer-or-name args)
+      (let ((doom-inhibit-switch-buffer-hooks t))
+        (when-let* ((buffer (apply orig-fn buffer-or-name args)))
+          (with-current-buffer (if (windowp buffer)
+                                   (window-buffer buffer)
+                                 buffer)
+            (run-hooks 'doom-switch-buffer-hook))
+          buffer)))))
+
+(defun doom*run-switch-to-next-prev-buffer-hooks (orig-fn &rest args)
+  (let ((gc-cons-threshold doom-gc-cons-upper-limit))
+    (if doom-inhibit-switch-buffer-hooks
+        (apply orig-fn args)
+      (let ((doom-inhibit-switch-buffer-hooks t))
+        (when-let* ((buffer (apply orig-fn args)))
+          (with-current-buffer buffer
+            (run-hooks 'doom-switch-buffer-hook))
+          buffer)))))
 
 (defun doom*run-load-theme-hooks (theme &optional _no-confirm no-enable)
   "Set up `doom-load-theme-hook' to run after `load-theme' is called."
@@ -142,8 +154,7 @@ read-only or not file-visiting."
          (if (bound-and-true-p whitespace-newline-mode)
              (cl-union (if indent-tabs-mode '(indentation) '(tabs tab-mark))
                        whitespace-style)
-           `(face ,@(if indent-tabs-mode '(indentation) '(tabs tab-mark))
-             trailing-lines tail)))
+           `(face ,@(if indent-tabs-mode '(indentation) '(tabs tab-mark)))))
     (whitespace-mode +1)))
 
 
@@ -162,6 +173,7 @@ read-only or not file-visiting."
  cursor-in-non-selected-windows nil ; hide cursors in other windows
  custom-theme-directory (expand-file-name "themes/" doom-private-dir)
  display-line-numbers-width 3
+ echo-keystrokes 0.02
  enable-recursive-minibuffers nil
  frame-inhibit-implied-resize t
  frame-title-format '("%b – Doom Emacs") ; simple name in frame title
@@ -173,7 +185,6 @@ read-only or not file-visiting."
  image-animate-loop t
  indicate-buffer-boundaries nil
  indicate-empty-lines nil
- inhibit-compacting-font-caches t
  max-mini-window-height 0.3
  mode-line-default-help-echo nil ; disable mode-line mouseovers
  mouse-yank-at-point t           ; middle-click paste at point, not at click
@@ -203,13 +214,6 @@ read-only or not file-visiting."
 (blink-cursor-mode -1)
 ;; Handle ansi codes in compilation buffer
 (add-hook 'compilation-filter-hook #'doom|apply-ansi-color-to-compilation-buffer)
-;; show typed keystrokes in minibuffer
-(defun doom|enable-ui-keystrokes ()  (setq echo-keystrokes 0.02))
-(defun doom|disable-ui-keystrokes () (setq echo-keystrokes 0))
-(doom|enable-ui-keystrokes)
-;; ...but hide them while isearch is active
-(add-hook 'isearch-mode-hook     #'doom|disable-ui-keystrokes)
-(add-hook 'isearch-mode-end-hook #'doom|enable-ui-keystrokes)
 ;; Make `next-buffer', `other-buffer', etc. ignore unreal buffers.
 (add-to-list 'default-frame-alist '(buffer-predicate . doom-buffer-frame-predicate))
 ;; Prevent the glimpse of un-styled Emacs by setting these early.
@@ -219,15 +223,21 @@ read-only or not file-visiting."
 ;; prompts the user for confirmation when deleting a non-empty frame
 (global-set-key [remap delete-frame] #'doom/delete-frame)
 
+;; Use `show-trailing-whitespace' instead of `whitespace-mode' because it's
+;; faster (implemented in C). But try to only enable it in editing buffers.
+(setq-default show-trailing-whitespace nil)
+(setq-hook! '(prog-mode-hook text-mode-hook conf-mode-hook) show-trailing-whitespace t)
+
+;; The native border "consumes" a pixel of the fringe on righter-most splits,
+;; `window-divider' does not. Available since Emacs 25.1.
+(setq-default window-divider-default-places t
+              window-divider-default-bottom-width 1
+              window-divider-default-right-width 1)
+(add-hook 'doom-init-ui-hook #'window-divider-mode)
+
 
 ;;
 ;;; Built-in packages
-
-;; Disable these because whitespace should be customized programmatically
-;; (through `whitespace-style'), and not through these commands.
-(put 'whitespace-toggle-options 'disabled t)
-(put 'global-whitespace-toggle-options 'disabled t)
-
 
 (def-package! ediff
   :defer t
@@ -261,14 +271,17 @@ read-only or not file-visiting."
   ;; Disable `hl-line' in evil-visual mode (temporarily). `hl-line' can make the
   ;; selection region harder to see while in evil visual mode.
   (after! evil
-    (defvar-local doom-buffer-hl-line-mode nil)
+    (defvar doom-buffer-hl-line-mode nil)
+
     (defun doom|disable-hl-line ()
       (when hl-line-mode
-        (setq doom-buffer-hl-line-mode t)
+        (setq-local doom-buffer-hl-line-mode t)
         (hl-line-mode -1)))
-    (defun doom|enable-hl-line-maybe ()
-      (if doom-buffer-hl-line-mode (hl-line-mode +1)))
     (add-hook 'evil-visual-state-entry-hook #'doom|disable-hl-line)
+
+    (defun doom|enable-hl-line-maybe ()
+      (when doom-buffer-hl-line-mode
+        (hl-line-mode +1)))
     (add-hook 'evil-visual-state-exit-hook  #'doom|enable-hl-line-maybe)))
 
 
@@ -293,15 +306,7 @@ read-only or not file-visiting."
   (show-paren-mode +1))
 
 
-;; The native border "consumes" a pixel of the fringe on righter-most splits,
-;; `window-divider' does not. Available since Emacs 25.1.
-(setq-default window-divider-default-places t
-              window-divider-default-bottom-width 1
-              window-divider-default-right-width 1)
-(add-hook 'doom-init-ui-hook #'window-divider-mode)
-
-
-;; `whitespace-mode'
+;;;###package whitespace
 (setq whitespace-line-column nil
       whitespace-style
       '(face indentation tabs tab-mark spaces space-mark newline newline-mark
@@ -311,13 +316,14 @@ read-only or not file-visiting."
         (newline-mark ?\n [?¬ ?\n])
         (space-mark ?\  [?·] [?.])))
 
+;; Disable these because whitespace should be customized programmatically
+;; (through `whitespace-style'), and not through these commands.
+(put 'whitespace-toggle-options 'disabled t)
+(put 'global-whitespace-toggle-options 'disabled t)
+
 
 ;;
 ;;; Third party packages
-
-;;;###package avy
-(setq avy-all-windows nil
-      avy-background t)
 
 (def-package! all-the-icons
   :commands (all-the-icons-octicon all-the-icons-faicon all-the-icons-fileicon
@@ -343,22 +349,10 @@ read-only or not file-visiting."
   :hook ((prog-mode conf-mode) . highlight-numbers-mode)
   :config (setq highlight-numbers-generic-regexp "\\_<[[:digit:]]+\\(?:\\.[0-9]*\\)?\\_>"))
 
-;;;###package highlight-escape-sequences
-(def-package! highlight-escape-sequences
-  :hook ((prog-mode conf-mode) . highlight-escape-sequences-mode))
-
 ;;;###package rainbow-delimiters
 ;; Helps us distinguish stacked delimiter pairs, especially in parentheses-drunk
 ;; languages like Lisp.
 (setq rainbow-delimiters-max-face-count 3)
-
-;;;###package visual-fill-column
-;; For a distractions-free-like UI, that dynamically resizes margins and can
-;; center a buffer.
-(setq visual-fill-column-center-text t
-      visual-fill-column-width
-      ;; take Emacs 26 line numbers into account
-      (+ (if EMACS26+ 6 0) fill-column))
 
 
 ;;
@@ -447,11 +441,6 @@ character that looks like a space that `whitespace-mode' won't affect.")
 ;;
 ;;; Theme & font
 
-(defvar doom-last-window-system
-  (if (daemonp) 'daemon initial-window-system)
-  "The `window-system' of the last frame. If this doesn't match the current
-frame's window-system, the theme will be reloaded.")
-
 (defun doom|init-fonts ()
   "Loads fonts.
 
@@ -471,10 +460,7 @@ Fonts are specified by `doom-font', `doom-variable-pitch-font',
         (when doom-serif-font
           (set-face-attribute 'fixed-pitch-serif nil :font doom-serif-font))
         (when doom-variable-pitch-font
-          (set-face-attribute 'variable-pitch nil :font doom-variable-pitch-font))
-        ;; Fallback to `doom-unicode-font' for Unicode characters
-        (when (fontp doom-unicode-font)
-          (set-fontset-font t nil doom-unicode-font nil 'append)))
+          (set-face-attribute 'variable-pitch nil :font doom-variable-pitch-font)))
     ((debug error)
      (if (string-prefix-p "Font not available: " (error-message-string e))
          (lwarn 'doom-ui :warning
@@ -482,34 +468,19 @@ Fonts are specified by `doom-font', `doom-variable-pitch-font',
                 (font-get (caddr e) :family))
        (signal 'doom-error e)))))
 
-(defun doom|init-theme ()
-  "Load the theme specified by `doom-theme'."
+(defun doom|init-emoji-fonts (frame)
+  "Set up unicode fonts (if `doom-unicode-font' is set).
+
+By default, this uses Apple Color Emoji on MacOS and Symbola on Linux."
+  (when doom-unicode-font
+    (set-fontset-font t '(#x1F600 . #x1F64F) doom-unicode-font frame 'prepend)))
+
+(defun doom|init-theme (&optional frame)
+  "Load the theme specified by `doom-theme' in FRAME."
   (when (and doom-theme (not (memq doom-theme custom-enabled-themes)))
-    (let ((doom--prefer-theme-elc t))
-      (load-theme doom-theme t))))
-
-(defun doom|reload-theme-maybe (_frame)
-  "Reloads the theme if the display device has changed."
-  (unless (cl-find doom-last-window-system (frame-list) :key #'framep-on-display)
-    (setq doom-last-window-system nil)
-    (doom|reload-theme-in-frame-maybe (selected-frame))))
-
-(defun doom|reload-theme-in-frame-maybe (frame)
-  "Reloads the theme if the display device has changed.
-
-Getting themes to remain consistent across GUI Emacs, terminal Emacs and daemon
-Emacs is hairy. `doom|init-theme' sorts out the initial GUI frame. Attaching
-`doom|reload-theme-in-frame-maybe' to `after-make-frame-functions' sorts out
-daemon and emacsclient frames.
-
-There will still be issues with simultaneous gui and terminal (emacsclient)
-frames, however. There's always `doom/reload-theme' if you need it!"
-  (when (and doom-theme
-             (framep frame)
-             (not (eq doom-last-window-system (framep-on-display frame))))
-    (with-selected-frame frame
-      (load-theme doom-theme t))
-    (setq doom-last-window-system (framep-on-display frame))))
+    (with-selected-frame (or frame (selected-frame))
+      (let ((doom--prefer-theme-elc t))
+        (load-theme doom-theme t)))))
 
 
 ;;
@@ -522,24 +493,27 @@ frames, however. There's always `doom/reload-theme' if you need it!"
   (add-to-list 'kill-buffer-query-functions #'doom|protect-fallback-buffer nil 'eq)
   (add-hook 'after-change-major-mode-hook #'doom|highlight-non-default-indentation)
 
-  ;; Reload theme if the display device has changed
-  (add-hook 'after-make-frame-functions #'doom|reload-theme-in-frame-maybe)
-  (add-hook 'after-delete-frame-functions #'doom|reload-theme-maybe)
-
   ;; Initialize custom switch-{buffer,window,frame} hooks:
   ;; + `doom-switch-buffer-hook'
   ;; + `doom-switch-window-hook'
   ;; + `doom-switch-frame-hook'
   (add-hook 'buffer-list-update-hook #'doom|run-switch-window-hooks)
   (add-hook 'focus-in-hook #'doom|run-switch-frame-hooks)
-  (advice-add! '(switch-to-buffer display-buffer) :around #'doom*run-switch-buffer-hooks))
+  (advice-add! '(switch-to-next-buffer switch-to-prev-buffer)
+               :around #'doom*run-switch-to-next-prev-buffer-hooks)
+  (advice-add! '(switch-to-buffer display-buffer)
+               :around #'doom*run-switch-buffer-hooks))
 
 ;; Apply `doom-theme'
-(unless (daemonp)
+(if (daemonp)
+    (add-hook 'after-make-frame-functions #'doom|init-theme)
   (add-hook 'doom-init-ui-hook #'doom|init-theme))
 ;; Apply `doom-font' et co
 (add-hook 'doom-after-init-modules-hook #'doom|init-fonts)
-;; Setup `doom-load-theme-hook'
+;; Ensure unicode fonts are set on each frame
+(add-hook 'after-make-frame-functions #'doom|init-emoji-fonts)
+;; Setup `doom-load-theme-hook' and ensure `doom-theme' is always set to the
+;; currently loaded theme
 (advice-add #'load-theme :after #'doom*run-load-theme-hooks)
 
 (add-hook 'window-setup-hook #'doom|init-ui)

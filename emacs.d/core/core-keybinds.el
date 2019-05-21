@@ -30,8 +30,6 @@ This needs to be changed from $DOOMDIR/init.el.")
 (defvar doom-leader-map (make-sparse-keymap)
   "An overriding keymap for <leader> keys.")
 
-(defvar doom-which-key-leader-prefix-regexp nil)
-
 
 ;;
 ;;; Universal, non-nuclear escape
@@ -100,7 +98,7 @@ If any hook returns non-nil, all hooks after it are ignored.")
               (push `(define-key doom-leader-map (general--kbd ,key)
                        ,bdef)
                     forms))
-            (when-let* ((desc (plist-get udef :which-key)))
+            (when-let* ((desc (cadr (memq :which-key udef))))
               (push `(which-key-add-key-based-replacements
                        (general--concat t doom-leader-alt-key ,key)
                        ,desc)
@@ -163,19 +161,15 @@ localleader prefix."
   "Bind `doom-leader-key' and `doom-leader-alt-key'."
   (let ((map general-override-mode-map))
     (if (not (featurep 'evil))
-        (define-key map (kbd doom-leader-alt-key) 'doom/leader)
+        (progn
+          (cond ((equal doom-leader-alt-key "C-c")
+                 (set-keymap-parent doom-leader-map mode-specific-map))
+                ((equal doom-leader-alt-key "C-x")
+                 (set-keymap-parent doom-leader-map ctl-x-map)))
+          (define-key map (kbd doom-leader-alt-key) 'doom/leader))
       (evil-define-key* '(normal visual motion) map (kbd doom-leader-key) 'doom/leader)
       (evil-define-key* '(emacs insert) map (kbd doom-leader-alt-key) 'doom/leader))
-    (general-override-mode +1))
-  (unless (stringp doom-which-key-leader-prefix-regexp)
-    (setq doom-which-key-leader-prefix-regexp
-          (concat "\\(?:"
-                  (cl-loop for key in (append (list doom-leader-key doom-leader-alt-key)
-                                              (where-is-internal 'doom/leader))
-                           for keystr = (if (stringp key) key (key-description key))
-                           collect (regexp-quote keystr) into keys
-                           finally return (string-join keys "\\|"))
-                  "\\)"))))
+    (general-override-mode +1)))
 (add-hook 'doom-after-init-modules-hook #'doom|init-leader-keys)
 
 
@@ -197,6 +191,10 @@ localleader prefix."
   (set-face-attribute 'which-key-local-map-description-face nil :weight 'bold)
   (which-key-setup-side-window-bottom)
   (setq-hook! 'which-key-init-buffer-hook line-spacing 3)
+
+  (which-key-add-key-based-replacements doom-leader-key "<leader>")
+  (which-key-add-key-based-replacements doom-localleader-key "<localleader>")
+
   (which-key-mode +1))
 
 
@@ -237,6 +235,7 @@ For example, :nvi will map to (list 'normal 'visual 'insert). See
 (put :keymap       'lisp-indent-function 'defun)
 (put :mode         'lisp-indent-function 'defun)
 (put :prefix       'lisp-indent-function 'defun)
+(put :prefix-map   'lisp-indent-function 'defun)
 (put :unless       'lisp-indent-function 'defun)
 (put :when         'lisp-indent-function 'defun)
 
@@ -282,8 +281,19 @@ For example, :nvi will map to (list 'normal 'visual 'insert). See
                  ((or :when :unless)
                   (doom--map-nested (list (intern (doom-keyword-name key)) (pop rest)) rest)
                   (setq rest nil))
+                 (:prefix-map
+                  (cl-destructuring-bind (prefix . desc)
+                      (doom-enlist (pop rest))
+                    (let ((keymap (intern (format "doom-leader-%s-map" desc))))
+                      (setq rest
+                            (append (list :desc desc prefix keymap
+                                          :prefix prefix)
+                                    rest))
+                      (push `(defvar ,keymap (make-sparse-keymap))
+                            doom--map-forms))))
                  (:prefix
-                  (cl-destructuring-bind (prefix . desc) (doom-enlist (pop rest))
+                  (cl-destructuring-bind (prefix . desc)
+                      (doom-enlist (pop rest))
                     (doom--map-set (if doom--map-fn :infix :prefix)
                                    prefix)
                     (when (stringp desc)
@@ -405,7 +415,10 @@ Properties
   :mode [MODE(s)] [...]           inner keybinds are applied to major MODE(s)
   :map [KEYMAP(s)] [...]          inner keybinds are applied to KEYMAP(S)
   :keymap [KEYMAP(s)] [...]       same as :map
-  :prefix [PREFIX] [...]          set keybind prefix for following keys
+  :prefix [PREFIX] [...]          set keybind prefix for following keys. PREFIX
+                                  can be a cons cell: (PREFIX . DESCRIPTION)
+  :prefix-map [PREFIX] [...]      same as :prefix, but defines a prefix keymap
+                                  where the following keys will be bound.
   :after [FEATURE] [...]          apply keybinds when [FEATURE] loads
   :textobj KEY INNER-FN OUTER-FN  define a text object keybind pair
   :if [CONDITION] [...]

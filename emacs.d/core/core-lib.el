@@ -48,24 +48,29 @@ This is used by `associate!', `file-exists-p!' and `project-file-exists-p!'."
         (spec)))
 
 (defun doom--resolve-hook-forms (hooks)
+  "Converts a list of modes into a list of hook symbols.
+
+If a mode is quoted, it is left as is. If the entire HOOKS list is quoted, the
+list is returned as-is."
   (declare (pure t) (side-effect-free t))
-  (cl-loop with quoted-p = (eq (car-safe hooks) 'quote)
-           for hook in (doom-enlist (doom-unquote hooks))
-           if (eq (car-safe hook) 'quote)
-            collect (cadr hook)
-           else if quoted-p
-            collect hook
-           else collect (intern (format "%s-hook" (symbol-name hook)))))
+  (let ((hook-list (doom-enlist (doom-unquote hooks))))
+    (if (eq (car-safe hooks) 'quote)
+        hook-list
+      (cl-loop for hook in hook-list
+               if (eq (car-safe hook) 'quote)
+               collect (cadr hook)
+               else collect (intern (format "%s-hook" (symbol-name hook)))))))
 
 (defun doom--assert-stage-p (stage macro)
-  (cl-assert (eq stage doom--stage)
-             nil
-             "Found %s call in non-%s.el file (%s)"
-             macro (symbol-name stage)
-             (let ((path (FILE!)))
-               (if (file-in-directory-p path doom-emacs-dir)
-                   (file-relative-name path doom-emacs-dir)
-                 (abbreviate-file-name path)))))
+  (unless (bound-and-true-p byte-compile-current-file)
+    (cl-assert (eq stage doom--stage)
+               nil
+               "Found %s call in non-%s.el file (%s)"
+               macro (symbol-name stage)
+               (let ((path (FILE!)))
+                 (if (file-in-directory-p path doom-emacs-dir)
+                     (file-relative-name path doom-emacs-dir)
+                   (abbreviate-file-name path))))))
 
 
 ;;
@@ -103,13 +108,13 @@ Accepts the same arguments as `message'."
      (let ((inhibit-message (active-minibuffer-window)))
        (message
         ,(concat (propertize "DOOM " 'face 'font-lock-comment-face)
-                 format-string
                  (when doom--current-module
                    (propertize
-                    (format " [%s/%s]"
+                    (format "[%s/%s] "
                             (doom-keyword-name (car doom--current-module))
                             (cdr doom--current-module))
-                    'face 'warning)))
+                    'face 'warning))
+                 format-string)
         ,@args))))
 
 (defun FILE! ()
@@ -129,7 +134,7 @@ Accepts the same arguments as `message'."
 ;; Macros
 
 (defmacro λ! (&rest body)
-  "A shortcut for inline interactive lambdas."
+  "Expands to (lambda () (interactive) ,@body)."
   (declare (doc-string 1))
   `(lambda () (interactive) ,@body))
 
@@ -180,70 +185,21 @@ reverse this and trigger `after!' blocks at a more reasonable time."
        (setq features (delq ',feature features))
        (advice-add #',mode :before #',advice-fn)
        (defun ,advice-fn (&rest _)
-         ;; Some plugins (like yasnippet) will invoke a mode early, e.g. to
-         ;; parse some code. This would prematurely trigger this function. This
-         ;; checks for that:
+         ;; Some plugins (like yasnippet) will invoke a mode early to parse
+         ;; code, which would prematurely trigger this. In those cases, well
+         ;; behaved plugins will use `delay-mode-hooks', which we can check for:
          (when (and ,(intern (format "%s-hook" mode))
                     (not delay-mode-hooks))
-           ;; Otherwise, announce to the world this package has been loaded, so
-           ;; `after!' handlers can respond and configure elisp-mode as
-           ;; expected.
+           ;; ...Otherwise, announce to the world this package has been loaded,
+           ;; so `after!' handlers can react.
            (provide ',feature)
            (advice-remove #',mode #',advice-fn))))))
 
-(defmacro after! (targets &rest body)
-  "A smart wrapper around `with-eval-after-load' that:
-
-1. Suppresses warnings at compile-time
-2. No-ops for TARGETS that are disabled by the user (via `package!')
-3. Supports compound TARGETS statements (see below)
-
-BODY is evaluated once TARGETS are loaded. TARGETS can either be:
-
-- An unquoted package symbol (the name of a package)
-
-    (after! helm ...)
-
-- An unquoted list of package symbols
-
-    (after! (magit git-gutter) ...)
-
-- An unquoted, nested list of compound package lists, using :or/:any and/or :and/:all
-
-    (after! (:or package-a package-b ...)  ...)
-    (after! (:and package-a package-b ...) ...)
-    (after! (:and package-a (:or package-b package-c) ...) ...)
-
-  Note that:
-  - :or and :any are equivalent
-  - :and and :all are equivalent
-  - If these are omitted, :and is assumed."
-  (declare (indent defun) (debug t))
-  (unless (and (symbolp targets)
-               (memq targets (bound-and-true-p doom-disabled-packages)))
-    (list (if (or (not (bound-and-true-p byte-compile-current-file))
-                  (dolist (next (doom-enlist targets))
-                    (unless (keywordp next)
-                      (if (symbolp next)
-                          (require next nil :no-error)
-                        (load next :no-message :no-error)))))
-              #'progn
-            #'with-no-warnings)
-          (if (symbolp targets)
-              `(with-eval-after-load ',targets ,@body)
-            (pcase (car-safe targets)
-              ((or :or :any)
-               (macroexp-progn
-                (cl-loop for next in (cdr targets)
-                         collect `(after! ,next ,@body))))
-              ((or :and :all)
-               (dolist (next (cdr targets))
-                 (setq body `((after! ,next ,@body))))
-               (car body))
-              (_ `(after! (:and ,@targets) ,@body)))))))
-
 (defmacro quiet! (&rest forms)
-  "Run FORMS without making any output."
+  "Run FORMS without generating any output.
+
+This silences calls to `message', `load-file', `write-region' and anything that
+writes to `standard-output'."
   `(cond (noninteractive
           (let ((old-fn (symbol-function 'write-region)))
             (cl-letf ((standard-output (lambda (&rest _)))
@@ -258,13 +214,12 @@ BODY is evaluated once TARGETS are loaded. TARGETS can either be:
           ,@forms)
          ((let ((inhibit-message t)
                 (save-silently t))
-            ,@forms
-            (message "")))))
+            (prog1 ,@forms (message ""))))))
 
 (defmacro add-transient-hook! (hook-or-function &rest forms)
   "Attaches a self-removing function to HOOK-OR-FUNCTION.
 
-FORMS are evaluated once when that function/hook is first invoked, then never
+FORMS are evaluated once, when that function/hook is first invoked, then never
 again.
 
 HOOK-OR-FUNCTION can be a quoted hook or a sharp-quoted function (which will be
@@ -273,29 +228,35 @@ advised)."
   (let ((append (if (eq (car forms) :after) (pop forms)))
         (fn (if (symbolp (car forms))
                 (intern (format "doom|transient-hook-%s" (pop forms)))
-              (make-symbol "doom|transient-hook-"))))
-    `(progn
+              (make-symbol "doom|transient-hook"))))
+    `(let ((sym ,hook-or-function))
        (fset ',fn
              (lambda (&rest _)
                ,@forms
-               (cond ((functionp ,hook-or-function) (advice-remove ,hook-or-function #',fn))
-                     ((symbolp ,hook-or-function)   (remove-hook ,hook-or-function #',fn)))
+               (let ((sym ,hook-or-function))
+                 (cond ((functionp sym) (advice-remove sym #',fn))
+                       ((symbolp sym)   (remove-hook sym #',fn))))
                (unintern ',fn nil)))
-       (cond ((functionp ,hook-or-function)
+       (cond ((functionp sym)
               (advice-add ,hook-or-function ,(if append :after :before) #',fn))
-             ((symbolp ,hook-or-function)
+             ((symbolp sym)
               (put ',fn 'permanent-local-hook t)
-              (add-hook ,hook-or-function #',fn ,append))))))
+              (add-hook sym #',fn ,append))))))
 
 (defmacro add-hook! (&rest args)
-  "A convenience macro for `add-hook'. Takes, in order:
+  "A convenience macro for adding N functions to M hooks.
+
+If N and M = 1, there's no benefit to using this macro over `add-hook'.
+
+This macro accepts, in order:
 
   1. Optional properties :local and/or :append, which will make the hook
      buffer-local or append to the list of hooks (respectively),
-  2. The hooks: either an unquoted major mode, an unquoted list of major-modes,
-     a quoted hook variable or a quoted list of hook variables. If unquoted, the
-     hooks will be resolved by appending -hook to each symbol.
-  3. A function, list of functions, or body forms to be wrapped in a lambda.
+  2. The hook(s) to be added to: either an unquoted mode, an unquoted list of
+     modes, a quoted hook variable or a quoted list of hook variables. If
+     unquoted, '-hook' will be appended to each symbol.
+  3. The function(s) to be added: this can be one function, a list thereof, or
+     body forms (implicitly wrapped in a closure).
 
 Examples:
     (add-hook! 'some-mode-hook 'enable-something)   (same as `add-hook')
@@ -306,9 +267,6 @@ Examples:
     (add-hook! :local (one-mode second-mode) 'enable-something)
     (add-hook! (one-mode second-mode) (setq v 5) (setq a 2))
     (add-hook! :append :local (one-mode second-mode) (setq v 5) (setq a 2))
-
-Body forms can access the hook's arguments through the let-bound variable
-`args'.
 
 \(fn [:append :local] HOOKS FUNCTIONS)"
   (declare (indent defun) (debug t))
@@ -340,31 +298,47 @@ Body forms can access the hook's arguments through the let-bound variable
       `(progn ,@(if append-p (nreverse forms) forms)))))
 
 (defmacro remove-hook! (&rest args)
-  "Convenience macro for `remove-hook'. Takes the same arguments as
-`add-hook!'.
+  "A convenience macro for removing N functions from M hooks.
+
+Takes the same arguments as `add-hook!'.
+
+If N and M = 1, there's no benefit to using this macro over `remove-hook'.
 
 \(fn [:append :local] HOOKS FUNCTIONS)"
   (declare (indent defun) (debug t))
   `(add-hook! :remove ,@args))
 
 (defmacro setq-hook! (hooks &rest rest)
-  "Convenience macro for setting buffer-local variables in a hook.
+  "Sets buffer-local variables on HOOKS.
 
   (setq-hook! 'markdown-mode-hook
     line-spacing 2
-    fill-column 80)"
+    fill-column 80)
+
+\(fn HOOKS &rest SYM VAL...)"
   (declare (indent 1))
   (unless (= 0 (% (length rest) 2))
     (signal 'wrong-number-of-arguments (list #'evenp (length rest))))
-  `(add-hook! :append ,hooks
-     ,@(let (forms)
-         (while rest
-           (let ((var (pop rest))
-                 (val (pop rest)))
-             (push `(setq-local ,var ,val) forms)))
-         (nreverse forms))))
+  (let* ((vars (let ((args rest)
+                     vars)
+                 (while args
+                   (push (symbol-name (car args)) vars)
+                   (setq args (cddr args)))
+                 vars))
+         (fnsym (intern (format "doom|setq-%s" (string-join (sort vars #'string-lessp) "-")))))
+    (macroexp-progn
+     (append `((fset ',fnsym
+                     (lambda (&rest _)
+                       ,@(let (forms)
+                           (while rest
+                             (let ((var (pop rest))
+                                   (val (pop rest)))
+                               (push `(set (make-local-variable ',var) ,val) forms)))
+                           (nreverse forms)))))
+             (cl-loop for hook in (doom--resolve-hook-forms hooks)
+                      collect `(add-hook ',hook #',fnsym 'append))))))
 
-(defun advice-add! (symbols where functions)                            
+(defun advice-add! (symbols where functions)
   "Variadic version of `advice-add'.
 
 SYMBOLS and FUNCTIONS can be lists of functions."
@@ -401,8 +375,8 @@ The available conditions are:
   :match REGEXP
     A regexp to be tested against the current file path.
   :files SPEC
-    Accepts what `project-file-exists-p!' accepts. Checks if certain files exist
-    relative to the project root.
+    Accepts what `project-file-exists-p!' accepts. Checks if certain files or
+    directories exist relative to the project root.
   :when FORM
     Whenever FORM returns non-nil."
   (declare (indent 1))
@@ -481,6 +455,49 @@ If NOERROR is non-nil, don't throw an error if the file doesn't exist."
                          (concat source ".el")
                          (cdr err))
                         e)))))))
+
+(defmacro custom-set-faces! (&rest spec-groups)
+  "Convenience macro for additively setting face attributes.
+
+SPEC-GROUPS is a list of either face specs, or alists mapping a package name to
+a list of face specs. e.g.
+
+  (custom-set-faces!
+   (mode-line :foreground (doom-color 'blue))
+   (mode-line-buffer-id :foreground (doom-color 'fg) :background \"#000000\")
+   (mode-line-success-highlight :background (doom-color 'green))
+   (org
+    (org-tag :background \"#4499FF\")
+    (org-ellipsis :inherit 'org-tag))
+   (which-key
+    (which-key-docstring-face :inherit 'font-lock-comment-face)))
+
+Each face spec must be in the format of (FACE-NAME [:ATTRIBUTE VALUE]...).
+
+Unlike `custom-set-faces', which destructively changes a face's spec, this one
+adjusts pre-existing ones."
+  `(add-hook
+    'doom-load-theme-hook
+    (let ((fn (make-symbol "doom|init-custom-faces")))
+      (fset fn
+            (lambda ()
+              ,@(let (forms)
+                  (dolist (spec-group spec-groups)
+                    (if (keywordp (cadr spec-group))
+                        (cl-destructuring-bind (face . attrs) spec-group
+                          (push `(set-face-attribute ,(if (symbolp face) `(quote ,face) face)
+                                                     nil ,@attrs)
+                                forms))
+                      (let ((package (car spec-group))
+                            (specs (cdr spec-group)))
+                        (push `(after! ,package
+                                 ,@(cl-loop for (face . attrs) in specs
+                                            collect `(set-face-attribute ,(if (symbolp face) `(quote ,face) face)
+                                                                         nil ,@attrs)))
+                              forms))))
+                  (nreverse forms))))
+      fn)
+    'append))
 
 (provide 'core-lib)
 ;;; core-lib.el ends here

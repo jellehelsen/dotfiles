@@ -7,8 +7,6 @@
         dired-recursive-copies  'always
         dired-recursive-deletes 'top
         ;; Auto refresh dired, but be quiet about it
-        global-auto-revert-non-file-buffers t
-        auto-revert-verbose nil
         dired-hide-details-hide-symlink-targets nil
         ;; files
         image-dired-dir (concat doom-cache-dir "image-dired/")
@@ -24,39 +22,36 @@
       ;; when not using GNU ls.
       (if-let* ((gls (executable-find "gls")))
           (setq insert-directory-program gls)
-        (setq args (delete "--group-directories-first" args))
-        (message "Cannot find `gls` (GNU ls). Install coreutils via your system package manager")))
+        ;; BSD ls doesn't support --group-directories-first
+        (setq args (delete "--group-directories-first" args))))
     (setq dired-listing-switches (string-join args " ")))
 
-  (defun +dired|sort-directories-first ()
-    "List directories first in dired buffers."
-    (save-excursion
-      (let (buffer-read-only)
-        (forward-line 2) ;; beyond dir. header
-        (sort-regexp-fields t "^.*$" "[ ]*." (point) (point-max))))
-    (and (featurep 'xemacs)
-         (fboundp 'dired-insert-set-properties)
-         (dired-insert-set-properties (point-min) (point-max)))
-    (set-buffer-modified-p nil))
-  (add-hook 'dired-after-readin-hook #'+dired|sort-directories-first)
+  (define-key! dired-mode-map
+    ;; Kill buffer when quitting dired buffers
+    [remap quit-window] (λ! (quit-window t))
+    ;; To be consistent with ivy/helm+wgrep integration
+    "C-c C-e" #'wdired-change-to-wdired-mode))
 
-  ;; Automatically create missing directories when creating new files
-  (defun +dired|create-non-existent-directory ()
-    (let ((parent-directory (file-name-directory buffer-file-name)))
-      (when (and (not (file-exists-p parent-directory))
-                 (y-or-n-p (format "Directory `%s' does not exist! Create it?" parent-directory)))
-        (make-directory parent-directory t))))
-  (add-to-list 'find-file-not-found-functions '+dired|create-non-existent-directory nil #'eq)
 
-  ;; Kill buffer when quitting dired buffers
-  (define-key dired-mode-map [remap quit-window] (λ! (quit-window t))))
+(def-package! dired-rsync
+  :general (dired-mode-map "C-c C-r" #'dired-rsync))
+
+
+(def-package! diredfl
+  :hook (dired-mode . diredfl-mode))
 
 
 (def-package! dired-k
-  :unless (featurep! +ranger)
   :hook (dired-initial-position . dired-k)
   :hook (dired-after-readin . dired-k-no-revert)
   :config
+  (setq dired-k-style 'git
+        dired-k-padding 1)
+
+  ;; Don't highlight based on mtime, this interferes with diredfl and is more
+  ;; confusing than helpful.
+  (advice-add #'dired-k--highlight-by-file-attribyte :override #'ignore)
+
   (defun +dired*interrupt-process (orig-fn &rest args)
     "Fixes dired-k killing git processes too abruptly, leaving behind disruptive
 .git/index.lock files."
@@ -77,21 +72,39 @@
   :after dired
   :init
   ;; set up image-dired to allow picture resize
-  (setq image-dired-dir (concat doom-cache-dir "image-dir"))
+  (setq image-dired-dir (concat doom-cache-dir "image-dir")
+        ranger-override-dired t)
   :config
   (unless (file-directory-p image-dired-dir)
     (make-directory image-dired-dir))
 
   (set-popup-rule! "^\\*ranger" :ignore t)
 
-  (setq ranger-override-dired t
-        ranger-cleanup-on-disable t
-        ranger-omit-regexp "^\.DS_Store$"
+  (defun +dired*cleanup-header-line ()
+    "Ranger fails to clean up `header-line-format' when it is closed, so..."
+    (dolist (buffer (buffer-list))
+      (when (buffer-live-p buffer)
+        (with-current-buffer buffer
+          (when (equal header-line-format '(:eval (ranger-header-line)))
+            (setq header-line-format nil))))))
+  (advice-add #'ranger-revert :before #'+dired*cleanup-header-line)
+
+  (defun +dired*cleanup-mouse1-bind ()
+    "Ranger binds an anonymous function to mouse-1 after previewing a buffer
+that prevents the user from escaping the window with the mouse. This command is
+never cleaned up if the buffer already existed before ranger was initialized, so
+we have to clean it up ourselves."
+    (when (window-live-p ranger-preview-window)
+      (with-current-buffer (window-buffer ranger-preview-window)
+        (local-unset-key [mouse-1]))))
+  (advice-add #'ranger-setup-preview :after #'+dired*cleanup-mouse1-bind)
+
+  (setq ranger-cleanup-on-disable t
         ranger-excluded-extensions '("mkv" "iso" "mp4")
-        ranger-deer-show-details nil
+        ranger-deer-show-details t
         ranger-max-preview-size 10
         ranger-show-literal nil
-        dired-omit-verbose nil))
+        ranger-hide-cursor nil))
 
 
 (def-package! all-the-icons-dired
@@ -106,9 +119,9 @@
 
 
 ;;
-;; Evil integration
+;;; Evil integration
 
-(map! :when (featurep! :feature evil +everywhere)
+(map! :when (featurep! :editor evil +everywhere)
       :after dired
       :map dired-mode-map
       :n "q" #'quit-window

@@ -1,18 +1,19 @@
 ;;; init.el -*- lexical-binding: t; -*-
 ;; Copy me to ~/.doom.d/init.el or ~/.config/doom/init.el, then edit me!
 
+(add-to-list 'exec-path "/usr/local/bin/")
 (doom! :feature
        ;;debugger          ; FIXME stepping through code, to help you add bugs
-       eval              ; run code, run (also, repls)
-       (evil +everywhere); come to the dark side, we have cookies
-       file-templates    ; auto-snippets for empty files
-       (lookup           ; helps you navigate your code and documentation
-        +docsets)        ; ...or in Dash docsets locally
-       snippets          ; my elves. They type so I don't have to
+       ;; eval              ; run code, run (also, repls)
+       ;; (evil +everywhere); come to the dark side, we have cookies
+       ;; file-templates    ; auto-snippets for empty files
+       ;; (lookup           ; helps you navigate your code and documentation
+       ;;  +docsets)        ; ...or in Dash docsets locally
+       ;; snippets          ; my elves. They type so I don't have to
        ;; spellcheck        ; tasing you for misspelling mispelling
        ;; (syntax-checker   ; tasing you for every semicolon you forget
        ;;  +childframe)     ; use childframes for error popups (Emacs 26+ only)
-       workspaces        ; tab emulation, persistence & separate workspaces
+       ;; workspaces        ; tab emulation, persistence & separate workspaces
 
        :completion
        (company          ; the ultimate code completion backend
@@ -29,7 +30,7 @@
        doom-dashboard    ; a nifty splash screen for Emacs
        modeline     ; a snazzy Atom-inspired mode-line
        doom-quit         ; DOOM quit-message prompts when you quit Emacs
-       evil-goggles      ; display visual hints when editing in evil
+       ;; evil-goggles      ; display visual hints when editing in evil
        ;;fci               ; a `fill-column' indicator
        hl-todo           ; highlight TODO/FIXME/NOTE tags
        ;;modeline          ; snazzy, Atom-inspired modeline, plus API
@@ -45,23 +46,31 @@
        vc-gutter         ; vcs diff in the fringe
        vi-tilde-fringe   ; fringe tildes to mark beyond EOB
        window-select     ; visually switch windows
+       workspaces
+       ophints
 
        :editor
        ;;(format +onsave)  ; automated prettiness
        multiple-cursors  ; editing in many places at once
        ;;parinfer          ; turn lisp into python, sort of
        rotate-text       ; cycle region at point between text candidates
-       fold
+       ;;fold
+       (evil +everywhere)
+       file-templates
+       snippets
 
        :emacs
        dired             ; making dired pretty [functional]
-       ediff             ; comparing files in Emacs
+       ;; ediff             ; comparing files in Emacs
        electric          ; smarter, keyword-based electric-indent
-       eshell            ; a consistent, cross-platform shell (WIP)
-       ;; hideshow          ; basic code-folding support
-       imenu             ; an imenu sidebar and searchable code index
-       term              ; terminals in Emacs
+       ;; eshell            ; a consistent, cross-platform shell (WIP)
+       hideshow          ; basic code-folding support
+       ;; imenu             ; an imenu sidebar and searchable code index
        vc                ; version-control and Emacs, sitting in a tree
+
+       :term              ; terminals in Emacs
+       eshell
+       term
 
        :tools
        ansible
@@ -72,12 +81,15 @@
        macos             ; MacOS-specific commands
        make              ; run make tasks from Emacs
        magit             ; a git porcelain for Emacs
-       password-store    ; password manager for nerds
+       ;; password-store    ; password manager for nerds
        pdf               ; pdf enhancements
        prodigy           ; FIXME managing external services & code builders
        rgb               ; creating color strings
        flyspell
        flycheck
+       eval
+       lookup
+       pass
        ;;terraform         ; infrastructure as code
        tmux              ; an API for interacting with tmux
        ;;upload            ; map local to remote projects via ssh/ftp
@@ -138,13 +150,16 @@
        ;; toward a specific purpose. They may have additional dependencies and
        ;; should be loaded late.
        :app
-       (email +gmail)    ; emacs as an email client
+       ;; (email +gmail)    ; emacs as an email client
        irc               ; how neckbeards socialize
        (rss +org)        ; emacs as an RSS reader
        ;;twitter           ; twitter client https://twitter.com/vnought
        (write            ; emacs as a word processor (latex + org + markdown)
        +wordnut         ; wordnet (wn) search
        +langtool)       ; a proofreader (grammar/style check) for Emacs
+
+       :email
+       mu4e
 
        :collab
        ;;floobits          ; peer programming for a price

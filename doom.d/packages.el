@@ -20,3 +20,4 @@
 (package! kubernetes-evil)
 (package! kubernetes-helm)
 (package! kubernetes-tramp)
+(package! exec-path-from-shell)

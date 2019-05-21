@@ -1,4 +1,14 @@
 #+TITLE: config
+* Basics
+#+BEGIN_SRC emacs-lisp
+(when (memq window-system '(mac ns x))
+  (exec-path-from-shell-initialize))
+(add-to-list 'exec-path "/usr/local/bin/")
+(executable-find "aspell")
+#+END_SRC
+
+#+RESULTS:
+: /usr/local/bin/aspell
 
 * Visuals
 #+BEGIN_SRC emacs-lisp

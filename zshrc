@@ -4,6 +4,7 @@ export ZSH_THEME="flazz"
 export EDITOR=vim
 export VAGRANT_PREFER_SYSTEM_BIN=1
 export ANSIBLE_COW_SELECTION=random
+export EMAIL=jelle@hcode.be
 fpath=(/usr/local/share/zsh/site-functions $fpath)
 
 zstyle :omz:plugins:ssh-agent agent-forwarding on

@@ -16,6 +16,7 @@
 (package! mocha)
 (package! groovy-mode)
 (package! go-mode)
+(package! kubernetes)
 (package! kubernetes-evil)
 (package! kubernetes-helm)
 (package! kubernetes-tramp)

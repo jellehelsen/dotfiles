@@ -230,3 +230,7 @@
 
 #+RESULTS:
 : 2
+* Tramp
+#+BEGIN_SRC emacs-lisp
+(add-to-list 'tramp-remote-path 'tramp-own-remote-path)
+#+END_SRC

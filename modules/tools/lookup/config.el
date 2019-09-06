@@ -13,17 +13,19 @@
 ;; `dumb-jump' to find what you want.
 
 (defvar +lookup-provider-url-alist
-  '(("Google"            . "https://google.com/search?q=%s")
-    ("Google images"     . "https://www.google.com/images?q=%s")
-    ("Google maps"       . "https://maps.google.com/maps?q=%s")
-    ("Project Gutenberg" . "http://www.gutenberg.org/ebooks/search/?query=%s")
-    ("DuckDuckGo"        . "https://duckduckgo.com/?q=%s")
-    ("DevDocs.io"        . "https://devdocs.io/#q=%s")
-    ("StackOverflow"     . "https://stackoverflow.com/search?q=%s")
-    ("Github"            . "https://github.com/search?ref=simplesearch&q=%s")
-    ("Youtube"           . "https://youtube.com/results?aq=f&oq=&search_query=%s")
-    ("Wolfram alpha"     . "https://wolframalpha.com/input/?i=%s")
-    ("Wikipedia"         . "https://wikipedia.org/search-redirect.php?language=en&go=Go&search=%s"))
+  (append '(("Google"            . "https://google.com/search?q=%s")
+            ("Google images"     . "https://www.google.com/images?q=%s")
+            ("Google maps"       . "https://maps.google.com/maps?q=%s")
+            ("Project Gutenberg" . "http://www.gutenberg.org/ebooks/search/?query=%s")
+            ("DuckDuckGo"        . "https://duckduckgo.com/?q=%s")
+            ("DevDocs.io"        . "https://devdocs.io/#q=%s")
+            ("StackOverflow"     . "https://stackoverflow.com/search?q=%s")
+            ("Github"            . "https://github.com/search?ref=simplesearch&q=%s")
+            ("Youtube"           . "https://youtube.com/results?aq=f&oq=&search_query=%s")
+            ("Wolfram alpha"     . "https://wolframalpha.com/input/?i=%s")
+            ("Wikipedia"         . "https://wikipedia.org/search-redirect.php?language=en&go=Go&search=%s"))
+          (when (featurep! :lang rust)
+            '(("Rust Docs" . "https://doc.rust-lang.org/edition-guide/?search=%s"))))
   "An alist that maps online resources to their search url or a function that
 produces an url. Used by `+lookup/online'.")
 
@@ -31,10 +33,10 @@ produces an url. Used by `+lookup/online'.")
   "Function to use to open search urls.")
 
 (defvar +lookup-definition-functions
-  '(+lookup-xref-definitions-backend
-    +lookup-dumb-jump-backend
-    +lookup-project-search-backend
-    +lookup-evil-goto-definition-backend)
+  '(+lookup-xref-definitions-backend-fn
+    +lookup-dumb-jump-backend-fn
+    +lookup-project-search-backend-fn
+    +lookup-evil-goto-definition-backend-fn)
   "Functions for `+lookup/definition' to try, before resorting to `dumb-jump'.
 Stops at the first function to return non-nil or change the current
 window/point.
@@ -45,8 +47,8 @@ argument: the identifier at point. See `set-lookup-handlers!' about adding to
 this list.")
 
 (defvar +lookup-references-functions
-  '(+lookup-xref-references-backend
-    +lookup-project-search-backend)
+  '(+lookup-xref-references-backend-fn
+    +lookup-project-search-backend-fn)
   "Functions for `+lookup/references' to try, before resorting to `dumb-jump'.
 Stops at the first function to return non-nil or change the current
 window/point.
@@ -57,7 +59,7 @@ argument: the identifier at point. See `set-lookup-handlers!' about adding to
 this list.")
 
 (defvar +lookup-documentation-functions
-  '(+lookup-online-backend)
+  '(+lookup-online-backend-fn)
   "Functions for `+lookup/documentation' to try, before resorting to
 `dumb-jump'. Stops at the first function to return non-nil or change the current
 window/point.
@@ -81,7 +83,7 @@ this list.")
 ;;
 ;;; dumb-jump
 
-(def-package! dumb-jump
+(use-package! dumb-jump
   :commands dumb-jump-result-follow
   :config
   (setq dumb-jump-default-project doom-emacs-dir
@@ -96,31 +98,31 @@ this list.")
 ;;
 ;;; xref
 
+;; The lookup commands are superior, and will consult xref if there are no
+;; better backends available.
+(global-set-key [remap xref-find-definitions] #'+lookup/definition)
+(global-set-key [remap xref-find-references]  #'+lookup/references)
+
 (after! xref
   ;; We already have `projectile-find-tag' and `evil-jump-to-tag', no need for
   ;; xref to be one too.
   (remove-hook 'xref-backend-functions #'etags--xref-backend)
   ;; ...however, it breaks `projectile-find-tag', unless we put it back.
-  (defun +lookup*projectile-find-tag (orig-fn)
+  (defadvice! +lookup--projectile-find-tag-a (orig-fn)
+    :around #'projectile-find-tag
     (let ((xref-backend-functions '(etags--xref-backend t)))
       (funcall orig-fn)))
-  (advice-add #'projectile-find-tag :around #'+lookup*projectile-find-tag)
-
-  ;; The lookup commands are superior, and will consult xref if there are no
-  ;; better backends available.
-  (global-set-key [remap xref-find-definitions] #'+lookup/definition)
-  (global-set-key [remap xref-find-references]  #'+lookup/references)
 
   ;; Use `better-jumper' instead of xref's marker stack
-  (advice-add #'xref-push-marker-stack :around #'doom*set-jump)
+  (advice-add #'xref-push-marker-stack :around #'doom-set-jump-a)
 
-  (def-package! ivy-xref
+  (use-package! ivy-xref
     :when (featurep! :completion ivy)
     :config
     (setq xref-show-xrefs-function #'ivy-xref-show-xrefs)
     (set-popup-rule! "^\\*xref\\*$" :ignore t))
 
-  (def-package! helm-xref
+  (use-package! helm-xref
     :when (featurep! :completion helm)
     :config (setq xref-show-xrefs-function #'helm-xref-show-xrefs)))
 
@@ -128,10 +130,10 @@ this list.")
 ;;
 ;;; Dash docset integration
 
-(def-package! dash-docs
+(use-package! dash-docs
   :when (featurep! +docsets)
   :init
-  (add-hook '+lookup-documentation-functions #'+lookup-dash-docsets-backend)
+  (add-hook '+lookup-documentation-functions #'+lookup-dash-docsets-backend-fn)
   :config
   (setq dash-docs-enable-debugging doom-debug-mode
         dash-docs-docsets-path (concat doom-etc-dir "docsets/")
@@ -141,19 +143,19 @@ this list.")
   ;; Before `gnutls' is loaded, `gnutls-algorithm-priority' is treated as a
   ;; lexical variable, which breaks `+lookup*fix-gnutls-error'
   (defvar gnutls-algorithm-priority)
-  (defun +lookup*fix-gnutls-error (orig-fn url)
+  (defadvice! +lookup--fix-gnutls-error-a (orig-fn url)
     "Fixes integer-or-marker-p errors emitted from Emacs' url library,
 particularly, the `url-retrieve-synchronously' call in
 `dash-docs-read-json-from-url'. This is part of a systemic issue with Emacs 26's
 networking library (fixed in Emacs 27+, apparently).
 
 See https://github.com/magit/ghub/issues/81"
+    :around #'dash-docs-read-json-from-url
     (let ((gnutls-algorithm-priority "NORMAL:-VERS-TLS1.3"))
       (funcall orig-fn url)))
-  (advice-add #'dash-docs-read-json-from-url :around #'+lookup*fix-gnutls-error)
 
-  (def-package! helm-dash
+  (use-package! helm-dash
     :when (featurep! :completion helm))
 
-  (def-package! counsel-dash
+  (use-package! counsel-dash
     :when (featurep! :completion ivy)))

@@ -1,14 +1,19 @@
-#!/usr/bin/env bash
-":"; [[ $EMACS = *"term"* ]] && EMACS=emacs || EMACS=${EMACS:-emacs} # -*-emacs-lisp-*-
+#!/usr/bin/env sh
+":"; ( echo "$EMACS" | grep -q "term" ) && EMACS=emacs || EMACS=${EMACS:-emacs} # -*-emacs-lisp-*-
 ":"; command -v $EMACS >/dev/null || { >&2 echo "Emacs isn't installed"; exit 1; }
 ":"; VERSION=$($EMACS --version | head -n1)
-":"; [[ $VERSION == *\ 2[0-2].[0-1].[0-9] ]] && { echo "You're running $VERSION"; echo "That version is too old to run Doom. Check your PATH"; echo; exit 2; }
-":"; DOOMBASE=$(dirname "${BASH_SOURCE:-${(%):-%x}}")/..
-":"; [[ $1 == -d || $1 == --debug ]] && { shift; export DEBUG=1; }
-":"; [[ $1 == doc || $1 == doctor ]] && { cd "$DOOMBASE"; shift; exec $EMACS --script bin/doom-doctor "$@"; exit 0; }
-":"; [[ $1 == run ]] && { cd "$DOOMBASE"; shift; exec $EMACS -q --no-splash -l bin/doom "$@"; exit 0; }
-":"; exec $EMACS --script "$0" -- $@
+":"; case "$VERSION" in *\ 2[0-2].[0-1].[0-9]) echo "You're running $VERSION"; echo "That version is too old to run Doom. Check your PATH"; echo; exit 2 ;; esac
+":"; DOOMBASE=$(dirname "$0")/..
+":"; [ "$1" = -d ] || [ "$1" = --debug ] && { shift; export DEBUG=1; }
+":"; [ "$1" = doc ] || [ "$1" = doctor ] && { cd "$DOOMBASE"; shift; exec $EMACS --script bin/doom-doctor "$@"; exit 0; }
+":"; [ "$1" = run ] && { cd "$DOOMBASE"; shift; exec $EMACS -q --no-splash -l bin/doom "$@"; exit 0; }
+":"; exec $EMACS --script "$0" -- "$@"
 ":"; exit 0
+
+(setq user-emacs-directory
+      (or (getenv "EMACSDIR")
+          (expand-file-name "../" (file-name-directory (file-truename load-file-name)))))
+
 
 (defun usage ()
   (with-temp-buffer
@@ -35,15 +40,14 @@
             "  -d --debug\t\tTurns on doom-debug-mode (and debug-on-error)\n"
             "  -e --emacsd DIR\tUse the emacs config at DIR (e.g. ~/.emacs.d)\n"
             "  -i --insecure\t\tDisable TLS/SSL validation (not recommended)\n"
+            "  -l --local DIR\tUse DIR as your local storage directory\n"
             "  -p --private DIR\tUse the private module at DIR (e.g. ~/.doom.d)\n"
             "  -y --yes\t\tAuto-accept all confirmation prompts\n\n")
     (princ (buffer-string)))
   (doom--dispatch-help))
 
 ;;
-(let ((args (cdr (cdr (cdr command-line-args))))
-      (emacs-dir (or (getenv "EMACSDIR")
-                     (expand-file-name "../" (file-name-directory (file-truename load-file-name))))))
+(let ((args (cdr (cdr (cdr command-line-args)))))
   ;; Parse options
   (while (ignore-errors (string-prefix-p "-" (car args)))
     (pcase (pop args)
@@ -62,35 +66,44 @@
        (or (file-directory-p doom-private-dir)
            (message "Warning: %s does not exist"
                     (abbreviate-file-name doom-private-dir))))
+      ((or "-l" "--local")
+       (setq doom-local-dir (expand-file-name (concat (pop args) "/")))
+       (setenv "DOOMLOCALDIR" doom-local-dir)
+       (message "DOOMLOCALDIR changed to %s" doom-local-dir))
       ((or "-e" "--emacsd")
-       (setq emacs-dir (expand-file-name (concat (pop args) "/")))
-       (message "Emacs directory changed to %s" emacs-dir))
+       (setq user-emacs-directory (expand-file-name (concat (pop args) "/")))
+       (message "Emacs directory changed to %s" user-emacs-directory))
       ((or "-y" "--yes")
        (setenv "YES" "1")
        (message "Auto-yes mode on"))))
 
-  (or (file-directory-p emacs-dir)
-      (error "%s does not exist" emacs-dir))
+  (unless (file-directory-p user-emacs-directory)
+    (error "%s does not exist" user-emacs-directory))
 
   ;; Bootstrap Doom
-  (load (expand-file-name "init" emacs-dir)
-        nil 'nomessage)
+  (if (not noninteractive)
+      (let ((doom-interactive-mode t))
+        (load (expand-file-name "init.el" user-emacs-directory)
+              nil 'nomessage)
+        (doom-run-all-startup-hooks-h))
+    (load (expand-file-name "core/core.el" user-emacs-directory)
+          nil 'nomessage)
+    (doom-initialize 'force-p)
+    (doom-initialize-modules)
 
-  (cond ((not noninteractive)
-         (doom|run-all-startup-hooks))
-        ((and (not (cdr args))
-              (member (car args) '("help" "h")))
-         (usage))
-        ((not args)
-         (message "No command detected, aborting!\n\nRun %s help for documentation."
-                  (file-name-nondirectory load-file-name)))
-        ((let ((default-directory emacs-dir))
-           (setq argv nil
-                 noninteractive 'doom)
+    (cond ((or (not args)
+               (and (not (cdr args))
+                    (member (car args) '("help" "h"))))
+           (unless args
+             (print! (error "No command detected.\n")))
+           (usage))
+          ((require 'core-cli)
+           (setq argv nil)
            (condition-case e
                (doom-dispatch (car args) (cdr args))
              (user-error
-              (signal (car e) (cdr e)))
+              (print! (error "%s\n") (error-message-string e))
+              (print! (yellow "See 'doom help %s' for documentation on this command.") (car args)))
              ((debug error)
               (message "--------------------------------------------------\n")
               (message "There was an unexpected error:")

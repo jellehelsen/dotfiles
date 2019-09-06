@@ -7,11 +7,11 @@
 ;;
 ;; Major modes
 
-(def-package! lua-mode
+(use-package! lua-mode
   :defer t
   :init
   ;; lua-indent-level defaults to 3 otherwise. Madness.
-  (setq lua-indent-level tab-width)
+  (setq lua-indent-level 2)
   :config
   (set-lookup-handlers! 'lua-mode :documentation 'lua-search-documentation)
   (set-electric! 'lua-mode :words '("else" "end"))
@@ -19,17 +19,30 @@
   (set-company-backend! 'lua-mode '(company-lua company-yasnippet)))
 
 
-;;;###package moonscript
-(setq-hook! 'moonscript-mode-hook moonscript-indent-offset tab-width)
+(use-package! moonscript
+  :when (featurep! +moonscript)
+  :defer t
+  :config
+  (setq-hook! 'moonscript-mode-hook
+    moonscript-indent-offset tab-width)
+  (add-hook! 'moonscript-mode-hook
+             #'+lua-moonscript-fix-single-quotes-h
+             #'+lua-moonscript-fontify-interpolation-h)
+  (when (featurep! :tools flycheck)
+    (require 'flycheck-moonscript nil t)))
 
 
 ;;
 ;;; Frameworks
 
 (def-project-mode! +lua-love-mode
-  :modes (lua-mode markdown-mode json-mode)
-  :files (and "main.lua" "conf.lua")
+  :modes '(moonscript-mode lua-mode markdown-mode json-mode)
+  :when #'+lua-love-project-root
   :on-load
-  (map! :localleader
-        :map +lua-love-mode-map
-        "b" #'+lua/run-love-game))
+  (progn
+    (set-project-type! 'love2d
+      :predicate #'+lua-love-project-root
+      :run #'+lua-love-build-command)
+    (map! :localleader
+          :map +lua-love-mode-map
+          "b" #'+lua/run-love-game)))

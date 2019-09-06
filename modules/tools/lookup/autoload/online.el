@@ -6,16 +6,16 @@
   (let ((key (or namespace major-mode)))
     (or (and (not force-p)
              (cdr (assq key +lookup--last-provider)))
-        (when-let* ((provider
-                     (completing-read
-                      "Search on: "
-                      (mapcar #'car +lookup-provider-url-alist)
-                      nil t)))
+        (when-let (provider
+                   (completing-read
+                    "Search on: "
+                    (mapcar #'car +lookup-provider-url-alist)
+                    nil t))
           (setf (alist-get key +lookup--last-provider) provider)
           provider))))
 
 ;;;###autoload
-(defun +lookup-online-backend (identifier)
+(defun +lookup-online-backend-fn (identifier)
   "Opens the browser and searches for IDENTIFIER online.
 
 Will prompt for which search engine to use the first time (or if the universal

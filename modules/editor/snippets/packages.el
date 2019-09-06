@@ -4,7 +4,7 @@
 (package! yasnippet)
 (package! auto-yasnippet)
 
-(package! emacs-snippets
-  :recipe (:fetcher github
-           :repo "hlissner/emacs-snippets"
-           :files ("*")))
+(package! doom-snippets
+  :recipe (:host github
+           :repo "hlissner/doom-snippets"
+           :files ("*.el" "snippets")))

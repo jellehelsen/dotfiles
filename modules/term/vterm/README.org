@@ -18,10 +18,8 @@ alpha and requires a component be compiled (=vterm-module.sh=).
 
 The following commands are available to open it:
 
-+ ~+vterm/open~ (=SPC o t=): Opens vterm in the current window.
-+ ~+vterm/open-popup~ (no keybind): Opens vterm in a pop up window.
-+ ~+vterm/open-popup-in-project~ (=SPC o T=): Opens vterm from the project root
-  in a pop up window.
++ ~+vterm/toggle~ (=SPC o t=): Toggle vterm pop up window in the current project
++ ~+vterm/here~ (=SPC o T=): Opens vterm in the current window
 
 ** Module Flags
 This module provides no flags.
@@ -56,6 +54,25 @@ variable (=SPC h v system-configuration-options=).
 + Ubuntu or Debian users: ~apt-get install libvterm-dev~
 + ArchLinux or Manjaro: ~pacman -S libvterm~
 + MacOS: ~libvterm~
++ NixOS:
+
+  #+BEGIN_SRC nix
+  systemPackages = with pkgs; [
+    # emacs    # no need for this, the next line includes emacs
+    ((emacsPackagesNgGen emacs).emacsWithPackages (epkgs: [
+      epkgs.emacs-libvterm
+    ]))
+  ];
+  #+END_SRC
+
+  Or for home-manager users:
+
+  #+BEGIN_SRC nix
+  programs.emacs = {
+    enable = true;
+    extraPackages = epkgs: [ epkgs.emacs-libvterm ];
+  };
+  #+END_SRC
 
 ** Compilation tools for vterm-module.so
 When you first load vterm, it will compile =vterm-module.so= for you. For this

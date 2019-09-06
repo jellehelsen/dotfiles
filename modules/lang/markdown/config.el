@@ -3,7 +3,8 @@
 (defvar +markdown-compile-functions
   '(+markdown-compile-marked
     +markdown-compile-pandoc
-    +markdown-compile-markdown)
+    +markdown-compile-markdown
+    +markdown-compile-multimarkdown)
   "A list of commands to try when attempting to build a markdown file with
 `markdown-open' or `markdown-preview', stopping at the first one to return non-nil.
 
@@ -14,7 +15,7 @@ capture, the end position, and the output buffer.")
 ;;
 ;;; Packages
 
-(def-package! markdown-mode
+(use-package! markdown-mode
   :mode ("/README\\(?:\\.\\(?:markdown\\|md\\)\\)?\\'" . gfm-mode)
   :init
   (setq markdown-enable-wiki-links t
@@ -37,12 +38,20 @@ capture, the end position, and the output buffer.")
   (set-lookup-handlers! '(markdown-mode gfm-mode)
     :file #'markdown-follow-thing-at-point)
 
+  ;; Enable hard-wrapping. By convention, Doom does this for all textual modes.
   (add-hook 'markdown-mode-hook #'auto-fill-mode)
 
-  (sp-with-modes '(markdown-mode gfm-mode)
-    (sp-local-pair "```" "```" :post-handlers '(:add ("||\n[i]" "RET"))))
+  ;; Prevent mis-fontification of YAML metadata blocks in `markdown-mode' which
+  ;; occurs when the first line contains a colon in it. See
+  ;; https://github.com/jrblevin/markdown-mode/issues/328.
+  (advice-add :markdown-match-generic-metadata
+              :override #'+markdown-disable-front-matter-fontification-a)
 
   (map! :map markdown-mode-map
+        :n [tab] #'markdown-cycle
+        :n "TAB" #'markdown-cycle
+        :n [backtab] #'markdown-shifttab
+        :n "<S-tab>" #'markdown-shifttab
         :i "M-*" #'markdown-insert-list-item
         :i "M-b" #'markdown-insert-bold
         :i "M-i" #'markdown-insert-italic

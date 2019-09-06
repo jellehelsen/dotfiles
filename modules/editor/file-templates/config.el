@@ -38,6 +38,8 @@ don't have a :trigger property in `+file-templates-alist'.")
     ("\\.h\\(?:h\\|pp\\|xx\\)$"   :trigger "__hpp" :mode c++-mode)
     ("\\.h$" :trigger "__h" :mode c-mode)
     (c-mode  :trigger "__c")
+    ;; direnv
+    ("/\\.envrc$" :trigger "__envrc" :mode direnv-envrc-mode)
     ;; go
     ("/main\\.go$" :trigger "__main.go" :mode go-mode :project t)
     (go-mode :trigger "__.go")
@@ -61,6 +63,11 @@ don't have a :trigger property in `+file-templates-alist'.")
     ("/conf\\.lua$" :trigger "__conf.lua" :mode love-mode)
     ;; Markdown
     (markdown-mode)
+    ;; Markdown
+    (nxml-mode)
+    ;; Nix
+    ("/shell\\.nix$" :trigger "__shell.nix")
+    (nix-mode)
     ;; Org
     ("/README\\.org$"
      :when +file-templates-in-emacs-dirs-p
@@ -107,14 +114,15 @@ information.")
   (or (file-in-directory-p file doom-private-dir)
       (file-in-directory-p file doom-emacs-dir)))
 
-(defun +file-templates|check ()
+(defun +file-templates-check-h ()
   "Check if the current buffer is a candidate for file template expansion. It
 must be non-read-only, empty, and there must be a rule in
 `+file-templates-alist' that applies to it."
-  (when (and (not buffer-read-only)
+  (when (and (not (file-exists-p (or (buffer-file-name) "")))
+             (not buffer-read-only)
              (bobp) (eobp)
              (not (string-match-p "^ *\\*" (buffer-name))))
-    (when-let* ((rule (cl-find-if #'+file-template-p +file-templates-alist)))
+    (when-let (rule (cl-find-if #'+file-template-p +file-templates-alist))
       (apply #'+file-templates--expand rule))))
 
 
@@ -122,6 +130,10 @@ must be non-read-only, empty, and there must be a rule in
 ;; Bootstrap
 
 (after! yasnippet
+  ;; Prevent file-templates from breaking org-capture when target file doesn't
+  ;; exist and has a file template.
+  (add-hook 'org-capture-mode-hook #'yas-abort-snippet)
+
   (if (featurep! :editor snippets)
       (add-to-list 'yas-snippet-dirs '+file-templates-dir 'append #'eq)
     (setq yas-prompt-functions (delq #'yas-dropdown-prompt yas-prompt-functions)
@@ -132,4 +144,4 @@ must be non-read-only, empty, and there must be a rule in
     (yas-reload-all)))
 
 ;;
-(add-hook 'find-file-hook #'+file-templates|check)
+(add-hook 'find-file-hook #'+file-templates-check-h)

@@ -53,7 +53,7 @@
   "Return a workspace named NAME. Unless NOERROR is non-nil, this throws an
 error if NAME doesn't exist."
   (cl-check-type name string)
-  (when-let* ((persp (persp-get-by-name name)))
+  (when-let (persp (persp-get-by-name name))
     (cond ((+workspace-p persp) persp)
           ((not noerror)
            (error "No workspace called '%s' was found" name)))))
@@ -136,7 +136,7 @@ Otherwise return t on success, nil otherwise."
     (save-window-excursion
       (let ((ignore-window-parameters t)
             (+popup--inhibit-transient t))
-        (delete-other-windows))
+        (persp-delete-other-windows))
       (switch-to-buffer (doom-fallback-buffer))
       (setf (persp-window-conf persp)
             (funcall persp-window-state-get-function (selected-frame))))
@@ -327,10 +327,21 @@ end of the workspace list."
     ('error (+workspace-error (cadr ex) t))))
 
 ;;;###autoload
-(defun +workspace/switch-to-last ()
-  "Switch to the last workspace."
+(dotimes (i 9)
+  (fset (intern (format "+workspace/switch-to-%d" i))
+        (lambda () (interactive) (+workspace/switch-to i))))
+
+;;;###autoload
+(defun +workspace/switch-to-final ()
+  "Switch to the final workspace in open workspaces."
   (interactive)
   (+workspace/switch-to (car (last (+workspace-list-names)))))
+
+;;;###autoload
+(defun +workspace/other ()
+  "Switch to the last activated workspace."
+  (interactive)
+  (+workspace/switch-to +workspace--last))
 
 ;;;###autoload
 (defun +workspace/cycle (n)
@@ -423,14 +434,14 @@ the next."
   "Display a list of workspaces (like tabs) in the echo area."
   (interactive)
   (let (message-log-max)
-    (minibuffer-message "%s" (+workspace--tabline))))
+    (message "%s" (+workspace--tabline))))
 
 
 ;;
 ;;; Hooks
 
 ;;;###autoload
-(defun +workspaces|delete-associated-workspace (&optional frame)
+(defun +workspaces-delete-associated-workspace-h (&optional frame)
   "Delete workspace associated with current frame.
 A workspace gets associated with a frame when a new frame is interactively
 created."
@@ -442,17 +453,7 @@ created."
         (+workspace/delete frame-persp)))))
 
 ;;;###autoload
-(defun +workspaces|cleanup-unassociated-buffers ()
-  "Kill leftover buffers that are unassociated with any perspective."
-  (when persp-mode
-    (cl-loop for buf in (buffer-list)
-             unless (or (persp--buffer-in-persps buf)
-                        (get-buffer-window buf))
-             if (kill-buffer buf)
-             sum 1)))
-
-;;;###autoload
-(defun +workspaces|associate-frame (frame &optional _new-frame-p)
+(defun +workspaces-associate-frame-fn (frame &optional _new-frame-p)
   "Create a blank, new perspective and associate it with FRAME."
   (when persp-mode
     (if (not (persp-frame-list-without-daemon))
@@ -468,13 +469,13 @@ created."
 
 (defvar +workspaces--project-dir nil)
 ;;;###autoload
-(defun +workspaces|set-project-action ()
+(defun +workspaces-set-project-action-fn ()
   "A `projectile-switch-project-action' that sets the project directory for
-`+workspaces|switch-to-project'."
+`+workspaces-switch-to-project-h'."
   (setq +workspaces--project-dir default-directory))
 
 ;;;###autoload
-(defun +workspaces|switch-to-project (&optional dir)
+(defun +workspaces-switch-to-project-h (&optional dir)
   "Creates a workspace dedicated to a new project. If one already exists, switch
 to it. If in the main workspace and it's empty, recycle that workspace, without
 renaming it.
@@ -516,7 +517,7 @@ This be hooked to `projectile-after-switch-project-hook'."
 ;;; Advice
 
 ;;;###autoload
-(defun +workspaces*autosave-real-buffers (orig-fn &rest args)
+(defun +workspaces-autosave-real-buffers-a (orig-fn &rest args)
   "Don't autosave if no real buffers are open."
   (when (doom-real-buffer-list)
     (apply orig-fn args))

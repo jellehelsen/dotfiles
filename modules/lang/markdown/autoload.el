@@ -1,26 +1,5 @@
 ;;; lang/markdown/autoload.el -*- lexical-binding: t; -*-
 
-;; Implement strike-through formatting
-(defvar +markdown--regex-del
-  "\\(^\\|[^\\]\\)\\(\\(~\\{2\\}\\)\\([^ \n	\\]\\|[^ \n	]\\(?:.\\|\n[^\n]\\)*?[^\\ ]\\)\\(\\3\\)\\)")
-
-;;;###autoload
-(defun +markdown/insert-del ()
-  "Surround region in github strike-through delimiters."
-  (interactive)
-  (let ((delim "~~"))
-    (if (markdown-use-region-p)
-        ;; Active region
-        (cl-destructuring-bind (beg . end)
-            (markdown-unwrap-things-in-region
-             (region-beginning) (region-end)
-             +markdown--regex-del 2 4)
-          (markdown-wrap-or-insert delim delim nil beg end))
-      ;; Bold markup removal, bold word at point, or empty markup insertion
-      (if (thing-at-point-looking-at +markdown--regex-del)
-          (markdown-unwrap-thing-at-point nil 2 4)
-        (markdown-wrap-or-insert delim delim 'word nil nil)))))
-
 ;;;###autoload
 (defun +markdown-flyspell-word-p ()
   "Return t if point is on a word that should be spell checked.
@@ -57,10 +36,7 @@ otherwise throws an error."
 Returns its exit code."
   (when (executable-find "marked")
     (apply #'call-process-region
-           beg end
-           shell-file-name nil output-buffer nil
-           shell-command-switch
-           "marked"
+           beg end "marked" nil output-buffer nil
            (when (eq major-mode 'gfm-mode)
              (list "--gfm" "--tables" "--breaks")))))
 
@@ -69,18 +45,56 @@ Returns its exit code."
   "Compiles markdown with the pandoc program, if available.
 Returns its exit code."
   (when (executable-find "pandoc")
-    (call-process-region beg end
-                         shell-file-name nil output-buffer nil
-                         shell-command-switch
-                         "pandoc" "-f" "markdown" "-t" "html"
-                         "--standalone" "--mathjax" "--highlight-style=pygments")))
+    (call-process-region beg end "pandoc" nil output-buffer nil
+                         "-f" "markdown"
+                         "-t" "html"
+                         "--mathjax"
+                         "--highlight-style=pygments")))
+
+;;;###autoload
+(defun +markdown-compile-multimarkdown (beg end output-buffer)
+  "Compiles markdown with the multimarkdown program, if available. Returns its
+exit code."
+  (when (executable-find "multimarkdown")
+    (call-process-region beg end "multimarkdown" nil output-buffer)))
 
 ;;;###autoload
 (defun +markdown-compile-markdown (beg end output-buffer)
-  "Compiles markdown using the markdown program, if available.
-Returns its exit code."
-  (when (executable-find "markdown")
-    (call-process-region beg end
-                         shell-file-name nil output-buffer nil
-                         shell-command-switch
-                         "markdown")))
+  "Compiles markdown using the Markdown.pl script (or markdown executable), if
+available. Returns its exit code."
+  (when-let (exe (or (executable-find "Markdown.pl")
+                     (executable-find "markdown")))
+    (call-process-region beg end exe nil output-buffer nil)))
+
+;;
+;;; Commands
+
+;;;###autoload
+(defun +markdown/insert-del ()
+  "Surround region in github strike-through delimiters."
+  (interactive)
+  (let ((regexp "\\(^\\|[^\\]\\)\\(\\(~\\{2\\}\\)\\([^ \n	\\]\\|[^ \n	]\\(?:.\\|\n[^\n]\\)*?[^\\ ]\\)\\(\\3\\)\\)")
+        (delim "~~"))
+    (if (markdown-use-region-p)
+        ;; Active region
+        (cl-destructuring-bind (beg . end)
+            (markdown-unwrap-things-in-region
+             (region-beginning) (region-end)
+             regexp 2 4)
+          (markdown-wrap-or-insert delim delim nil beg end))
+      ;; Bold markup removal, bold word at point, or empty markup insertion
+      (if (thing-at-point-looking-at regexp)
+          (markdown-unwrap-thing-at-point nil 2 4)
+        (markdown-wrap-or-insert delim delim 'word nil nil)))))
+
+
+;;
+;;; Advice
+
+;;;###autoload
+(defun +markdown-disable-front-matter-fontification-a (&rest _)
+  "Prevent fontification of YAML metadata blocks in `markdown-mode'.
+This prevents a mis-feature wherein if the first line of a Markdown document has
+a colon in it, then it's distractingly and usually wrongly fontified as a
+metadata block. See https://github.com/jrblevin/markdown-mode/issues/328."
+  (ignore (goto-char (point-max))))

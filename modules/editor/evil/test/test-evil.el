@@ -3,17 +3,16 @@
 
 (describe "feature/evil"
   :var (resv project-root)
-  (before-all
-    (require! :editor evil)
-    (require 'evil)
-    (load! "../autoload/evil"))
-  (after-all
-    (unload-feature 'evil t))
+
+  (require! :editor evil)
+  (require 'evil)
+  (load! "../autoload/evil")
+
   (before-each
-    (fset 'resv #'+evil*resolve-vim-path)
+    (fset 'resv #'+evil-resolve-vim-path-a)
     (spy-on 'doom-project-root :and-call-fake (lambda () project-root)))
 
-  ;; `evil-ex-replace-special-filenames' / `+evil*resolve-vim-path'
+  ;; `evil-ex-replace-special-filenames' / `+evil-resolve-vim-path-a'
   (describe "file modifiers"
     (it "supports basic vim file modifiers"
       (let ((buffer-file-name  "~/.emacs.d/test/modules/feature/test-evil.el")

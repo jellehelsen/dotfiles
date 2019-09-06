@@ -20,7 +20,7 @@
               "goimports"))))
 
   (if (featurep! +lsp)
-      (add-hook 'go-mode-hook #'lsp!)
+      (add-hook 'go-mode-local-vars-hook #'lsp!)
     (add-hook 'go-mode-hook #'go-eldoc-setup))
 
   (map! :map go-mode-map
@@ -53,11 +53,11 @@
           "n" #'+go/test-nested)))
 
 
-(def-package! gorepl-mode
+(use-package! gorepl-mode
   :commands gorepl-run-load-current-file)
 
 
-(def-package! company-go
+(use-package! company-go
   :when (and (featurep! :completion company)
              (not (featurep! +lsp)))
   :after go-mode

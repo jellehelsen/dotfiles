@@ -43,9 +43,18 @@ immediately runs it on the current candidate (ending the ivy session)."
 ;;
 ;;; Packages
 
-(def-package! ivy
+(use-package! ivy
   :defer 1
   :after-call pre-command-hook
+  :init
+  (setq ivy-re-builders-alist
+        '((counsel-ag . ivy--regex-plus)
+          (counsel-rg . ivy--regex-plus)
+          (counsel-grep . ivy--regex-plus)
+          (swiper . ivy--regex-plus)
+          (swiper-isearch . ivy--regex-plus)
+          ;; Ignore order for non-fuzzy searches by default
+          (t . ivy--regex-ignore-order)))
   :config
   (setq ivy-height 15
         ivy-wrap t
@@ -66,24 +75,57 @@ immediately runs it on the current candidate (ending the ivy session)."
         ;; enable ability to select prompt (alternative to `ivy-immediate-done')
         ivy-use-selectable-prompt t)
 
+  ;; REVIEW Move this somewhere else and perhaps generalize this so both
+  ;; ivy/helm users can enjoy it.
+  (defadvice! +ivy--counsel-file-jump-use-fd-rg-a (args)
+    "Change `counsel-file-jump' to use fd or ripgrep, if they are available."
+    :override #'counsel--find-return-list
+    (cl-destructuring-bind (find-program . args)
+        (cond ((executable-find "fd")
+               (cons "fd" (list "-t" "f" "-E" ".git")))
+              ((executable-find "rg")
+               (cons "rg" (list "--files" "--hidden" "--no-messages")))
+              ((cons find-program args)))
+      (unless (listp args)
+        (user-error "`counsel-file-jump-args' is a list now, please customize accordingly."))
+      (counsel--call
+       (cons find-program args)
+       (lambda ()
+         (goto-char (point-min))
+         (let ((offset (if (member find-program '("fd" "rg")) 0 2))
+               files)
+           (while (< (point) (point-max))
+             (push (buffer-substring
+                    (+ offset (line-beginning-position)) (line-end-position)) files)
+             (forward-line 1))
+           (nreverse files))))))
+
   ;; Ensure a jump point is registered before jumping to new locations with ivy
   (defvar +ivy--origin nil)
-
-  (defun +ivy|record-position-maybe ()
+  (defun +ivy--record-position-maybe-fn ()
     (with-ivy-window
       (setq +ivy--origin (point-marker))))
-  (setq ivy-hooks-alist '((t . +ivy|record-position-maybe)))
+  (setq ivy-hooks-alist '((t . +ivy--record-position-maybe-fn)))
 
-  (defun +ivy|set-jump-point-maybe ()
-    (when (and (markerp +ivy--origin)
-               (not (equal (with-ivy-window (point-marker)) +ivy--origin)))
-      (with-current-buffer (marker-buffer +ivy--origin)
-        (better-jumper-set-jump +ivy--origin)))
-    (setq +ivy--origin nil))
-  (add-hook 'minibuffer-exit-hook #'+ivy|set-jump-point-maybe)
+  (add-hook! 'minibuffer-exit-hook
+    (defun +ivy--set-jump-point-maybe-h ()
+      (with-demoted-errors "Ivy error: %s"
+        (when (and (markerp +ivy--origin)
+                   (not (equal (with-ivy-window (point-marker))
+                               +ivy--origin)))
+          (with-current-buffer (marker-buffer +ivy--origin)
+            (better-jumper-set-jump +ivy--origin)))
+        (setq +ivy--origin nil))))
 
   (after! yasnippet
     (add-to-list 'yas-prompt-functions #'+ivy-yas-prompt nil #'eq))
+
+  (defadvice! +ivy--inhibit-in-evil-ex-a (orig-fn &rest args)
+    "`ivy-completion-in-region' struggles with completing certain
+evil-ex-specific constructs, so we disable it solely in evil-ex."
+    :around #'evil-ex
+    (let ((completion-in-region-function #'completion--in-region))
+      (apply orig-fn args)))
 
   (define-key! ivy-mode-map
     [remap switch-to-buffer]              #'+ivy/switch-buffer
@@ -94,7 +136,7 @@ immediately runs it on the current candidate (ending the ivy session)."
 
   (ivy-mode +1)
 
-  (def-package! ivy-hydra
+  (use-package! ivy-hydra
     :commands (ivy-dispatching-done-hydra ivy--matcher-desc ivy-hydra/body)
     :init
     (define-key! ivy-minibuffer-map
@@ -105,7 +147,7 @@ immediately runs it on the current candidate (ending the ivy session)."
     (define-key ivy-minibuffer-map (kbd "M-o") #'hydra-ivy/body)))
 
 
-(def-package! ivy-rich
+(use-package! ivy-rich
   :after ivy
   :config
   (when (featurep! +icons)
@@ -143,7 +185,7 @@ immediately runs it on the current candidate (ending the ivy session)."
   (ivy-rich-mode +1))
 
 
-(def-package! all-the-icons-ivy
+(use-package! all-the-icons-ivy
   :when (featurep! +icons)
   :after ivy
   :config
@@ -159,7 +201,7 @@ immediately runs it on the current candidate (ending the ivy session)."
       (all-the-icons-ivy-setup))))
 
 
-(def-package! counsel
+(use-package! counsel
   :commands counsel-describe-face
   :init
   (map! [remap apropos]                  #'counsel-apropos
@@ -231,13 +273,8 @@ immediately runs it on the current candidate (ending the ivy session)."
    '(("O" +ivy-git-grep-other-window-action "open in other window"))))
 
 
-(def-package! counsel-projectile
-  :commands (counsel-projectile-find-file
-             counsel-projectile-find-dir
-             counsel-projectile-switch-to-buffer
-             counsel-projectile-grep
-             counsel-projectile-ag
-             counsel-projectile-switch-project)
+(use-package! counsel-projectile
+  :defer t
   :init
   (map! [remap projectile-find-file]        #'+ivy/projectile-find-file
         [remap projectile-find-dir]         #'counsel-projectile-find-dir
@@ -250,102 +287,69 @@ immediately runs it on the current candidate (ending the ivy session)."
   (ivy-set-display-transformer #'counsel-projectile-find-file nil))
 
 
-(def-package! wgrep
+(use-package! wgrep
   :commands wgrep-change-to-wgrep-mode
   :config (setq wgrep-auto-save-buffer t))
 
 
-(def-package! ivy-posframe
+(use-package! ivy-posframe
   :when (and EMACS26+ (featurep! +childframe))
-  :hook (ivy-mode . ivy-posframe-enable)
-  :preface
-  ;; This function searches the entire `obarray' just to populate
-  ;; `ivy-display-functions-props'. There are 15k entries in mine! This is
-  ;; wasteful, so...
-  (advice-add #'ivy-posframe-setup :override #'ignore)
+  :hook (ivy-mode . ivy-posframe-mode)
   :config
   (setq ivy-fixed-height-minibuffer nil
+        ivy-posframe-border-width 10
         ivy-posframe-parameters
         `((min-width . 90)
-          (min-height . ,ivy-height)
-          (internal-border-width . 10)))
+          (min-height . ,ivy-height)))
 
-  ;; ... let's do it manually instead
-  (unless (assq 'ivy-posframe-display-at-frame-bottom-left ivy-display-functions-props)
-    (dolist (fn (list 'ivy-posframe-display-at-frame-bottom-left
-                      'ivy-posframe-display-at-frame-center
-                      'ivy-posframe-display-at-point
-                      'ivy-posframe-display-at-frame-bottom-window-center
-                      'ivy-posframe-display
-                      'ivy-posframe-display-at-window-bottom-left
-                      'ivy-posframe-display-at-window-center
-                      '+ivy-display-at-frame-center-near-bottom))
-      (push (cons fn '(:cleanup ivy-posframe-cleanup)) ivy-display-functions-props)))
   ;; default to posframe display function
-  (setf (alist-get t ivy-display-functions-alist) #'+ivy-display-at-frame-center-near-bottom)
-
-  ;; Fix #1017: stop session persistence from restoring a broken posframe
-  (defun +workspace|delete-all-posframes (&rest _) (posframe-delete-all))
-  (add-hook 'persp-after-load-state-functions #'+workspace|delete-all-posframes)
+  (setf (alist-get t ivy-posframe-display-functions-alist)
+        #'+ivy-display-at-frame-center-near-bottom-fn)
 
   ;; posframe doesn't work well with async sources
   (dolist (fn '(swiper counsel-ag counsel-grep counsel-git-grep))
-    (setf (alist-get fn ivy-display-functions-alist) #'ivy-display-function-fallback)))
+    (setf (alist-get fn ivy-posframe-display-functions-alist)
+          #'ivy-display-function-fallback)))
 
 
-(def-package! flx
-  :when (featurep! +fuzzy)
+(use-package! flx
+  :when (and (featurep! +fuzzy)
+             (not (featurep! +prescient)))
   :defer t  ; is loaded by ivy
   :init
-  (setq ivy-re-builders-alist
-        '((counsel-ag . ivy--regex-plus)
-          (counsel-rg . ivy--regex-plus)
-          (counsel-grep . ivy--regex-plus)
-          (swiper . ivy--regex-plus)
-          (swiper-isearch . ivy--regex-plus)
-          (t . ivy--regex-fuzzy))
-        ivy-initial-inputs-alist nil))
+  (setf (alist-get 't ivy-re-builders-alist) #'ivy--regex-fuzzy)
+  (setq ivy-initial-inputs-alist nil
+        ivy-flx-limit 10000))
 
 
-;; Used by `counsel-M-x'
-(setq amx-save-file (concat doom-cache-dir "amx-items"))
+(use-package! ivy-prescient
+  :hook (ivy-mode . ivy-prescient-mode)
+  :when (featurep! +prescient)
+  :init
+  (setq prescient-filter-method
+        (if (featurep! +fuzzy)
+            '(literal regexp initialism fuzzy)
+          '(literal regexp initialism))
+        ivy-prescient-enable-filtering nil  ; we do this ourselves
+        ivy-prescient-retain-classic-highlighting t
+        ivy-initial-inputs-alist nil
+        ivy-re-builders-alist
+        '((counsel-ag . +ivy-prescient-non-fuzzy)
+          (counsel-rg . +ivy-prescient-non-fuzzy)
+          (counsel-grep . +ivy-prescient-non-fuzzy)
+          (swiper . +ivy-prescient-non-fuzzy)
+          (swiper-isearch . +ivy-prescient-non-fuzzy)
+          (t . ivy-prescient-re-builder)))
+
+  :config
+  (defun +ivy-prescient-non-fuzzy (str)
+    (let ((prescient-filter-method '(literal regexp)))
+      (ivy-prescient-re-builder str)))
+
+  ;; NOTE prescient config duplicated with `company'
+  (setq prescient-save-file (concat doom-cache-dir "prescient-save.el"))
+  (prescient-persist-mode +1))
 
 
-;;
-;; Evil key fixes
-
-(map! :when (featurep! :editor evil +everywhere)
-      :after ivy
-      :map (ivy-occur-mode-map ivy-occur-grep-mode-map)
-      :m "j"       #'ivy-occur-next-line
-      :m "k"       #'ivy-occur-previous-line
-      :m "h"       #'evil-backward-char
-      :m "l"       #'evil-forward-char
-      :m "g"       nil
-      :m "gg"      #'evil-goto-first-line
-      :map ivy-occur-mode-map
-      :n [mouse-1] #'ivy-occur-click
-      :n [return]  #'ivy-occur-press-and-switch
-      :n "gf"      #'ivy-occur-press
-      :n "ga"      #'ivy-occur-read-action
-      :n "go"      #'ivy-occur-dispatch
-      :n "gc"      #'ivy-occur-toggle-calling
-      :n "gr"      #'ivy-occur-revert-buffer
-      :n "q"       #'quit-window
-      :map ivy-occur-grep-mode-map
-      :v "j"       #'evil-next-line
-      :v "k"       #'evil-previous-line
-      :n "D"       #'ivy-occur-delete-candidate
-      :n "C-d"     #'evil-scroll-down
-      :n "d"       #'ivy-occur-delete-candidate
-      :n "C-x C-q" #'ivy-wgrep-change-to-wgrep-mode
-      :n "i"       #'ivy-wgrep-change-to-wgrep-mode
-      :n "gd"      #'ivy-occur-delete-candidate
-      :n [mouse-1] #'ivy-occur-click
-      :n [return]  #'ivy-occur-press-and-switch
-      :n "gf"      #'ivy-occur-press
-      :n "gr"      #'ivy-occur-revert-buffer
-      :n "ga"      #'ivy-occur-read-action
-      :n "go"      #'ivy-occur-dispatch
-      :n "gc"      #'ivy-occur-toggle-calling
-      :n "q"       #'quit-window)
+;;;###package amx
+(setq amx-save-file (concat doom-cache-dir "amx-items"))  ; used by `counsel-M-x'

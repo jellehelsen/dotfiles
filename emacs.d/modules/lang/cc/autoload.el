@@ -8,23 +8,6 @@
 ;; Library
 
 ;;;###autoload
-(defun +cc-sp-point-is-template-p (id action context)
-  "Return t if point is in the right place for C++ angle-brackets."
-  (and (sp-in-code-p id action context)
-       (cond ((eq action 'insert)
-              (sp-point-after-word-p id action context))
-             ((eq action 'autoskip)
-              (/= (char-before) 32)))))
-
-;;;###autoload
-(defun +cc-sp-point-after-include-p (id action context)
-  "Return t if point is in an #include."
-  (and (sp-in-code-p id action context)
-       (save-excursion
-         (goto-char (line-beginning-position))
-         (looking-at-p "[ 	]*#include[^<]+"))))
-
-;;;###autoload
 (defun +cc-c++-lineup-inclass (langelem)
   "Indent inclass lines one level further than access modifier keywords."
   (and (eq major-mode 'c++-mode)
@@ -120,7 +103,7 @@ simpler."
       (rtags-call-rc :silent t "-J" (or (doom-project-root) default-directory))))
   ;; then irony
   (when (and (featurep 'irony) irony-mode)
-    (+cc|irony-init-compile-options)))
+    (+cc-init-irony-compile-options-h)))
 
 ;;;###autoload
 (defun +cc/imenu ()
@@ -139,7 +122,7 @@ simpler."
 ;; Hooks
 
 ;;;###autoload
-(defun +cc|fontify-constants ()
+(defun +cc-fontify-constants-h ()
   "Better fontification for preprocessor constants"
   (when (memq major-mode '(c-mode c++-mode))
     (font-lock-add-keywords
@@ -149,7 +132,7 @@ simpler."
 
 (defvar +cc--project-includes-alist nil)
 ;;;###autoload
-(defun +cc|init-irony-compile-options ()
+(defun +cc-init-irony-compile-options-h ()
   "Initialize compiler options for irony-mode. It searches for the nearest
 compilation database and initailizes it, otherwise falling back on
 `+cc-default-compiler-options' and `+cc-default-include-paths'.
@@ -173,7 +156,7 @@ compilation dbs."
 ;; (defun +cc|init-ccls-compile-options ()
 ;;   "TODO"
 ;;   (when (memq major-mode '(c-mode c++-mode objc-mode))
-;;     (when-let* ((include-paths (+cc-resolve-include-paths)))
+;;     (when-let (include-paths (+cc-resolve-include-paths))
 ;;       (let ((args (delq nil (cdr-safe (assq major-mode +cc-default-compiler-options)))))
 ;;         (setf (alist-get (or (lsp-workspace-root)
 ;;                              (lsp--suggest-project-root)
@@ -186,14 +169,14 @@ compilation dbs."
 ;;                                     collect (format "-I%s" path))])))))))
 
 ;;;###autoload
-(defun +cc|init-ffap-integration ()
+(defun +cc-init-ffap-integration-h ()
   "Takes the local project include paths and registers them with ffap.
 This way, `find-file-at-point' (and `+lookup/file') will know where to find most
 header files."
-  (when-let* ((project-root (or (bound-and-true-p irony--working-directory)
-                                (and (featurep 'lsp)
-                                     (or (lsp-workspace-root)
-                                         (doom-project-root))))))
+  (when-let (project-root (or (bound-and-true-p irony--working-directory)
+                              (and (featurep 'lsp)
+                                   (or (lsp-workspace-root)
+                                       (doom-project-root)))))
     (require 'ffap)
     (make-local-variable 'ffap-c-path)
     (make-local-variable 'ffap-c++-path)

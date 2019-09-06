@@ -19,7 +19,7 @@ OPTIONAL:
 DEFAULT-P is a boolean. If non-nil, it marks that email account as the
 default/fallback account."
   (after! mu4e
-    (when-let* ((address (cdr (assq 'user-mail-address letvars))))
+    (when-let (address (cdr (assq 'user-mail-address letvars)))
       (add-to-list 'mu4e-user-mail-address-list address))
     (setq mu4e-contexts
           (cl-loop for context in mu4e-contexts
@@ -45,7 +45,7 @@ default/fallback account."
 (defvar +mu4e-workspace-name "*mu4e*"
   "TODO")
 
-(add-hook 'mu4e-main-mode-hook #'+mu4e|init)
+(add-hook 'mu4e-main-mode-hook #'+mu4e-init-h)
 
 ;;;###autoload
 (defun =mu4e ()
@@ -69,10 +69,10 @@ default/fallback account."
 ;;
 ;; Hooks
 
-(defun +mu4e|init ()
-  (add-hook 'kill-buffer-hook #'+mu4e|kill-mu4e nil t))
+(defun +mu4e-init-h ()
+  (add-hook 'kill-buffer-hook #'+mu4e-kill-mu4e-h nil t))
 
-(defun +mu4e|kill-mu4e ()
+(defun +mu4e-kill-mu4e-h ()
   ;; (prolusion-mail-hide)
   (when (+workspace-exists-p +mu4e-workspace-name)
     (+workspace/delete +mu4e-workspace-name)))

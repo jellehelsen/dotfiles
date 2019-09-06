@@ -3,17 +3,14 @@
 
 ;; core.el
 (package! dotenv-mode)
-
-;; core-os.el
-(if (not IS-MAC)
-    (package! xclip)
-  (package! osx-clipboard)
-  (package! ns-auto-titlebar))
+(package! auto-minor-mode)
 
 ;; core-ui.el
 (package! all-the-icons)
 (package! hide-mode-line)
 (package! highlight-numbers)
+;; Some early 26.x builds of Emacs do not have `display-line-numbers' yet, so
+;; check for it instead of Emacs' version.
 (unless (locate-library "display-line-numbers")
   (package! nlinum)
   (package! nlinum-hl)
@@ -23,13 +20,18 @@
 
 ;; core-editor.el
 (package! better-jumper)
-(package! command-log-mode)
 (package! dtrt-indent)
 (package! helpful)
+(package! ns-auto-titlebar :ignore (not IS-MAC))
 (package! pcre2el)
 (package! smartparens)
+(package! so-long
+  :built-in 'prefer
+  :recipe (:repo "https://git.savannah.gnu.org/git/so-long.git"))
+(package! osx-clipboard :ignore (not IS-MAC))
 (package! undo-tree)
 (package! ws-butler)
+(package! xclip :ignore (not IS-LINUX))
 
 ;; core-projects.el
 (package! projectile)
@@ -37,13 +39,3 @@
 ;; core-keybinds.el
 (package! general)
 (package! which-key)
-(package! hydra)
-
-;; core-packages.el
-(package! gnu-elpa-keyring-update)
-
-;; autoload/debug.el
-(package! esup)
-
-;; cli/test.el
-(package! buttercup)

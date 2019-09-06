@@ -1,11 +1,9 @@
 ;;; lang/nix/config.el -*- lexical-binding: t; -*-
 
-(def-package! nix-mode
+(use-package! nix-mode
   :mode "\\.nix\\'"
   :config
   (set-company-backend! 'nix-mode 'company-nixos-options)
-
-  (setq nix-indent-function #'nix-indent-line)
 
   (map! :localleader
         :map nix-mode-map
@@ -18,11 +16,11 @@
         (:when (featurep! :completion helm)
           "o" #'helm-nixos-options)))
 
-(def-package! nix-drv-mode
+(use-package! nix-drv-mode
   :mode "\\.drv\\'")
 
-(def-package! nix-update
+(use-package! nix-update
   :commands nix-update-fetch)
 
-(def-package! nix-repl
+(use-package! nix-repl
   :commands nix-repl-show)

@@ -9,14 +9,13 @@
 (package! evil-escape)
 (package! evil-exchange)
 (package! evil-indent-plus)
-(package! evil-matchit)
-(package! evil-numbers)
-(package! evil-textobj-anyblock)
+(package! evil-numbers :recipe (:host github :repo "janpath/evil-numbers"))
 (package! evil-snipe)
 (package! evil-surround)
+(package! evil-textobj-anyblock)
+(package! evil-traces)
 (package! evil-visualstar)
 (package! exato)
-
 
 ;;
 (when (featurep! +everywhere)

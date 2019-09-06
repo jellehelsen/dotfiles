@@ -10,15 +10,15 @@ ignore the cache."
     (or (and (not refresh-p)
              (gethash project-root +javascript-npm-conf))
         (let ((package-file (expand-file-name "package.json" project-root)))
-          (when-let* ((json (and (file-exists-p package-file)
-                                 (require 'json)
-                                 (json-read-file package-file))))
+          (when-let (json (and (file-exists-p package-file)
+                               (require 'json)
+                               (json-read-file package-file)))
             (puthash project-root json +javascript-npm-conf))))))
 
 ;;;###autoload
 (defun +javascript-npm-dep-p (packages &optional project-root refresh-p)
-  (when-let* ((data (and (bound-and-true-p +javascript-npm-mode)
-                         (+javascript-npm-conf project-root refresh-p))))
+  (when-let (data (and (bound-and-true-p +javascript-npm-mode)
+                       (+javascript-npm-conf project-root refresh-p)))
     (let ((deps (append (cdr (assq 'dependencies data))
                         (cdr (assq 'devDependencies data)))))
       (cond ((listp packages)
@@ -44,7 +44,8 @@ skewer-*-mode's are enabled, or `nodejs-repl' otherwise."
    (if (and (featurep 'skewer-mode)
             (or skewer-mode skewer-css-mode skewer-html-mode))
        #'skewer-repl
-     #'nodejs-repl)))
+     #'nodejs-repl))
+  (current-buffer))
 
 ;;;###autoload
 (defun +javascript/skewer-this-buffer ()
@@ -83,7 +84,7 @@ Run this for any buffer you want to skewer."
 ;; Hooks
 
 ;;;###autoload
-(defun +javascript|add-node-modules-path ()
+(defun +javascript-add-node-modules-path-h ()
   "Add current project's `node_modules/.bin` to `exec-path', so js tools
 prioritize project-local packages over global ones."
   (make-local-variable 'exec-path)
@@ -95,7 +96,7 @@ prioritize project-local packages over global ones."
               exec-path :test #'string=))
 
 ;;;###autoload
-(defun +javascript|cleanup-tide-processes ()
+(defun +javascript-cleanup-tide-processes-h ()
   "Clean up dangling tsserver processes if there are no more buffers with
 `tide-mode' active that belong to that server's project."
   (when tide-mode
@@ -112,7 +113,7 @@ prioritize project-local packages over global ones."
 ;; Advice
 
 ;;;###autoload
-(defun +javascript*tide-project-root ()
+(defun +javascript-tide-project-root-a ()
   "Resolve to `doom-project-root' if `tide-project-root' fails."
   (or tide-project-root
       (or (locate-dominating-file default-directory "tsconfig.json")

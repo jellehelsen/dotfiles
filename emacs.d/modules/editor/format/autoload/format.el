@@ -5,7 +5,7 @@
 buffer.")
 
 ;;;###autoload
-(autoload 'format-all-probe "format-all")
+(autoload 'format-all--probe "format-all")
 
 (defun +format--delete-whole-line (&optional arg)
   "Delete the current line without putting it in the `kill-ring'.
@@ -93,12 +93,12 @@ Stolen shamelessly from go-mode"
 
 (defun +format-completing-read ()
   (require 'format-all)
-  (let* ((fmtlist (mapcar #'symbol-name (hash-table-keys format-all-format-table)))
+  (let* ((fmtlist (mapcar #'symbol-name (hash-table-keys format-all--format-table)))
          (fmt (completing-read "Formatter: " fmtlist)))
     (if fmt (cons (intern fmt) t))))
 
 ;;;###autoload
-(defun +format*probe (orig-fn)
+(defun +format-probe-a (orig-fn)
   "Use `+format-with' instead, if it is set."
   (if +format-with
       (list +format-with t)
@@ -119,34 +119,44 @@ formatted text, ERRORS are any errors in string format, and FIRST-DIFF is the
 position of the first change in the buffer.
 
 See `+format/buffer' for the interactive version of this function, and
-`+format|buffer' to use as a `before-save-hook' hook."
+`+format-buffer-h' to use as a `before-save-hook' hook."
   (if (not formatter)
       'no-formatter
-    (let ((f-function (gethash formatter format-all-format-table))
-          (executable (format-all-formatter-executable formatter))
+    (let ((f-function (gethash formatter format-all--format-table))
+          (executable (format-all--formatter-executable formatter))
           (indent 0))
       (pcase-let
           ((`(,output ,errput ,first-diff)
             ;; Since `format-all' functions (and various formatting functions,
             ;; like `gofmt') widen the buffer, in order to only format a region of
             ;; text, we must make a copy of the buffer to apply formatting to.
-            (let ((output (buffer-substring-no-properties (point-min) (point-max))))
+            (let ((output (buffer-substring-no-properties (point-min) (point-max)))
+                  (origin-buffer-file-name (buffer-file-name (buffer-base-buffer)))
+                  (origin-default-directory default-directory))
               (with-temp-buffer
-                (insert output)
-                ;; Since we're piping a region of text to the formatter, remove
-                ;; any leading indentation to make it look like a file.
-                (when preserve-indent-p
-                  (setq indent (+format--current-indentation))
-                  (when (> indent 0)
-                    (indent-rigidly (point-min) (point-max) (- indent))))
-                (funcall f-function executable mode-result)))))
+                (with-silent-modifications
+                  (insert output)
+                  ;; Ensure this temp buffer _seems_ as much like the origin
+                  ;; buffer as possible.
+                  (setq default-directory origin-default-directory
+                        buffer-file-name origin-buffer-file-name)
+                  ;; Since we're piping a region of text to the formatter, remove
+                  ;; any leading indentation to make it look like a file.
+                  (when preserve-indent-p
+                    (setq indent (+format--current-indentation))
+                    (when (> indent 0)
+                      (indent-rigidly (point-min) (point-max) (- indent))))
+                  (funcall f-function executable mode-result))))))
         (unwind-protect
             (cond ((null output) 'error)
                   ((eq output t) 'noop)
                   ((let ((tmpfile (make-temp-file "doom-format"))
                          (patchbuf (get-buffer-create " *doom format patch*"))
-                         (coding-system-for-read 'utf-8)
-                         (coding-system-for-write 'utf-8))
+                         (coding-system-for-read coding-system-for-read)
+                         (coding-system-for-write coding-system-for-write))
+                     (unless IS-WINDOWS
+                       (setq coding-system-for-read 'utf-8
+                             coding-system-for-write 'utf-8))
                      (unwind-protect
                          (progn
                            (with-current-buffer patchbuf
@@ -177,7 +187,7 @@ See `+format/buffer' for the interactive version of this function, and
   "Format the source code in the current buffer."
   (interactive "P")
   (let ((+format-with (or (if arg (+format-completing-read)) +format-with)))
-    (pcase-let ((`(,formatter ,mode-result) (format-all-probe)))
+    (pcase-let ((`(,formatter ,mode-result) (format-all--probe)))
       (pcase
           (+format-buffer
            formatter mode-result
@@ -218,12 +228,12 @@ is selected)."
 ;; Hooks
 
 ;;;###autoload
-(defun +format|enable-on-save ()
+(defun +format-enable-on-save-h ()
   "Enables formatting on save."
-  (add-hook 'before-save-hook #'+format|buffer nil t))
+  (add-hook 'before-save-hook #'+format-buffer-h nil t))
 
 ;;;###autoload
-(defalias '+format|buffer #'+format/buffer
+(defalias '+format-buffer-h #'+format/buffer
   "Format the source code in the current buffer with minimal feedback.
 
 Meant for `before-save-hook'.")

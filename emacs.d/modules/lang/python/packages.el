@@ -4,6 +4,10 @@
 ;; Major modes
 (package! pip-requirements)
 
+;; LSP
+(when (featurep! +lsp)
+  (package! lsp-python-ms))
+
 ;; Programming environment
 (package! anaconda-mode)
 (when (featurep! :completion company)
@@ -20,3 +24,7 @@
 ;; Testing frameworks
 (package! nose)
 (package! python-pytest)
+
+;; Import managements
+(package! pyimport)
+(package! pyimpsort)

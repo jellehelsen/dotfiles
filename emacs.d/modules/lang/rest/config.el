@@ -1,12 +1,15 @@
 ;;; lang/rest/config.el -*- lexical-binding: t; -*-
 
-(def-package! restclient
+(use-package! restclient
   :mode ("\\.http\\'" . restclient-mode)
   :config
   (set-popup-rule! "^\\*HTTP Response" :size 0.4 :quit 'other)
 
   ;; line numbers aren't enabled by default in fundamental-mode-derived modes
   (add-hook 'restclient-mode-hook #'display-line-numbers-mode)
+
+  (setq-hook! 'restclient-mode-hook
+    imenu-generic-expression '((nil "^[A-Z]+\s+.+" 0)))
 
   ;; Forces underlying SSL verification to prompt for self-signed or invalid
   ;; certs, rather than silently reject them.
@@ -27,7 +30,7 @@
         "c" #'restclient-copy-curl-command))
 
 
-(def-package! company-restclient
+(use-package! company-restclient
   :when (featurep! :completion company)
   :after restclient
   :config (set-company-backend! 'restclient-mode 'company-restclient))

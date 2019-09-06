@@ -24,8 +24,7 @@ to a pop up buffer."
       (setq-local scroll-margin 0)
       (let (emacs-lisp-mode-hook)
         (emacs-lisp-mode))
-      (prin1 result buf)
-      (pp-buffer)
+      (pp result buf)
       (let ((lines (count-lines (point-min) (point-max))))
         (if (> lines 1)
             (save-selected-window
@@ -55,7 +54,9 @@ library/userland functions"
                             ((special-variable-p symbol)
                              (setq +emacs-lisp--face 'font-lock-variable-name-face))
                             ((and (fboundp symbol)
-                                  (eq (char-before (match-beginning 0)) ?\())
+                                  (eq (char-before (match-beginning 0)) ?\()
+                                  (not (memq (char-before (1- (match-beginning 0)))
+                                             (list ?\' ?\`))))
                              (let ((unaliased (indirect-function symbol)))
                                (unless (or (macrop unaliased)
                                            (special-form-p unaliased))
@@ -70,6 +71,13 @@ library/userland functions"
                       (throw 'matcher t)))))))
     nil))
 
+;; `+emacs-lisp-highlight-vars-and-faces' is a potentially expensive function
+;; and should be byte-compiled, no matter what, to ensure it runs as fast as
+;; possible:
+(unless (byte-code-function-p (symbol-function '+emacs-lisp-highlight-vars-and-faces))
+  (with-no-warnings
+    (byte-compile #'+emacs-lisp-highlight-vars-and-faces)))
+
 ;;;###autoload
 (defun +emacs-lisp-lookup-documentation (thing)
   "Lookup THING with `helpful-variable' if it's a variable, `helpful-callable'
@@ -77,13 +85,6 @@ if it's callable, `apropos' otherwise."
   (if thing
       (doom/describe-symbol thing)
     (call-interactively #'doom/describe-symbol)))
-
-;; `+emacs-lisp-highlight-vars-and-faces' is a potentially expensive function
-;; and should be byte-compiled, no matter what, to ensure it runs as fast as
-;; possible:
-(when (not (byte-code-function-p (symbol-function '+emacs-lisp-highlight-vars-and-faces)))
-  (with-no-warnings
-    (byte-compile #'+emacs-lisp-highlight-vars-and-faces)))
 
 
 ;;
@@ -100,15 +101,38 @@ if it's callable, `apropos' otherwise."
                 (bury-buffer buf)
                 buf)))))
 
+;;;###autoload
+(defun +emacs-lisp/buttercup-run-file ()
+  "Run all buttercup tests in the focused buffer."
+  (interactive)
+  (let ((load-path (append (list (doom-path (dir!) "..")
+                                 (or (doom-project-root)
+                                     default-directory))
+                           load-path)))
+    (save-selected-window
+      (eval-buffer)
+      (buttercup-run))
+    (message "File executed successfully")))
+
+;;;###autoload
+(defun +emacs-lisp/buttercup-run-project ()
+  "Run all buttercup tests in the project."
+  (interactive)
+  (let* ((default-directory (doom-project-root))
+         (load-path (append (list (doom-path "test")
+                                  default-directory)
+                            load-path)))
+    (buttercup-run-discover)))
+
 
 ;;
 ;;; Hooks
 
 ;;;###autoload
-(defun +emacs-lisp|extend-imenu ()
+(defun +emacs-lisp-extend-imenu-h ()
   "Improve imenu support in `emacs-lisp-mode', including recognition for Doom's API."
   (setq imenu-generic-expression
-        `(("Section" "^[ \t]*;;;;* \\(\\_<[^\n]+\\_>\\)" 1)
+        `(("Section" "^[ \t]*;;;;*[ \t]+\\([^\n]+\\)" 1)
           ("Evil commands" "^\\s-*(evil-define-\\(?:command\\|operator\\|motion\\) +\\(\\_<[^ ()\n]+\\_>\\)" 1)
           ("Unit tests" "^\\s-*(\\(?:ert-deftest\\|describe\\) +\"\\([^\")]+\\)\"" 1)
           ("Package" "^\\s-*(\\(?:;;;###package\\|def-package!\\|package!\\|use-package\\|after!\\) +\\(\\_<[^ ()\n]+\\_>\\)" 1)
@@ -124,7 +148,7 @@ if it's callable, `apropos' otherwise."
           ("Types" "^\\s-*(\\(cl-def\\(?:struct\\|type\\)\\|def\\(?:class\\|face\\|group\\|ine-\\(?:condition\\|error\\|widget\\)\\|package\\|struct\\|t\\(?:\\(?:hem\\|yp\\)e\\)\\)\\)\\s-+'?\\(\\(?:\\sw\\|\\s_\\|\\\\.\\)+\\)" 2))))
 
 ;;;###autoload
-(defun +emacs-lisp|reduce-flycheck-errors-in-emacs-config ()
+(defun +emacs-lisp-reduce-flycheck-errors-in-emacs-config-h ()
   "Remove `emacs-lisp-checkdoc' checker and reduce `emacs-lisp' checker
 verbosity when editing a file in `doom-private-dir' or `doom-emacs-dir'."
   (when (and (bound-and-true-p flycheck-mode)
@@ -139,23 +163,14 @@ verbosity when editing a file in `doom-private-dir' or `doom-emacs-dir'."
          (concat "(progn "
                  (prin1-to-string
                   `(progn
-                     (load ,user-init-file t t)
-                     (defmacro map! (&rest _))
                      (setq doom-modules ',doom-modules
-                           doom-disabled-packages ',doom-disabled-packages
-                           byte-compile-warnings
+                           doom-disabled-packages ',doom-disabled-packages)
+                     (ignore-errors (load ,user-init-file t t))
+                     (setq byte-compile-warnings
                            '(obsolete cl-functions
                              interactive-only make-local mapcar
-                             suspicious constants))))
+                             suspicious constants))
+                     (defmacro map! (&rest _))))
                  " "
                  (default-value 'flycheck-emacs-lisp-check-form)
                  ")"))))
-
-;;;###autoload
-(defun +emacs-lisp|read-only-packages ()
-  "Enable `read-only-mode' if a package source file is opened.
-
-Packages are in `doom-packages-dir'. They shouldn't be modified directly."
-  (when-let* ((filename (buffer-file-name (buffer-base-buffer))))
-    (when (file-in-directory-p filename doom-packages-dir)
-      (read-only-mode +1))))

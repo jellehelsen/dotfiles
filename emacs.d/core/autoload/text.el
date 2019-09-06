@@ -25,39 +25,86 @@ lines, above and below, with only whitespace in between."
                         (or (not balanced)
                             (= (- pt nbeg) (- nend pt))))))))))))
 
+;;;###autoload
+(defun doom-point-in-comment-p (&optional pos)
+  "Return non-nil if POS is in a comment.
+
+POS defaults to the current position."
+  ;; REVIEW Should we cache `syntax-ppss'?
+  (let* ((pos (or pos (point)))
+         (ppss (syntax-ppss pos)))
+    (or (nth 4 ppss)
+        (nth 8 ppss)
+        (and (< pos (point-max))
+             (memq (char-syntax (char-after pos)) '(?< ?>))
+             (not (eq (char-after pos) ?\n)))
+        (when-let (s (car (syntax-after pos)))
+          (or (and (/= 0 (logand (lsh 1 16) s))
+                   (nth 4 (doom-syntax-ppss (+ pos 2))))
+              (and (/= 0 (logand (lsh 1 17) s))
+                   (nth 4 (doom-syntax-ppss (+ pos 1))))
+              (and (/= 0 (logand (lsh 1 18) s))
+                   (nth 4 (doom-syntax-ppss (- pos 1))))
+              (and (/= 0 (logand (lsh 1 19) s))
+                   (nth 4 (doom-syntax-ppss (- pos 2)))))))))
+
+;;;###autoload
+(defun doom-point-in-string-p (&optional pos)
+  "Return non-nil if POS is in a string."
+  ;; REVIEW Should we cache `syntax-ppss'?
+  (nth 3 (syntax-ppss pos)))
+
+;;;###autoload
+(defun doom-point-in-string-or-comment-p (&optional pos)
+  "Return non-nil if POS is in a string or comment."
+  (or (doom-point-in-string-p pos)
+      (doom-point-in-comment-p pos)))
+
 
 ;;
 ;; Commands
 
+(defvar doom--last-backward-pt most-positive-fixnum)
 ;;;###autoload
 (defun doom/backward-to-bol-or-indent ()
   "Jump between the indentation column (first non-whitespace character) and the
 beginning of the line. The opposite of
 `doom/forward-to-last-non-comment-or-eol'."
   (interactive)
-  (let ((pos (point))
-        (indent (save-excursion
-                  (beginning-of-visual-line)
-                  (skip-chars-forward " \t\r")
-                  (point))))
-    (cond ((or (> pos indent) (= pos (line-beginning-position)))
-           (goto-char indent))
-          ((<= pos indent)
-           (beginning-of-visual-line)))))
+  (let ((pt (point)))
+    (cl-destructuring-bind (bol . bot)
+        (save-excursion
+          (beginning-of-visual-line)
+          (cons (point)
+                (progn (skip-chars-forward " \t\r")
+                       (point))))
+      (cond ((> pt bot)
+             (goto-char bot))
+            ((= pt bol)
+             (goto-char (min doom--last-backward-pt bot))
+             (setq doom--last-backward-pt most-positive-fixnum))
+            ((<= pt bot)
+             (setq doom--last-backward-pt pt)
+             (goto-char bol))))))
 
+(defvar doom--last-forward-pt -1)
 ;;;###autoload
 (defun doom/forward-to-last-non-comment-or-eol ()
   "Jumps between the last non-blank, non-comment character in the line and the
 true end of the line. The opposite of `doom/backward-to-bol-or-indent'."
   (interactive)
-  (let ((eol (save-excursion (if visual-line-mode
-                                 (end-of-visual-line)
-                               (end-of-line))
-                             (point))))
+  (let ((eol (if (not visual-line-mode)
+                 (line-end-position)
+               (save-excursion (end-of-visual-line) (point)))))
     (if (or (and (< (point) eol)
                  (sp-point-in-comment))
             (not (sp-point-in-comment eol)))
-        (goto-char eol)
+        (if (= (point) eol)
+            (progn
+              (goto-char doom--last-forward-pt)
+              (setq doom--last-forward-pt -1))
+          (setq doom--last-forward-pt (point))
+          (goto-char eol))
       (let* ((bol (save-excursion (beginning-of-visual-line) (point)))
              (boc (or (save-excursion
                         (if (not comment-use-syntax)
@@ -72,10 +119,15 @@ true end of the line. The opposite of `doom/backward-to-bol-or-indent'."
                           (skip-chars-backward " " bol)
                           (point)))
                       eol)))
-        (cond ((= boc (point))
-               (goto-char eol))
-              ((/= bol boc)
-               (goto-char boc)))))))
+        (when (> doom--last-forward-pt boc)
+          (setq boc doom--last-forward-pt))
+        (if (or (= eol (point))
+                (> boc (point)))
+            (progn
+              (goto-char boc)
+              (setq doom--last-forward-pt -1))
+          (setq doom--last-forward-pt (point))
+          (goto-char eol))))))
 
 ;;;###autoload
 (defun doom/dumb-indent ()
@@ -162,30 +214,61 @@ Respects `require-final-newline'."
   (interactive)
   (set-buffer-file-coding-system 'undecided-dos nil))
 
+;;;###autoload
+(defun doom/toggle-indent-style ()
+  "Switch between tabs and spaces indentation style in the current buffer."
+  (interactive)
+  (setq indent-tabs-mode (not indent-tabs-mode))
+  (message "Indent style changed to %s" (if indent-tabs-mode "tabs" "spaces")))
+
+(defvar editorconfig-lisp-use-default-indent)
+;;;###autoload
+(defun doom/set-indent-width (width)
+  "Change the indentation size to WIDTH of the current buffer.
+
+The effectiveness of this command is significantly improved if you have
+editorconfig or dtrt-indent installed."
+  (interactive
+   (list (if (integerp current-prefix-arg)
+             current-prefix-arg
+           (read-number "New indent size: "))))
+  (setq tab-width width)
+  (setq-local standard-indent width)
+  (when (boundp 'evil-shift-width)
+    (setq evil-shift-width width))
+  (cond ((require 'editorconfig nil t)
+         (let (editorconfig-lisp-use-default-indent)
+           (editorconfig-set-indentation nil width)))
+        ((require 'dtrt-indent nil t)
+         (when-let (var (nth 2 (assq major-mode dtrt-indent-hook-mapping-list)))
+           (doom-log "Updated %s = %d" var width)
+           (set var width))))
+  (message "Changed indentation to %d" width))
+
 
 ;;
 ;; Hooks
 
 ;;;###autoload
-(defun doom|enable-delete-trailing-whitespace ()
+(defun doom-enable-delete-trailing-whitespace-h ()
   "Enables the automatic deletion of trailing whitespaces upon file save.
 
 i.e. enables `ws-butler-mode' in the current buffer."
   (ws-butler-mode +1))
 
 ;;;###autoload
-(defun doom|disable-delete-trailing-whitespace ()
+(defun doom-disable-delete-trailing-whitespace-h ()
   "Disables the automatic deletion of trailing whitespaces upon file save.
 
 i.e. disables `ws-butler-mode' in the current buffer."
   (ws-butler-mode -1))
 
 ;;;###autoload
-(defun doom|enable-show-trailing-whitespace ()
+(defun doom-enable-show-trailing-whitespace-h ()
   "Enable `show-trailing-whitespace' in the current buffer."
   (setq-local show-trailing-whitespace t))
 
 ;;;###autoload
-(defun doom|disable-show-trailing-whitespace ()
+(defun doom-disable-show-trailing-whitespace-h ()
   "Disable `show-trailing-whitespace' in the current buffer."
   (setq-local show-trailing-whitespace nil))

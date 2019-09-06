@@ -2,6 +2,12 @@
 ;; Copy me to ~/.doom.d/init.el or ~/.config/doom/init.el, then edit me!
 
 (add-to-list 'exec-path "/usr/local/bin/")
+(def-package-hook! doom-themes
+  :pre-config
+  (setq exec-path-from-shell-variables '("PATH" "GOPATH"))
+  (exec-path-from-shell-initialize)
+  nil)
+
 (doom! :feature
        ;;debugger          ; FIXME stepping through code, to help you add bugs
        ;; eval              ; run code, run (also, repls)

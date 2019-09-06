@@ -167,9 +167,9 @@ workspace $workspace9 output HDMI-1
 workspace $workspace10 output HDMI-1
 
 # key-bindings
-bindsym $mod+Print exec --no-startup-id pactl set-sink-volume 1 -5% #increase sound volume
-bindsym $mod+Scroll_Lock exec --no-startup-id pactl set-sink-volume 1 +5% #decrease sound volume
-bindsym $mod+Pause exec --no-startup-id pactl set-sink-mute 1 toggle # mute sound
+bindsym $mod+Print exec --no-startup-id pactl set-sink-volume @DEFAULT_SINK@ -5% #increase sound volume
+bindsym $mod+Scroll_Lock exec --no-startup-id pactl set-sink-volume @DEFAULT_SINK@ +5% #decrease sound volume
+bindsym $mod+Pause exec --no-startup-id pactl set-sink-mute @DEFAULT_SINK@ toggle # mute sound
 bindsym Pause exec playerctl play-pause
 bindsym $mod+Next exec playerctl next
 bindsym $mod+Prior exec playerctl previous
@@ -182,7 +182,7 @@ bindsym $mod+Shift+d exec rofi -show drun -lines 3 -eh 2 -opacity "85" -bw 0 -bc
 
 # startup
 exec_always --no-startup-id feh --bg-scale /home/jelle/.wallpaper.jpg
-exec_always --no-startup-id xrandr --output VIRTUAL1 --off --output DP1 --mode 1920x1200 --pos 0x720 --rotate normal --output DVI-D-0 --primary --mode 1920x1080 --pos 1920x0 --rotate left --output HDMI2 --off --output HDMI1 --off --output HDMI-1 --mode 1920x1080 --pos 3000x840 --rotate normal --output HDMI-0 --off --output DP-3 --off --output DP-2 --off --output DP-1 --off --output DP-0 --off
+exec_always --no-startup-id xrandr --output VIRTUAL1 --off --output DP1 --mode 1920x1200 --pos 0x720 --rotate normal --output DP-0 --primary --mode 1920x1080 --pos 1920x0 --rotate right --output HDMI2 --off --output HDMI1 --off --output HDMI-1 --mode 1920x1080 --pos 3000x840 --rotate normal --output HDMI-0 --off --output DP-3 --off --output DP-2 --off --output DP-1 --off --output DP-0 --off
 # exec --no-startup-id spotify
 
 # Keys

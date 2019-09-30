@@ -158,8 +158,8 @@ assign [class="Emacs"] $workspace3
 
 # workspace default monitors
 workspace $workspace1 output DP1
-workspace $workspace2 output DVI-D-0
-workspace $workspace3 output DVI-D-0
+workspace $workspace2 output DP-0
+workspace $workspace3 output DP-0
 workspace $workspace4 output DP1
 workspace $workspace5 output DP1
 workspace $workspace6 output DP1

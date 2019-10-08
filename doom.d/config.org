@@ -211,11 +211,11 @@
 (setq-default display-line-numbers 'visual)
 ;; (setq visual-line-mode t)
 (setq display-line-numbers-type 'visual)
-;; (global-visual-line-mode)
+(global-visual-line-mode)
 #+END_SRC
 
 #+RESULTS:
-: visual
+: t
 * Golang
 #+BEGIN_SRC emacs-lisp
 (setenv "PATH" (concat "~/go/bin/:" (getenv "PATH")))

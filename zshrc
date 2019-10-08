@@ -17,7 +17,7 @@ case "$(uname)" in
 
   Darwin)
     plugins=(git git-flow iterm2 osx brew history-substring-search vi-mode bundler ssh-agent pow tmux tmuxinator bwana docker docker-compose go nvm)
-    source /usr/local/bin/virtualenvwrapper.sh
+    #source /usr/local/bin/virtualenvwrapper.sh
     export ZSH_TMUX_AUTOSTART=false
     ;;
 

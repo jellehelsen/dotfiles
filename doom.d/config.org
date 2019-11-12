@@ -49,6 +49,7 @@
 #+BEGIN_SRC emacs-lisp
 (setq org-directory "~/Dropbox/Notes")
 (require 'ox-md)
+(require 'ox-hugo)
 ;(org-babel-do-load-languages
 ;    'org-babel-load-languages
 ;    '((emacs-lisp . t)
@@ -61,10 +62,52 @@
 #+END_SRC
 
 #+RESULTS: Testing
-: ox-md
+: ox-hugo
+
+#+BEGIN_SRC emacs-lisp
+(setq base-ref ".")
+(setf my-header
+      (format
+       "
+        <base href='%s'>
+        <link rel='stylesheet' href='etc/style.css' type='text/css'/>
+        "
+       base-ref))
+(setf org-publish-project-alist
+      `(("orgfiles"
+         :base-directory "~/org/manmethoed/"
+         :base-extension "org"
+         :publishing-directory "~/public-html/"
+         :publishing-function org-html-publish-to-html
+         :exclude "PrivatePage.org" ;; regexp
+         :headline-levels 1
+         :section-numbers t
+         :with-toc nil
+         :with-date nil
+         :with-author nil
+         :with-creator nil
+         :html-validation-link nil
+         :html-head ,my-header
+         :html-preamble "hello"
+         :html-postamble nil)
+
+        ("images"
+         :base-directory "~/org/manmethoed/"
+         :base-extension "jpg\\|gif\\|png"
+         :publishing-directory "~/public-html/images/"
+         :publishing-function org-publish-attachment)
+
+        ("other"
+         :base-directory "~/org/manmethoed/"
+         :base-extension "css\\|js"
+         :publishing-directory "~/public-html/etc/"
+         :publishing-function org-publish-attachment)
+        ("website" :components ("orgfiles" "images" "other"))))
+#+END_SRC
 
 #+RESULTS:
-: ~/Dropbox/Notes
+| orgfiles | :base-directory | ~/org/manmethoed/ | :base-extension | org | :publishing-directory | ~/public-html/ | :publishing-function | org-html-publish-to-html | :exclude | PrivatePage.org | :headline-levels | 1 | :section-numbers | t | :with-toc | nil | :with-date | nil | :with-author | nil | :with-creator | nil | :html-validation-link | nil | :html-head |
+
 * Email
 ** Setup folders
 #+BEGIN_SRC emacs-lisp

@@ -36,7 +36,6 @@
        doom-dashboard    ; a nifty splash screen for Emacs
        modeline     ; a snazzy Atom-inspired mode-line
        doom-quit         ; DOOM quit-message prompts when you quit Emacs
-       ;; evil-goggles      ; display visual hints when editing in evil
        ;;fci               ; a `fill-column' indicator
        hl-todo           ; highlight TODO/FIXME/NOTE tags
        ;;modeline          ; snazzy, Atom-inspired modeline, plus API
@@ -70,7 +69,6 @@
        ;; ediff             ; comparing files in Emacs
        electric          ; smarter, keyword-based electric-indent
        ;; eshell            ; a consistent, cross-platform shell (WIP)
-       hideshow          ; basic code-folding support
        ;; imenu             ; an imenu sidebar and searchable code index
        vc                ; version-control and Emacs, sitting in a tree
 
@@ -169,7 +167,7 @@
 
        :collab
        ;;floobits          ; peer programming for a price
-       impatient-mode    ; show off code over HTTP
+       ;; impatient-mode    ; show off code over HTTP
 
        :config
        ;; For literate config users. This will tangle+compile a config.org

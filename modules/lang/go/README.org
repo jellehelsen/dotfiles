@@ -4,15 +4,15 @@
 #+STARTUP: inlineimages
 
 * Table of Contents :TOC:
-- [[Description][Description]]
-  - [[Module Flags][Module Flags]]
-  - [[Plugins][Plugins]]
-- [[Prerequisites][Prerequisites]]
-  - [[Go][Go]]
-  - [[Dependencies][Dependencies]]
-- [[Features][Features]]
-- [[Configuration][Configuration]]
-- [[Troubleshooting][Troubleshooting]]
+- [[#description][Description]]
+  - [[#module-flags][Module Flags]]
+  - [[#plugins][Plugins]]
+- [[#prerequisites][Prerequisites]]
+  - [[#go][Go]]
+  - [[#dependencies][Dependencies]]
+- [[#features][Features]]
+- [[#configuration][Configuration]]
+- [[#troubleshooting][Troubleshooting]]
 
 * Description
 This module adds [[https://golang.org][Go]] support.
@@ -26,16 +26,19 @@ This module adds [[https://golang.org][Go]] support.
 + Code navigation & refactoring (~go-guru~)
 + [[../../editor/file-templates/templates/go-mode][File templates]]
 + [[https://github.com/hlissner/doom-snippets/tree/master/go-mode][Snippets]]
++ Generate testing code (~go-gen-test~)
 
 ** Module Flags
-This module provides no flags.
++ =+lsp= Enables integration for the gopls LSP server.
 
 ** Plugins
 + [[https://github.com/dominikh/go-mode.el][go-mode]]
 + [[https://github.com/syohex/emacs-go-eldoc][go-eldoc]]
 + [[https://github.com/dominikh/go-mode.el][go-guru]]
 + [[https://github.com/manute/gorepl-mode][gorepl-mode]]
++ [[https://github.com/brantou/emacs-go-tag][go-tag]]
 + [[https://github.com/mdempsky/gocode][company-go]]*
++ [[https://github.com/s-kostyaev/go-gen-test][go-gen-test]]
 
 * Prerequisites
 ** Go
@@ -51,6 +54,11 @@ brew install go
 sudo pacman -S go
 #+END_SRC
 
+*** openSUSE
+#+BEGIN_SRC sh :dir /sudo::
+sudo zypper install go
+#+END_SRC
+
 ** Dependencies
 This module requires a valid ~GOPATH~, and the following Go packages:
 
@@ -60,6 +68,8 @@ This module requires a valid ~GOPATH~, and the following Go packages:
 + ~gore~ (for the REPL)
 + ~guru~ (for code navigation & refactoring commands)
 + ~goimports~ (optional: for auto-formatting code on save & fixing imports)
++ ~gotests~ (for generate test code)
++ ~gomodifytags~ (for manipulating tags)
 
 #+BEGIN_SRC sh
 export GOPATH=~/work/go
@@ -70,6 +80,8 @@ go get -u golang.org/x/tools/cmd/godoc
 go get -u golang.org/x/tools/cmd/goimports
 go get -u golang.org/x/tools/cmd/gorename
 go get -u golang.org/x/tools/cmd/guru
+go get -u github.com/cweill/gotests/...
+go get -u github.com/fatih/gomodifytags
 #+END_SRC
 
 * TODO Features

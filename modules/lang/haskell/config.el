@@ -1,5 +1,8 @@
 ;;; lang/haskell/config.el -*- lexical-binding: t; -*-
 
+(after! projectile
+  (add-to-list 'projectile-project-root-files "stack.yaml"))
+
 (cond ((featurep! +intero) (load! "+intero"))
       ((featurep! +dante)  (load! "+dante"))
       ((featurep! +lsp)    (load! "+lsp")))
@@ -18,10 +21,9 @@
   (set-file-template! 'haskell-mode
     :trigger #'haskell-auto-insert-module-template
     :project t)
-  (set-repl-handler! '(haskell-mode
-                       haskell-cabal-mode
-                       literate-haskell-mode)
-                     #'+haskell/open-repl)
+  (set-repl-handler!
+    '(haskell-mode haskell-cabal-mode literate-haskell-mode)
+    #'+haskell/open-repl :persist t)
 
   (add-hook! 'haskell-mode-hook
              #'haskell-collapse-mode ; support folding haskell code blocks

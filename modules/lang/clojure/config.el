@@ -1,22 +1,30 @@
 ;;; lang/clojure/config.el -*- lexical-binding: t; -*-
 
+(after! projectile
+  (pushnew! projectile-project-root-files "project.clj" "build.boot" "deps.edn"))
+
+
+;;
+;;; Packages
+
 ;;;###package clojure-mode
 (add-hook 'clojure-mode-hook #'rainbow-delimiters-mode)
 
 
 (use-package! cider
-  ;; NOTE: if you don't have an org directory set (the dir doesn't exist),
-  ;; cider jack in won't work.
-  :commands (cider-jack-in cider-jack-in-clojurescript)
+  ;; NOTE: if you don't have an org directory set (the dir doesn't exist), cider
+  ;; jack in won't work.
   :hook (clojure-mode-local-vars . cider-mode)
   :init
-  (set-repl-handler! 'clojure-mode #'+clojure/repl)
-  (set-eval-handler! 'clojure-mode #'cider-eval-region)
+  (after! clojure-mode
+    (set-repl-handler! 'clojure-mode #'+clojure/open-repl :persist t)
+    (set-repl-handler! 'clojurescript-mode #'+clojure/open-cljs-repl :persist t)
+    (set-eval-handler! '(clojure-mode clojurescript-mode) #'cider-eval-region))
+  :config
+  (add-hook 'cider-mode-hook #'eldoc-mode)
   (set-lookup-handlers! 'cider-mode
     :definition #'+clojure-cider-lookup-definition
     :documentation #'cider-doc)
-  (add-hook 'cider-mode-hook #'eldoc-mode)
-  :config
   (set-popup-rules!
     '(("^\\*cider-error*" :ignore t)
       ("^\\*cider-repl" :quit nil)
@@ -49,11 +57,12 @@
   (add-hook! 'cider-connected-hook
     (defun +clojure--cider-dump-nrepl-server-log-h ()
       "Copy contents of *nrepl-server* to beginning of *cider-repl*."
-      (save-excursion
-        (goto-char (point-min))
-        (insert
-         (with-current-buffer nrepl-server-buffer
-           (buffer-string))))))
+      (when (buffer-live-p nrepl-server-buffer)
+        (save-excursion
+          (goto-char (point-min))
+          (insert
+           (with-current-buffer nrepl-server-buffer
+             (buffer-string)))))))
 
   ;; The CIDER welcome message obscures error messages that the above code is
   ;; supposed to be make visible.
@@ -65,8 +74,8 @@
             "\"" #'cider-jack-in-cljs
             "c"  #'cider-connect-clj
             "C"  #'cider-connect-cljs
-
             (:prefix ("e" . "eval")
+              "b" #'cider-eval-buffer
               "d" #'cider-eval-defun-at-point
               "D" #'cider-insert-defun-in-repl
               "e" #'cider-eval-last-sexp
@@ -74,7 +83,7 @@
               "r" #'cider-eval-region
               "R" #'cider-insert-region-in-repl
               "u" #'cider-undef)
-            (:prefix ("g" . "go/jump")
+            (:prefix ("g" . "goto")
               "b" #'cider-pop-back
               "g" #'cider-find-var
               "n" #'cider-find-ns)
@@ -90,10 +99,11 @@
               "r" #'cider-inspect-last-result)
             (:prefix ("m" . "macro")
               "e" #'cider-macroexpand-1
-              "E" #'cider-macroexpand-al)
+              "E" #'cider-macroexpand-all)
             (:prefix ("n" . "namespace")
               "n" #'cider-browse-ns
-              "N" #'cider-browse-ns-all)
+              "N" #'cider-browse-ns-all
+              "r" #'cider-ns-refresh)
             (:prefix ("r" . "repl")
               "n" #'cider-repl-set-ns
               "q" #'cider-quit
@@ -118,11 +128,11 @@
           :i [S-return] #'cider-repl-newline-and-indent
           :i [M-return] #'cider-repl-return
           (:localleader
-            ("n" #'cider-repl-set-ns
-             "q" #'cider-quit
-             "r" #'cider-ns-refresh
-             "R" #'cider-restart
-             "c" #'cider-repl-clear-buffer))
+            "n" #'cider-repl-set-ns
+            "q" #'cider-quit
+            "r" #'cider-ns-refresh
+            "R" #'cider-restart
+            "c" #'cider-repl-clear-buffer)
           :map cider-repl-history-mode-map
           :i [return]  #'cider-repl-history-insert-and-quit
           :i "q"  #'cider-repl-history-quit
@@ -134,10 +144,9 @@
 
 (use-package! clj-refactor
   :hook (clojure-mode . clj-refactor-mode)
-  :init
+  :config
   (set-lookup-handlers! 'clj-refactor-mode
     :references #'cljr-find-usages)
-  :config
   (map! :map clojure-mode-map
         :localleader
         :desc "refactor" "R" #'hydra-cljr-help-menu/body))

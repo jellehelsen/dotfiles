@@ -77,17 +77,43 @@ This marks a foldable marker for `outline-minor-mode' in elisp buffers.")
 
   (map! :localleader
         :map emacs-lisp-mode-map
-        "e" #'macrostep-expand))
+        :desc "Expand macro" "m" #'macrostep-expand
+        (:prefix ("d" . "debug")
+          "f" #'+emacs-lisp/edebug-instrument-defun-on
+          "F" #'+emacs-lisp/edebug-instrument-defun-off)
+        (:prefix ("e" . "eval")
+          "b" #'eval-buffer
+          "d" #'eval-defun
+          "e" #'eval-last-sexp
+          "r" #'eval-region
+          "l" #'load-library)
+        (:prefix ("g" . "goto")
+          "f" #'find-function
+          "v" #'find-variable
+          "l" #'find-library)))
+
+;; Adapted from http://www.modernemacs.com/post/comint-highlighting/
+(add-hook! 'ielm-mode-hook
+  (defun +emacs-lisp-init-syntax-highlighting-h ()
+    (font-lock-add-keywords
+     nil (cl-loop for (matcher . match-highlights)
+                  in (append lisp-el-font-lock-keywords-2 lisp-cl-font-lock-keywords-2)
+                  collect
+                  `((lambda (limit)
+                      (and ,(if (symbolp matcher)
+                                `(,matcher limit)
+                              `(re-search-forward ,matcher limit t))
+                           ;; Only highlight matches after the prompt
+                           (> (match-beginning 0) (car comint-last-prompt))
+                           ;; Make sure we're not in a comment or string
+                           (let ((state (sp--syntax-ppss)))
+                             (not (or (nth 3 state)
+                                      (nth 4 state))))))
+                    ,@match-highlights)))))
 
 
 ;;
 ;;; Packages
-
-(map! :when (featurep! :editor evil)
-      :after macrostep
-      :map macrostep-keymap
-      :n [return] #'macrostep-expand)
-
 
 ;;;###package overseer
 (autoload 'overseer-test "overseer" nil t)
@@ -112,8 +138,20 @@ This marks a foldable marker for `outline-minor-mode' in elisp buffers.")
     "Add Doom's own demos to help buffers."
     :around #'elisp-demos--search
     (or (funcall orig-fn symbol)
-        (when-let* ((elisp-demos--elisp-demos.org (doom-glob doom-docs-dir "api.org")))
-          (funcall orig-fn symbol)))))
+        (when-let (demos-file (doom-glob doom-docs-dir "api.org"))
+          (with-temp-buffer
+            (insert-file-contents demos-file)
+            (goto-char (point-min))
+            (when (re-search-forward
+                   (format "^\\*\\*\\* %s$" (regexp-quote (symbol-name symbol)))
+                   nil t)
+              (let (beg end)
+                (forward-line 1)
+                (setq beg (point))
+                (if (re-search-forward "^\\*" nil t)
+                    (setq end (line-beginning-position))
+                  (setq end (point-max)))
+                (string-trim (buffer-substring-no-properties beg end)))))))))
 
 
 (use-package! buttercup

@@ -52,13 +52,19 @@ variable for an explanation of the defaults (in comments). See
 ;; (with-current-buffer
 ;;     (url-retrieve-synchronously "https://raw.githubusercontent.com/emacs-evil/evil-collection/master/evil-collection.el" t t)
 ;;   (goto-char (point-min))
-;;   (when (re-search-forward "^(defcustom evil-collection-mode-list\n[^(]+")
-;;     (kill-new (thing-at-point 'sexp t))))
+;;   (when (re-search-forward "^(defvar evil-collection--supported-modes\n[^(]+")
+;;     (let ((list (sexp-at-point)))
+;;       ;; Fixes
+;;       (when (assq 'pdf list)
+;;         (setf (alist-get 'pdf list) '(pdf-tools)))
+;;       (kill-new (prin1-to-string list)))))
+
 (defvar evil-collection-mode-list
   `(2048-game
     ag
     alchemist
     anaconda-mode
+    apropos
     arc-mode
     bookmark
     (buff-menu "buff-menu")
@@ -69,7 +75,7 @@ variable for an explanation of the defaults (in comments). See
     comint
     company
     compile
-    custom
+    (custom cus-edit)
     cus-theme
     daemons
     deadgrep
@@ -79,6 +85,7 @@ variable for an explanation of the defaults (in comments). See
     dired
     disk-usage
     doc-view
+    docker
     ebib
     edbi
     edebug
@@ -129,21 +136,20 @@ variable for an explanation of the defaults (in comments). See
     man
     magit
     magit-todos
-    ,@(when evil-collection-setup-minibuffer '(minibuffer))
+    ,@(if evil-collection-setup-minibuffer '(minibuffer))
     monky
     mu4e
     mu4e-conversation
     neotree
     notmuch
     nov
-    ;; occur is in replace.el which was built-in before Emacs 26.
-    (occur ,(if (<= emacs-major-version 25) "replace" 'replace))
+    (occur replace)
     omnisharp
     outline
     p4
     (package-menu package)
     pass
-    (pdf pdf-view)
+    (pdf pdf-tools)
     popup
     proced
     process-menu
@@ -157,10 +163,12 @@ variable for an explanation of the defaults (in comments). See
     restclient
     rjsx-mode
     robe
-    ruby-mode
     rtags
+    ruby-mode
     simple
     slime
+    sly
+    tablist
     (term term ansi-term multi-term)
     tetris
     tide
@@ -212,11 +220,16 @@ and complains if a module is loaded too early (during startup)."
 (add-transient-hook! 'emacs-lisp-mode
   (+evil-collection-init 'elisp-mode))
 (add-transient-hook! 'occur-mode
-  (+evil-collection-init (if EMACS26+ 'replace "replace")))
+  (+evil-collection-init 'replace))
 
 (evil-define-key* 'normal process-menu-mode-map
   "q" #'kill-current-buffer
   "d" #'process-menu-delete-process)
+
+;; Don't overwrite the leader keys
+(setq evil-collection-key-blacklist
+      (list doom-leader-key doom-localleader-key
+            doom-leader-alt-key doom-localleader-alt-key))
 
 ;; Load the rest
 (dolist (mode evil-collection-mode-list)

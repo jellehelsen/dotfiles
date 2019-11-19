@@ -25,23 +25,26 @@
   (setq-hook! 'tuareg-mode-hook
     comment-line-break-function #'+ocaml/comment-indent-new-line)
 
+  (map! :localleader
+        :map tuareg-mode-map
+        "a" #'tuareg-find-alternate-file)
 
   (use-package! utop
     :when (featurep! :tools eval)
-    :hook (tuareg-mode . +ocaml|init-utop)
+    :hook (tuareg-mode . +ocaml-init-utop-h)
     :init
     (set-repl-handler! 'tuareg-mode #'utop)
     (set-eval-handler! 'tuareg-mode #'utop-eval-region)
-    (defun +ocaml|init-utop ()
+    (defun +ocaml-init-utop-h ()
       (when (executable-find "utop")
         (utop-minor-mode)))))
 
 
 (use-package! merlin
   :unless (featurep! +lsp)
-  :hook (tuareg-mode . +ocaml|init-merlin)
+  :hook (tuareg-mode . +ocaml-init-merlin-h)
   :init
-  (defun +ocaml|init-merlin ()
+  (defun +ocaml-init-merlin-h ()
     "Activate `merlin-mode' if the ocamlmerlin executable exists."
     (when (executable-find "ocamlmerlin")
       (merlin-mode)))
@@ -57,20 +60,18 @@
 
   (map! :localleader
         :map tuareg-mode-map
-        "t" #'merlin-type-enclosing
-        "a" #'tuareg-find-alternate-file)
+        "t" #'merlin-type-enclosing)
 
   (use-package! flycheck-ocaml
     :when (featurep! :tools flycheck)
-    :hook (merlin-mode . +ocaml|init-flycheck)
+    :hook (merlin-mode . +ocaml-init-flycheck-h)
     :config
-    (defun +ocaml|init-flycheck ()
-      "Activate `flycheck-ocaml` if the current project possesses a .merlin file."
-      (when (projectile-locate-dominating-file default-directory ".merlin")
-        ;; Disable Merlin's own error checking
-        (setq merlin-error-after-save nil)
-        ;; Enable Flycheck checker
-        (flycheck-ocaml-setup))))
+    (defun +ocaml-init-flycheck-h ()
+      "Activate `flycheck-ocaml`"
+      ;; Disable Merlin's own error checking
+      (setq merlin-error-after-save nil)
+      ;; Enable Flycheck checker
+      (flycheck-ocaml-setup)))
 
   (use-package! merlin-eldoc
     :hook (merlin-mode . merlin-eldoc-setup))
@@ -90,9 +91,9 @@
 (use-package! ocp-indent
   ;; must be careful to always defer this, it has autoloads that adds hooks
   ;; which we do not want if the executable can't be found
-  :hook (tuareg-mode . +ocaml|init-ocp-indent)
+  :hook (tuareg-mode . +ocaml-init-ocp-indent-h)
   :config
-  (defun +ocaml|init-ocp-indent ()
+  (defun +ocaml-init-ocp-indent-h ()
     "Run `ocp-setup-indent', so long as the ocp-indent binary exists."
     (when (executable-find "ocp-indent")
       (ocp-setup-indent))))
@@ -101,12 +102,12 @@
 (use-package! ocamlformat
   :when (featurep! :editor format)
   :commands ocamlformat
-  :hook (tuareg-mode . +ocaml|init-ocamlformat)
+  :hook (tuareg-mode . +ocaml-init-ocamlformat-h)
   :config
   (set-formatter! 'ocamlformat #'ocamlformat
     :modes '(caml-mode tuareg-mode))
   ;; TODO Fix region-based formatting support
-  (defun +ocaml|init-ocamlformat ()
+  (defun +ocaml-init-ocamlformat-h ()
     (setq +format-with 'ocp-indent)
     (when (and (executable-find "ocamlformat")
                (locate-dominating-file default-directory ".ocamlformat"))

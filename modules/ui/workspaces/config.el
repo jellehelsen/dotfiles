@@ -109,7 +109,7 @@ stored in `persp-save-dir'.")
   (setq persp-add-buffer-on-find-file nil
         persp-add-buffer-on-after-change-major-mode nil)
 
-  (add-hook! 'doom-switch-buffer-hook
+  (add-hook! '(doom-switch-buffer-hook server-visit-hook)
     (defun +workspaces-add-current-buffer-h ()
       "Add current buffer to focused perspective."
       (and persp-mode
@@ -170,6 +170,9 @@ stored in `persp-save-dir'.")
             ("X" counsel-projectile-switch-project-action-org-capture "org-capture into project")))
 
   (add-hook 'projectile-after-switch-project-hook #'+workspaces-switch-to-project-h)
+
+  ;; Fix #1973: visual selection surviving workspace changes
+  (add-hook 'persp-before-deactivate-functions #'deactivate-mark)
 
   ;; Fix #1017: stop session persistence from restoring a broken posframe
   (after! posframe

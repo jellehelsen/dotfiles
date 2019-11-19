@@ -69,13 +69,15 @@
   (describe "file!"
     (it "returns the executing file"
       (expect (eval-and-compile (file!))
-              :to-equal (expand-file-name "test/test-core-lib.el"
-                                          doom-core-dir))))
+              :to-equal
+              (eval-and-compile load-file-name))))
 
   (describe "dir!"
     (it "returns the executing directory"
       (expect (eval-and-compile (dir!))
-              :to-equal (expand-file-name "test" doom-core-dir))))
+              :to-equal
+              (eval-and-compile
+                (directory-file-name (file-name-directory load-file-name))))))
 
   (describe "pushnew!"
     (it "pushes values onto a list symbol, in order"
@@ -114,16 +116,6 @@
       (let ((alist '((a 1) (b 2) (c 3))))
         (delq! 'b alist 'assq)
         (expect alist :to-equal '((a 1) (c 3))))))
-
-  (describe "delete!"
-    (it "delete's a string from a list"
-      (let ((list '("a" "b" "c")))
-        (delete! "b" list)
-        (expect list :to-equal '("a" "c"))))
-    (it "delete's an element from an alist by key"
-      (let ((alist '(("a" 1) ("b" 2) ("c" 3))))
-        (delete! (assoc "b" alist) alist)
-        (expect alist :to-equal '(("a" 1) ("c" 3))))))
 
   (describe "hooks"
     (describe "add-hook!"
@@ -244,13 +236,19 @@
     (it "loads a file relative to the current directory"
       (load! "path")
       (expect 'load :to-have-been-called)
-      (expect 'load :to-have-been-called-with (expand-file-name "path" (eval-when-compile (dir!))) nil t))
+      (expect 'load :to-have-been-called-with
+              (expand-file-name "path" (eval-when-compile (dir!))) nil 'nomessage))
 
     (it "loads a file relative to a specified directory"
       (load! "path" doom-etc-dir)
-      (expect 'load :to-have-been-called-with (expand-file-name "path" doom-etc-dir) nil t)))
+      (expect 'load :to-have-been-called-with
+              (expand-file-name "path" doom-etc-dir) nil 'nomessage)))
 
   (describe "quiet!"
+    :var (doom-debug-mode)
+    (before-each
+      (setq doom-debug-mode nil))
+
     (it "suppresses output from message"
       (expect (message "hello world") :to-output "hello world\n")
       (expect (message "hello world") :to-output)

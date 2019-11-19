@@ -1,7 +1,7 @@
 ;;; lang/go/config.el -*- lexical-binding: t; -*-
 
 ;;
-;; Packages
+;;; Packages
 
 (after! go-mode
   (set-docsets! 'go-mode "Go")
@@ -25,6 +25,8 @@
 
   (map! :map go-mode-map
         :localleader
+        "a" #'go-tag-add
+        "d" #'go-tag-remove
         "e" #'+go/play-buffer-or-region
         "i" #'go-goto-imports      ; Go to imports
         (:prefix ("h" . "help")
@@ -50,7 +52,10 @@
           "t" #'+go/test-rerun
           "a" #'+go/test-all
           "s" #'+go/test-single
-          "n" #'+go/test-nested)))
+          "n" #'+go/test-nested
+          "g" #'go-gen-test-dwim
+          "G" #'go-gen-test-all
+          "e" #'go-gen-test-exported)))
 
 
 (use-package! gorepl-mode
@@ -58,8 +63,8 @@
 
 
 (use-package! company-go
-  :when (and (featurep! :completion company)
-             (not (featurep! +lsp)))
+  :when (featurep! :completion company)
+  :unless (featurep! +lsp)
   :after go-mode
   :config
   (set-company-backend! 'go-mode 'company-go)

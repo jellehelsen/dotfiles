@@ -5,12 +5,14 @@
 ;; major mode to drop editorconfig a hint? This is accomplished by temporarily
 ;; appending an extension to `buffer-file-name' when we talk to editorconfig.
 (defvar +editorconfig-mode-alist
-  '((sh-mode       . "sh")
-    (python-mode   . "py")
-    (ruby-mode     . "rb")
-    (enh-ruby-mode . "rb")
-    (perl-mode     . "pl")
-    (php-mode      . "php"))
+  '((emacs-lisp-mode . "el")
+    (enh-ruby-mode   . "rb")
+    (js2-mode        . "js")
+    (perl-mode       . "pl")
+    (php-mode        . "php")
+    (python-mode     . "py")
+    (ruby-mode       . "rb")
+    (sh-mode         . "sh"))
   "An alist mapping major modes to extensions. Used by
 `doom--editorconfig-smart-detection-a' to give editorconfig filetype hints.")
 
@@ -18,7 +20,7 @@
 ;; Handles whitespace (tabs/spaces) settings externally. This way projects can
 ;; specify their own formatting rules.
 (use-package! editorconfig
-  :after-call (doom-switch-buffer-hook after-find-file)
+  :after-call doom-switch-buffer-hook after-find-file
   :config
   (defadvice! +editorconfig--smart-detection-a (orig-fn)
     "Retrieve the properties for the current file. If it doesn't have an
@@ -28,7 +30,7 @@ extension, try to guess one."
            (if (and (not (bound-and-true-p org-src-mode))
                     (file-name-extension buffer-file-name))
                buffer-file-name
-             (format "%s%s" buffer-file-name
+             (format "%s%s" (buffer-file-name (buffer-base-buffer))
                      (if-let* ((ext (cdr (assq major-mode +editorconfig-mode-alist))))
                          (concat "." ext)
                        "")))))

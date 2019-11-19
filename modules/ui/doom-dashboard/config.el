@@ -67,9 +67,8 @@ Possible values:
      :icon (all-the-icons-octicon "tools" :face 'font-lock-keyword-face)
      :when (file-directory-p doom-private-dir)
      :action doom/open-private-config)
-    ("Open user manual"
+    ("Search Documentation"
      :icon (all-the-icons-octicon "book" :face 'font-lock-keyword-face)
-     :when (file-exists-p (expand-file-name "index.org" doom-docs-dir))
      :action doom/help-search))
   "An alist of menu buttons used by `doom-dashboard-widget-shortmenu'. Each
 element is a cons cell (LABEL . PLIST). LABEL is a string to display after the
@@ -199,8 +198,9 @@ PLIST can have the following properties:
         (if (button-at (point))
             (forward-button 0)
           (backward-button 1)))
-      (progn (goto-char (point-min))
-             (forward-button 1))))
+      (ignore-errors
+        (goto-char (point-min))
+        (forward-button 1))))
 
 (defun +doom-dashboard-reload-maybe-h ()
   "Reload the dashboard or its state.

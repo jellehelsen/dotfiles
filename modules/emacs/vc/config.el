@@ -15,7 +15,11 @@
       ("^\\vc-c" :select t))) ; *vc-change-log*
   (set-evil-initial-state!
     '(vc-annotate-mode vc-git-log-view-mode)
-    'normal))
+    'normal)
+
+  ;; Clean up after itself
+  (define-key vc-annotate-mode-map [remap quit-window] #'kill-current-buffer))
+
 
 
 (after! git-timemachine
@@ -34,6 +38,12 @@
     (add-transient-hook! #'git-timemachine-blame (require 'magit-blame)))
 
   (map! :map git-timemachine-mode-map
+        :n "C-p" #'git-timemachine-show-previous-revision
+        :n "C-n" #'git-timemachine-show-next-revision
+        :n "[["  #'git-timemachine-show-previous-revision
+        :n "]]"  #'git-timemachine-show-next-revision
+        :n "q"   #'git-timemachine-quit
+        :n "gb"  #'git-timemachine-blame
         :n "gtc" #'git-timemachine-show-commit))
 
 
@@ -56,14 +66,3 @@ otherwise in default state."
       (when (and (bound-and-true-p evil-mode)
                  (bobp) (eolp))
         (evil-insert-state)))))
-
-
-(after! smerge-mode
-  (unless EMACS26+
-    (with-no-warnings
-      (defalias #'smerge-keep-upper #'smerge-keep-mine)
-      (defalias #'smerge-keep-lower #'smerge-keep-other)
-      (defalias #'smerge-diff-base-upper #'smerge-diff-base-mine)
-      (defalias #'smerge-diff-upper-lower #'smerge-diff-mine-other)
-      (defalias #'smerge-diff-base-lower #'smerge-diff-base-other))))
-

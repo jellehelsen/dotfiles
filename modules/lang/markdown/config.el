@@ -16,21 +16,31 @@ capture, the end position, and the output buffer.")
 ;;; Packages
 
 (use-package! markdown-mode
-  :mode ("/README\\(?:\\.\\(?:markdown\\|md\\)\\)?\\'" . gfm-mode)
+  :mode ("/README\\(?:\\.md\\)?\\'" . gfm-mode)
   :init
-  (setq markdown-enable-wiki-links t
+  (setq markdown-enable-math t ; syntax highlighting for latex fragments
+        markdown-enable-wiki-links t
         markdown-italic-underscore t
         markdown-asymmetric-header t
-        markdown-make-gfm-checkboxes-buttons t
-        markdown-gfm-additional-languages '("sh")
         markdown-fontify-code-blocks-natively t
-        markdown-hide-urls nil ; trigger with `markdown-toggle-url-hiding'
-        markdown-enable-math t ; syntax highlighting for latex fragments
         markdown-gfm-uppercase-checkbox t ; for compat with org-mode
+        markdown-gfm-additional-languages '("sh")
+        markdown-make-gfm-checkboxes-buttons t
+
+        ;; Preview/compilation defaults
         markdown-command #'+markdown-compile
         markdown-open-command
         (cond (IS-MAC "open")
-              (IS-LINUX "xdg-open")))
+              (IS-LINUX "xdg-open"))
+        markdown-content-type "application/xhtml+xml"
+        markdown-css-paths
+        '("https://cdn.jsdelivr.net/npm/github-markdown-css/github-markdown.min.css"
+          "https://cdn.jsdelivr.net/gh/highlightjs/cdn-release/build/styles/github.min.css")
+        markdown-xhtml-header-content
+        (concat "<meta name='viewport' content='width=device-width, initial-scale=1, shrink-to-fit=no'>"
+                "<style> body { box-sizing: border-box; max-width: 740px; width: 100%; margin: 40px auto; padding: 0 10px; } </style>"
+                "<script src='https://cdn.jsdelivr.net/gh/highlightjs/cdn-release/build/highlight.min.js'></script>"
+                "<script>document.addEventListener('DOMContentLoaded', () => { document.body.classList.add('markdown-body'); document.querySelectorAll('pre[lang] > code').forEach((code) => { code.classList.add(code.parentElement.lang); hljs.highlightBlock(code); }); }); </script>"))
 
   :config
   (set-flyspell-predicate! '(markdown-mode gfm-mode)
@@ -38,40 +48,43 @@ capture, the end position, and the output buffer.")
   (set-lookup-handlers! '(markdown-mode gfm-mode)
     :file #'markdown-follow-thing-at-point)
 
-  ;; Enable hard-wrapping. By convention, Doom does this for all textual modes.
-  (add-hook 'markdown-mode-hook #'auto-fill-mode)
-
-  ;; Prevent mis-fontification of YAML metadata blocks in `markdown-mode' which
-  ;; occurs when the first line contains a colon in it. See
-  ;; https://github.com/jrblevin/markdown-mode/issues/328.
-  (advice-add :markdown-match-generic-metadata
-              :override #'+markdown-disable-front-matter-fontification-a)
+  ;; HACK Prevent mis-fontification of YAML metadata blocks in `markdown-mode'
+  ;;      which occurs when the first line contains a colon in it. See
+  ;;      https://github.com/jrblevin/markdown-mode/issues/328.
+  (defadvice! +markdown-disable-front-matter-fontification-a (&rest _)
+    :override #'markdown-match-generic-metadata
+    (ignore (goto-char (point-max))))
 
   (map! :map markdown-mode-map
-        :n [tab] #'markdown-cycle
+        :localleader
+        "o" #'markdown-open
+        "p" #'markdown-preview
+        "e" #'markdown-export
+        (:when (featurep! +grip)
+          "p" #'grip-mode)
+        (:prefix ("i" . "insert")
+          "t" #'markdown-toc-generate-toc
+          "i" #'markdown-insert-image
+          "l" #'markdown-insert-link)))
+
+
+(use-package! evil-markdown
+  :when (featurep! :editor evil +everywhere)
+  :hook (markdown-mode . evil-markdown-mode)
+  :config
+  (add-hook 'evil-markdown-mode-hook #'evil-normalize-keymaps)
+  (map! :map evil-markdown-mode-map
         :n "TAB" #'markdown-cycle
         :n [backtab] #'markdown-shifttab
-        :n "<S-tab>" #'markdown-shifttab
         :i "M-*" #'markdown-insert-list-item
         :i "M-b" #'markdown-insert-bold
         :i "M-i" #'markdown-insert-italic
         :i "M-`" #'+markdown/insert-del
-        (:when (featurep! :editor evil +everywhere)
-          :m "gj"  #'markdown-next-visible-heading
-          :m "gk"  #'markdown-previous-visible-heading
-          ;; TODO: Make context sensitive
-          :m "]h"  #'markdown-next-visible-heading
-          :m "[h"  #'markdown-previous-visible-heading
-          :m "[p"  #'markdown-promote
-          :m "]p"  #'markdown-demote
-          :m "[l"  #'markdown-previous-link
-          :m "]l"  #'markdown-next-link
-          :i "M--" #'markdown-insert-hr
-          :n "M-r" #'browse-url-of-file)
-        (:localleader
-          "o" #'markdown-open
-          "b" #'markdown-preview
-          (:prefix "i"
-            "t" #'markdown-toc-generate-toc
-            "i" #'markdown-insert-image
-            "l" #'markdown-insert-link))))
+        :i "M--" #'markdown-insert-hr
+        :n "M-r" #'browse-url-of-file
+        :m "]h"  #'markdown-next-visible-heading
+        :m "[h"  #'markdown-previous-visible-heading
+        :m "[p"  #'markdown-promote
+        :m "]p"  #'markdown-demote
+        :m "[l"  #'markdown-previous-link
+        :m "]l"  #'markdown-next-link))

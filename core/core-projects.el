@@ -11,7 +11,7 @@ Emacs.")
   "If non-nil, non-projects are purged from the cache on `kill-emacs-hook'.")
 
 (defvar doom-projectile-fd-binary
-  (or (cl-find-if #'executable-find '("fd" "fdfind"))
+  (or (cl-find-if #'executable-find '("fdfind" "fd"))
       "fd")
   "name of `fd-find' executable binary")
 
@@ -27,7 +27,7 @@ Emacs.")
   :commands (projectile-project-root
              projectile-project-name
              projectile-project-p
-             projectile-add-known-project) ; TODO PR autoload upstream
+             projectile-locate-dominating-file)
   :init
   (setq projectile-cache-file (concat doom-cache-dir "projectile.cache")
         projectile-enable-caching doom-interactive-mode
@@ -47,9 +47,34 @@ Emacs.")
   :config
   (projectile-mode +1)
 
+  ;; In the interest of performance, we reduce the number of project root marker
+  ;; files/directories projectile searches for when resolving the project root.
+  (setq projectile-project-root-files-bottom-up
+        (append '(".project"     ; doom project marker
+                  ".git")        ; Git VCS root dir
+                (when (executable-find "hg")
+                  '(".hg"))      ; Mercurial VCS root dir
+                (when (executable-find "fossil")
+                  '(".fslckout"  ; Fossil VCS root dir
+                    "_FOSSIL_")) ; Fossil VCS root DB on Windows
+                (when (executable-find "bzr")
+                  '(".bzr"))     ; Bazaar VCS root dir
+                (when (executable-find "darcs")
+                  '("_darcs")))  ; Darcs VCS root dir
+        ;; This will be filled by other modules. We build this list manually so
+        ;; projectile doesn't perform so many file checks every time it resolves
+        ;; a project's root -- particularly when a file has no project.
+        projectile-project-root-files '("TAGS")
+        projectile-project-root-files-top-down-recurring '(".svn" "Makefile"))
+
   ;; a more generic project root file
-  (push ".project" projectile-project-root-files-bottom-up)
   (push (abbreviate-file-name doom-local-dir) projectile-globally-ignored-directories)
+
+  ;; Disable commands that won't work, as is, and that Doom already provides a
+  ;; better alternative for.
+  (put 'projectile-ag 'disabled "Use +{ivy,helm}/project-search instead")
+  (put 'projectile-ripgrep 'disabled "Use +{ivy,helm}/project-search instead")
+  (put 'projectile-grep 'disabled "Use +{ivy,helm}/project-search instead")
 
   ;; Treat current directory in dired as a "file in a project" and track it
   (add-hook 'dired-before-readin-hook #'projectile-track-known-projects-find-file-hook)
@@ -89,7 +114,7 @@ c) are not valid projectile projects."
   (let ((default-directory "~"))
     (when (cl-find-if #'projectile-file-exists-p
                       projectile-project-root-files-bottom-up)
-      (message "HOME appears to be a project. Disabling bottom-up root search.")
+      (doom-log "HOME appears to be a project. Disabling bottom-up root search.")
       (setq projectile-project-root-files
             (append projectile-project-root-files-bottom-up
                     projectile-project-root-files)
@@ -117,7 +142,10 @@ c) are not valid projectile projects."
           projectile-indexing-method 'alien)
     ;; fix breakage on windows in git projects
     (unless (executable-find "tr")
-      (setq projectile-git-submodule-command nil))))
+      (setq projectile-git-submodule-command nil)))
+
+   ((not (executable-find "tr"))
+    (setq projectile-git-submodule-command nil)))
 
   (defadvice! doom--projectile-cache-timers-a ()
     "Persist `projectile-projects-cache-time' across sessions, so that

@@ -8,10 +8,10 @@
   emacs -Q -l init.el -f doom-run-all-startup-hooks-h"
   (run-hook-wrapped 'after-init-hook #'doom-try-run-hook)
   (setq after-init-time (current-time))
-  (dolist (hook (list 'delayed-warnings-hook
-                      'emacs-startup-hook 'term-setup-hook
-                      'window-setup-hook))
-    (run-hook-wrapped hook #'doom-try-run-hook)))
+  (mapc (doom-rpartial #'run-hook-wrapped #'doom-try-run-hook)
+        (list 'delayed-warnings-hook
+              'emacs-startup-hook 'tty-setup-hook
+              'window-setup-hook)))
 
 
 ;;
@@ -32,24 +32,28 @@ ready to be pasted in a bug report on github."
         (doom-modules (doom-modules)))
     (cl-letf
         (((symbol-function 'sh)
-          (lambda (format)
-            (string-trim
-             (shell-command-to-string format)))))
+          (lambda (&rest args)
+            (cdr (apply #'doom-call-process args)))))
       `((emacs
          (version . ,emacs-version)
          (features ,@system-configuration-features)
          (build . ,(format-time-string "%b %d, %Y" emacs-build-time))
-         (buildopts ,system-configuration-options))
+         (buildopts ,system-configuration-options)
+         (windowsys . ,(if noninteractive 'batch window-system))
+         (daemonp . ,(cond ((daemonp) 'daemon)
+                           ((and (require 'server)
+                                 (server-running-p))
+                            'server-running))))
         (doom
          (version . ,doom-version)
-         (build . ,(sh "git log -1 --format=\"%D %h %ci\"")))
+         (build . ,(sh "git" "log" "-1" "--format=%D %h %ci")))
         (system
          (type . ,system-type)
          (config . ,system-configuration)
          (shell . ,shell-file-name)
          (uname . ,(if IS-WINDOWS
                        "n/a"
-                     (sh "uname -msrv")))
+                     (sh "uname" "-msrv")))
          (path . ,(mapcar #'abbreviate-file-name exec-path)))
         (config
          (envfile
@@ -63,11 +67,11 @@ ready to be pasted in a bug report on github."
          (modules
           ,@(or (cl-loop with cat = nil
                          for key being the hash-keys of doom-modules
-                         if (or (not cat) (not (eq cat (car key))))
+                         if (or (not cat)
+                                (not (eq cat (car key))))
                          do (setq cat (car key))
                          and collect cat
-                         and collect (cdr key)
-                         else collect
+                         collect
                          (let ((flags (doom-module-get cat (cdr key) :flags)))
                            (if flags
                                `(,(cdr key) ,@flags)
@@ -75,16 +79,20 @@ ready to be pasted in a bug report on github."
                 '("n/a")))
          (packages
           ,@(or (ignore-errors
-                  (cl-loop for (name . plist) in (doom-package-list)
-                           if (doom-package-private-p name)
-                           collect
-                           (format
-                            "%s" (if-let (splist (doom-plist-delete (copy-sequence plist)
-                                                                    :modules))
-                                     (cons name splist)
-                                   name))))
+                  (let ((doom-interactive-mode t)
+                        doom-packages
+                        doom-disabled-packages)
+                    (doom--read-module-packages-file
+                     (doom-path doom-private-dir "packages.el")
+                     nil t)
+                    (cl-loop for (name . plist) in (nreverse doom-packages)
+                             collect
+                             (if-let (splist (doom-plist-delete (copy-sequence plist)
+                                                                :modules))
+                                 (prin1-to-string (cons name splist))
+                               name))))
                 '("n/a")))
-         (elpa-packages
+         (elpa
           ,@(or (ignore-errors
                   (cl-loop for (name . _) in package-alist
                            collect (format "%s" name)))
@@ -108,7 +116,7 @@ branch and commit."
                 "n/a")
             (or (vc-git-working-revision doom-core-dir)
                 "n/a")
-            (or (string-trim (shell-command-to-string "git log -1 --format=%ci"))
+            (or (cdr (doom-call-process "git" "log" "-1" "--format=%ci"))
                 "n/a"))))
 
 ;;;###autoload
@@ -128,7 +136,7 @@ markdown and copies it to your clipboard, ready to be pasted into bug reports!"
           (progn
             (save-excursion
               (pp info (current-buffer)))
-            (when (re-search-forward "(modules " nil t)
+            (when (search-forward "(modules " nil t)
               (goto-char (match-beginning 0))
               (cl-destructuring-bind (beg . end)
                   (bounds-of-thing-at-point 'sexp)
@@ -201,24 +209,23 @@ markdown and copies it to your clipboard, ready to be pasted into bug reports!"
                      (setq-default buffer-undo-tree (make-undo-tree))))
                  (pcase mode
                    (`vanilla-doom+ ; Doom core + modules - private config
-                    `((setq doom-private-dir "/tmp/does/not/exist")
+                    `((setq doom-init-modules-p t)
                       (load-file ,user-init-file)
                       (setq doom-modules ',doom-modules)
                       (maphash (lambda (key plist)
                                  (let ((doom--current-module key)
                                        (doom--current-flags (plist-get plist :flags)))
-                                   (load! "init" (plist-get plist :path) t)))
+                                   (load! "init" (doom-module-locate-path (car key) (cdr key)) t)))
                                doom-modules)
                       (maphash (lambda (key plist)
                                  (let ((doom--current-module key)
                                        (doom--current-flags (plist-get plist :flags)))
-                                   (load! "config" (plist-get plist :path) t)))
+                                   (load! "config" (doom-module-locate-path (car key) (cdr key)) t)))
                                doom-modules)
                       (run-hook-wrapped 'doom-init-modules-hook #'doom-try-run-hook)
                       (doom-run-all-startup-hooks-h)))
                    (`vanilla-doom  ; only Doom core
-                    `((setq doom-private-dir "/tmp/does/not/exist"
-                            doom-init-modules-p t)
+                    `((setq doom-init-modules-p t)
                       (load-file ,user-init-file)
                       (doom-run-all-startup-hooks-h)))
                    (`vanilla       ; nothing loaded
@@ -294,34 +301,6 @@ to reproduce bugs and determine if Doom is to blame."
 ;;
 ;;; Reporting bugs
 
-(defun doom--report-bug ()
-  "TODO"
-  (interactive)
-  (let ((url "https://github.com/hlissner/doom-emacs/issues/new?body="))
-    ;; TODO Refactor me
-    (save-restriction
-      (widen)
-      (goto-char (point-min))
-      (re-search-forward "^-------------------------------------------------------------------\n" nil t)
-      (skip-chars-forward " \n\t")
-      (condition-case e
-          (progn
-            (save-excursion
-              (when (and (re-search-backward "\\+ [ ] " nil t)
-                         (not (y-or-n-p "You haven't checked all the boxes. Continue anyway?")))
-                (error "Aborted submit")))
-            (narrow-to-region (point) (point-max))
-            (let ((text (buffer-string)))
-              ;; `url-encode-url' doesn't encode ampersands
-              (setq text (replace-regexp-in-string "&" "%26" text))
-              (setq url (url-encode-url (concat url text)))
-              ;; HACK: encode some characters according to HTML URL Encoding Reference
-              ;; http://www.w3schools.com/tags/ref_urlencode.asp
-              (setq url (replace-regexp-in-string "#" "%23" url))
-              (setq url (replace-regexp-in-string ";" "%3B" url))
-              (browse-url url)))
-        (error (signal (car e) (car e)))))))
-
 ;;;###autoload
 (defun doom/report-bug ()
   "Open a markdown buffer destinated to populate the New Issue page on Doom
@@ -330,36 +309,7 @@ Emacs' issue tracker.
 If called when a backtrace buffer is present, it and the output of `doom-info'
 will be automatically appended to the result."
   (interactive)
-  ;; TODO Refactor me
-  (let ((backtrace
-         (when (get-buffer "*Backtrace*")
-           (with-current-buffer "*Backtrace*"
-             (string-trim
-              (buffer-substring-no-properties
-               (point-min)
-               (min (point-max) 1000))))))
-        (buf (get-buffer-create "*doom:sandbox*")))
-    (with-current-buffer buf
-      (erase-buffer)
-      (condition-case _ (gfm-mode)
-        (error (text-mode)))
-      (doom-template-insert "SUBMIT_BUG_REPORT")
-      (goto-char (point-max))
-      (let ((pos (point)))
-        (save-excursion
-          (insert
-           "\n" (doom-info) "\n"
-           (if (and backtrace (not (string-empty-p backtrace)))
-               (format "\n<details>\n<summary>Backtrace</summary>\n\n```\n%s\n```\n</details>\n"
-                       backtrace)
-             "")))
-        (local-set-key (kbd "C-c C-c") #'doom--report-bug)
-        (local-set-key (kbd "C-c C-k") #'kill-current-buffer)
-        (setq header-line-format "C-c C-c to submit / C-c C-k to close")
-        ;;
-        (narrow-to-region (point-min) pos)
-        (goto-char (point-min)))
-      (pop-to-buffer buf))))
+  (browse-url "https://github.com/hlissner/doom-emacs/issues/new/choose"))
 
 
 ;;
@@ -384,5 +334,7 @@ will be automatically appended to the result."
          (cond ((eq arg 'toggle) (not doom-debug-mode))
                ((> (prefix-numeric-value arg) 0)))))
     (setq doom-debug-mode value
-          debug-on-error value)
+          debug-on-error value
+          jka-compr-verbose value
+          lsp-log-io value)
     (message "Debug mode %s" (if value "on" "off"))))

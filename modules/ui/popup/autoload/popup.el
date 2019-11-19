@@ -27,8 +27,12 @@ the buffer is visible, then set another timer and try again later."
                  (let (confirm-kill-processes)
                    (when-let (process (get-buffer-process buffer))
                      (kill-process process))
-                   (let (kill-buffer-hook kill-buffer-query-functions)
-                     (kill-buffer buffer))))))))))
+                   (let (kill-buffer-query-functions)
+                     ;; HACK The debugger backtrace buffer, when killed, called
+                     ;;      `top-level'. This causes jumpiness when the popup
+                     ;;      manager tries to clean it up.
+                     (cl-letf (((symbol-function #'top-level) #'ignore))
+                       (kill-buffer buffer)))))))))))
 
 (defun +popup--delete-window (window)
   "Do housekeeping before destroying a popup window.
@@ -135,11 +139,6 @@ default window parameters for popup windows, clears leftover transient timers
 and enables `+popup-buffer-mode'."
   (with-selected-window window
     (setq alist (delq (assq 'actions alist) alist))
-    (when (and alist +popup--populate-wparams)
-      ;; Emacs 26+ will automatically map the window-parameters alist entry to
-      ;; the popup window, so we need this for Emacs 25.x users
-      (dolist (param (cdr (assq 'window-parameters alist)))
-        (set-window-parameter window (car param) (cdr param))))
     (set-window-parameter window 'popup t)
     (set-window-parameter window 'split-window #'+popup--split-window)
     (set-window-parameter window 'delete-window #'+popup--delete-window)
@@ -412,9 +411,11 @@ the message buffer in a popup window."
   t)
 
 ;;;###autoload
-(defun +popup/raise (window)
-  "Raise the current popup window into a regular window."
-  (interactive (list (selected-window)))
+(defun +popup/raise (window &optional arg)
+  "Raise the current popup window into a regular window.
+If prefix ARG, raise the current popup into a new window."
+  (interactive
+   (list (selected-window) current-prefix-arg))
   (cl-check-type window window)
   (unless (+popup-window-p window)
     (user-error "Cannot raise a non-popup window"))
@@ -422,7 +423,9 @@ the message buffer in a popup window."
         (+popup--inhibit-transient t)
         +popup--remember-last)
     (+popup/close window 'force)
-    (display-buffer-pop-up-window buffer nil)))
+    (if arg
+        (pop-to-buffer buffer)
+      (switch-to-buffer buffer))))
 
 ;;;###autoload
 (defun +popup/diagnose ()
@@ -609,94 +612,3 @@ This advice ensures backwards compatibility for Emacs <= 26 users."
     (when (and (windowp window) display-buffer-mark-dedicated)
       (set-window-dedicated-p window display-buffer-mark-dedicated))
     window))
-
-;; DEPRECATED
-(unless EMACS26+
-  (defvar window-sides-reversed nil)
-
-  (defun window--sides-reverse-on-frame-p (frame)
-    "Return non-nil when side windows should appear reversed on FRAME.
-This uses some heuristics to guess the user's intentions when the
-selected window of FRAME is a side window ."
-    (cond
-     ;; Reverse when `window-sides-reversed' is t.  Do not reverse when
-     ;; `window-sides-reversed' is nil.
-     ((memq window-sides-reversed '(nil t))
-      window-sides-reversed)
-     ;; Reverse when FRAME's selected window shows a right-to-left buffer.
-     ((let ((window (frame-selected-window frame)))
-        (when (and (not (window-parameter window 'window-side))
-                   (or (not (window-minibuffer-p window))
-                       (setq window (minibuffer-selected-window))))
-          (with-current-buffer (window-buffer window)
-            (eq bidi-paragraph-direction 'right-to-left)))))
-     ;; Reverse when FRAME's `window-sides-main-selected-window' parameter
-     ;; specifies a live window showing a right-to-left buffer.
-     ((let ((window (frame-parameter
-                     frame 'window-sides-main-selected-window)))
-        (when (window-live-p window)
-          (with-current-buffer (window-buffer window)
-            (eq bidi-paragraph-direction 'right-to-left)))))
-     ;; Reverse when all windows in FRAME's main window show right-to-left
-     ;; buffers.
-     (t
-      (catch 'found
-        (walk-window-subtree
-         (lambda (window)
-           (with-current-buffer (window-buffer window)
-             (when (eq bidi-paragraph-direction 'left-to-right)
-               (throw 'found nil))))
-         (window-main-window frame))
-        t))))
-
-  (defun window--make-major-side-window (buffer side slot &optional alist)
-    "Display BUFFER in a new major side window on the selected frame.
-SIDE must be one of `left', `top', `right' or `bottom'.  SLOT
-specifies the slot to use.  ALIST is an association list of
-symbols and values as passed to `display-buffer-in-side-window'.
-Return the new window, nil if its creation failed.
-
-This is an auxiliary function of `display-buffer-in-side-window'
-and may be called only if no window on SIDE exists yet."
-    (let* ((left-or-right (memq side '(left right)))
-           (next-to (window--make-major-side-window-next-to side))
-           (on-side (cond
-                     ((eq side 'top) 'above)
-                     ((eq side 'bottom) 'below)
-                     (t side)))
-           (window--sides-inhibit-check t)
-           ;; The following two bindings will tell `split-window' to take
-           ;; the space for the new window from the selected frame's main
-           ;; window and not make a new parent window unless needed.
-           (window-combination-resize 'side)
-           (window-combination-limit nil)
-           (window (ignore-errors (split-window next-to nil on-side))))
-      (when window
-        ;; Initialize `window-side' parameter of new window to SIDE and
-        ;; make that parameter persistent.
-        (set-window-parameter window 'window-side side)
-        (add-to-list 'window-persistent-parameters '(window-side . writable))
-        ;; Install `window-slot' parameter of new window and make that
-        ;; parameter persistent.
-        (set-window-parameter window 'window-slot slot)
-        (add-to-list 'window-persistent-parameters '(window-slot . writable))
-        ;; Auto-adjust height/width of new window unless a size has been
-        ;; explicitly requested.
-        (unless (if left-or-right
-                    (cdr (assq 'window-width alist))
-                  (cdr (assq 'window-height alist)))
-          (setq alist
-                (cons
-                 (cons
-                  (if left-or-right 'window-width 'window-height)
-                  (/ (window-total-size (frame-root-window) left-or-right)
-                     ;; By default use a fourth of the size of the frame's
-                     ;; root window.
-                     4))
-                 alist)))
-        (with-current-buffer buffer
-          (setq window--sides-shown t))
-        ;; Install BUFFER in new window and return WINDOW.
-        (window--display-buffer buffer window 'window alist 'side))))
-
-  (advice-add #'window--sides-check :override #'ignore))

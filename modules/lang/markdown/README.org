@@ -42,7 +42,8 @@ for Markdown’s syntax is the format of plain text email. -- John Gruber
 #+end_quote
 
 ** Module Flags
-This module provides no flags.
++ =+grip= Enables [[https://github.com/seagle0128/grip-mode][grip support]] (on =<localleader> p=), to provide live
+  github-style previews of your markdown (or org) files.
 
 ** Plugins
 + markdown-mode
@@ -118,9 +119,11 @@ installed through your OS's package manager:
 
 * Features
 ** Markdown preview
-~markdown-preview~ is bound to =SPC m b= (for Evil users) and =C-c l b= (for
+~markdown-preview~ is bound to =SPC m p= (for Evil users) and =C-c l p= (for
 non-evil users). This will open a preview of your compiled markdown document in
 your browser.
+
+Alternatively, you can use ~grip-mode~ through =+grip=.
 
 * Configuration
 ** Changing how markdown is compiled

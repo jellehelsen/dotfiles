@@ -80,9 +80,10 @@ more information on modifiers."
           (when (and (not (string= path "")) (equal (substring path -1) "/"))
             (setq path (substring path 0 -1))))
         (setq file-name
-              (replace-regexp-in-string (format "\\(?:^\\|[^\\\\]\\)\\(%s\\)"
-                                                (regexp-quote (string-trim-left (car match))))
-                                        path file-name t t 1))))
+              (replace-regexp-in-string
+               (format "\\(?:^\\|[^\\\\]\\)\\(%s\\)"
+                       (regexp-quote (string-trim-left (car match))))
+               path file-name t t 1))))
     (replace-regexp-in-string regexp "\\1" file-name t)))
 
 (defun +evil--insert-newline (&optional above _noextranewline)
@@ -99,7 +100,7 @@ more information on modifiers."
                   ;; FIXME oh god why
                   (save-excursion
                     (if comment-line-break-function
-                        (funcall comment-line-break-function)
+                        (funcall comment-line-break-function nil)
                       (comment-indent-new-line))
                     (when (and (derived-mode-p 'c-mode 'c++-mode 'objc-mode 'java-mode 'js2-mode)
                                (eq (char-after) ?/))
@@ -149,22 +150,20 @@ more information on modifiers."
       (let ((evil-auto-indent evil-auto-indent))
         (funcall orig-fn count)))))
 
-;;;###autoload
-(defun +evil--static-reindent-a (orig-fn &rest args)
-  "Don't move cursor on indent."
-  (save-excursion (apply orig-fn args)))
-
 ;;;###autoload (autoload '+evil-window-split-a "editor/evil/autoload/advice" nil t)
 (evil-define-command +evil-window-split-a (&optional count file)
-  "Same as `evil-window-split', but focuses (and recenters) the new split."
+  "Same as `evil-window-split', but correctly updates the window history."
   :repeat nil
   (interactive "P<f>")
-  (split-window (selected-window) count
-                (if evil-split-window-below 'above 'below))
-  (call-interactively
-   (if evil-split-window-below
-       #'evil-window-up
-     #'evil-window-down))
+  ;; HACK This ping-ponging between the destination and source windows is to
+  ;;      update the window focus history, so that, if you close either split
+  ;;      afterwards you won't be sent to some random window.
+  (let* ((doom-inhibit-switch-window-hooks t)
+         (origwin (selected-window))
+         (win (select-window (split-window origwin count 'below))))
+    (unless evil-split-window-below
+      (select-window origwin))
+    (run-hooks 'doom-switch-window-hook))
   (recenter)
   (when (and (not count) evil-auto-balance-windows)
     (balance-windows (window-parent)))
@@ -172,24 +171,23 @@ more information on modifiers."
 
 ;;;###autoload (autoload '+evil-window-vsplit-a "editor/evil/autoload/advice" nil t)
 (evil-define-command +evil-window-vsplit-a (&optional count file)
-  "Same as `evil-window-vsplit', but focuses (and recenters) the new split."
+  "Same as `evil-window-split', but correctly updates the window history."
   :repeat nil
   (interactive "P<f>")
-  (split-window (selected-window) count
-                (if evil-vsplit-window-right 'left 'right))
-  (call-interactively
-   (if evil-vsplit-window-right
-       #'evil-window-left
-     #'evil-window-right))
+  ;; HACK This ping-ponging between the destination and source windows is to
+  ;;      update the window focus history, so that, if you close either split
+  ;;      afterwards you won't be sent to some random window.
+  (let* ((doom-inhibit-switch-window-hooks t)
+         (origwin (selected-window))
+         (win (select-window (split-window origwin count 'right))))
+    (unless evil-vsplit-window-right
+      (select-window origwin))
+    (run-hooks 'doom-switch-window-hook))
+  (run-hooks)
   (recenter)
   (when (and (not count) evil-auto-balance-windows)
     (balance-windows (window-parent)))
   (if file (evil-edit file)))
-
-;;;###autoload
-(defun +evil--make-numbered-markers-global-a (orig-fn char)
-  (or (and (>= char ?2) (<= char ?9))
-      (funcall orig-fn char)))
 
 ;;;###autoload
 (defun +evil--fix-dabbrev-in-minibuffer-h ()

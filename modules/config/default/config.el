@@ -7,9 +7,13 @@
     minibuffer-local-must-match-map
     minibuffer-local-isearch-map
     read-expression-map
-    ,@(when (featurep! :completion ivy)
-        '(ivy-minibuffer-map
-          ivy-switch-buffer-map)))
+    ,@(cond ((featurep! :completion ivy)
+             '(ivy-minibuffer-map
+               ivy-switch-buffer-map))
+            ((featurep! :completion helm)
+             '(helm-map
+               helm-ag-map
+               helm-read-file-map))))
   "A list of all the keymaps used for the minibuffer.")
 
 
@@ -33,6 +37,20 @@
         ;; With GPG 2.1, this forces gpg-agent to use the Emacs minibuffer to
         ;; prompt for the key passphrase.
         epa-pinentry-mode 'loopback))
+
+
+(use-package! drag-stuff
+  :defer t
+  :init
+  (map! "<M-up>"    #'drag-stuff-up
+        "<M-down>"  #'drag-stuff-down
+        "<M-left>"  #'drag-stuff-left
+        "<M-right>" #'drag-stuff-right))
+
+
+;;;###package tramp
+(unless IS-WINDOWS
+  (setq tramp-default-method "ssh")) ; faster than the default scp
 
 
 ;;
@@ -195,10 +213,10 @@
     ;;  e) properly delete smartparen pairs when they are encountered, without
     ;;     the need for strict mode.
     ;;  f) do none of this when inside a string
-    (advice-add #'delete-backward-char :override #'+default*delete-backward-char))
+    (advice-add #'delete-backward-char :override #'+default--delete-backward-char-a))
 
   ;; Makes `newline-and-indent' continue comments (and more reliably)
-  (advice-add #'newline-and-indent :override #'+default*newline-indent-and-continue-comments))
+  (advice-add #'newline-and-indent :override #'+default--newline-indent-and-continue-comments-a))
 
 
 ;;
@@ -241,9 +259,9 @@
         "s--" #'doom/decrease-font-size
         ;; Conventional text-editing keys & motions
         "s-a" #'mark-whole-buffer
-        :g "s-/" (λ! (save-excursion (comment-line 1)))
-        :n "s-/" #'evil-commentary-line
-        :v "s-/" #'evil-commentary
+        "s-/" (λ! (save-excursion (comment-line 1)))
+        :n "s-/" #'evilnc-comment-or-uncomment-lines
+        :v "s-/" #'evilnc-comment-operator
         :gi  [s-backspace] #'doom/backward-kill-to-bol-and-indent
         :gi  [s-left]      #'doom/backward-to-bol-or-indent
         :gi  [s-right]     #'doom/forward-to-last-non-comment-or-eol
@@ -260,11 +278,9 @@
 (define-key! help-map
   ;; new keybinds
   "'"    #'describe-char
-  "D"    #'doom/help
   "E"    #'doom/sandbox
   "M"    #'doom/describe-active-minor-mode
   "O"    #'+lookup/online
-  "R"    #'doom/reload
   "T"    #'doom/toggle-profiler
   "V"    #'set-variable
   "W"    #'+default/man-or-woman
@@ -293,36 +309,45 @@
   "dd"   #'doom/toggle-debug-mode
   "df"   #'doom/help-faq
   "dh"   #'doom/help
+  "dk"   #'doom/goto-packages-file
+  "dl"   #'doom/help-search-load-path
   "dm"   #'doom/help-modules
   "dn"   #'doom/help-news
   "dN"   #'doom/help-news-search
+  "di"   #'doom/goto-doomblock
   "dp"   #'doom/help-packages
   "dP"   #'doom/help-package-homepage
-  "dc"   #'doom/help-package-config
+  "dc"   #'doom/goto-config-file
+  "dC"   #'doom/help-package-config
   "ds"   #'doom/sandbox
   "dt"   #'doom/toggle-profiler
   "dv"   #'doom/version
 
   ;; replaces `apropos-command'
   "a"    #'apropos
+  "A"    #'apropos-documentation
+  "/"    #'apropos-documentation
   ;; replaces `describe-copying' b/c not useful
   "C-c"  #'describe-coding-system
   ;; replaces `Info-got-emacs-command-node' b/c redundant w/ `Info-goto-node'
   "F"    #'describe-face
   ;; replaces `view-hello-file' b/c annoying
-  "h"    #'doom/help
+  "h"    nil
   ;; replaces `view-emacs-news' b/c it's on C-n too
   "n"    #'doom/help-news
-  ;; replaces `finder-by-keyword'
+  ;; replaces `finder-by-keyword' b/c not usefull
   "p"    #'doom/help-packages
   ;; replaces `describe-package' b/c redundant w/ `doom/describe-package'
   "P"    #'find-library)
 
 (after! which-key
-  (which-key-add-key-based-replacements "C-h r" "reload")
-  (when (featurep 'evil)
-    (which-key-add-key-based-replacements (concat doom-leader-key     " r") "reload")
-    (which-key-add-key-based-replacements (concat doom-leader-alt-key " r") "reload")))
+  (let ((prefix-re (regexp-opt (list doom-leader-key doom-leader-alt-key))))
+    (cl-pushnew `((,(format "\\`\\(?:<\\(?:\\(?:f1\\|help\\)>\\)\\|C-h\\|%s h\\) d\\'" prefix-re))
+                  nil . "doom")
+                which-key-replacement-alist)
+    (cl-pushnew `((,(format "\\`\\(?:<\\(?:\\(?:f1\\|help\\)>\\)\\|C-h\\|%s h\\) r\\'" prefix-re))
+                  nil . "reload")
+                which-key-replacement-alist)))
 
 
 (when (featurep! +bindings)

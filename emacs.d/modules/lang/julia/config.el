@@ -1,9 +1,9 @@
 ;;; lang/julia/config.el -*- lexical-binding: t; -*-
 
-(use-package julia-mode
+(use-package! julia-mode
   :interpreter "julia"
   :config
-  (set-repl-handler! 'julia-mode #'+julia/repl)
+  (set-repl-handler! 'julia-mode #'+julia/open-repl)
 
   ;; Borrow matlab.el's fontification of math operators
   ;; From <https://ogbe.net/emacsconfig.html>
@@ -28,3 +28,7 @@
                    "[<>!]=?" OR
                    "\\)"))
         1 font-lock-type-face)))))
+
+
+(after! julia-repl
+  (add-hook 'julia-repl-hook #'julia-repl-use-emacsclient))

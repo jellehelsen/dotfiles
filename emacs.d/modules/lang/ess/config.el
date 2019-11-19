@@ -1,7 +1,14 @@
 ;;; lang/ess/config.el -*- lexical-binding: t; -*-
 
+(after! projectile
+  (add-to-list 'projectile-project-root-files "DESCRIPTION"))
+
+
+;;
+;;; Packages
+
 (use-package! ess
-  :commands (stata SAS)
+  :commands stata SAS
   :init
   (setq ess-smart-S-assign-key nil)
   (unless (featurep! :lang julia)
@@ -14,7 +21,8 @@
         ess-default-style 'DEFAULT
         ess-history-directory (expand-file-name "ess-history/" doom-cache-dir))
 
-  (set-repl-handler! '(ess-r-mode ess-julia-mode) #'+ess-repl-buffer)
+  (set-repl-handler! 'ess-r-mode #'+ess/open-r-repl)
+  (set-repl-handler! 'ess-julia-mode #'+ess/open-julia-repl)
   (set-lookup-handlers! '(ess-r-mode ess-julia-mode)
     :documentation #'ess-display-help-on-object)
 

@@ -13,8 +13,8 @@ package to be installed.")
 
 (defvar +latex-viewers '(skim evince sumatrapdf zathura okular pdf-tools)
   "A list of enabled latex viewers to use, in this order. If they don't exist,
-they will be ignored. Recognized viewers are skim, zathura, okular and
-pdf-tools.
+they will be ignored. Recognized viewers are skim, evince, sumatrapdf, zathura,
+okular and pdf-tools.
 
 If no viewers are found, `latex-preview-pane' is used.")
 
@@ -25,27 +25,27 @@ If no viewers are found, `latex-preview-pane' is used.")
 ;;
 ;; Packages
 
-(add-to-list 'auto-mode-alist '("\\.tex\\'" . TeX-latex-mode))
+(add-to-list 'auto-mode-alist '("\\.tex\\'" . LaTeX-mode))
 
+(setq TeX-parse-self t ; parse on load
+      TeX-auto-save t  ; parse on save
+      ;; use hidden dirs for auctex files
+      TeX-auto-local ".auctex-auto"
+      TeX-style-local ".auctex-style"
+      TeX-source-correlate-mode t
+      TeX-source-correlate-method 'synctex
+      ;; don't start the emacs server when correlating sources
+      TeX-source-correlate-start-server nil
+      ;; automatically insert braces after sub/superscript in math mode
+      TeX-electric-sub-and-superscript t)
 
 (after! tex
-  (setq TeX-parse-self t ; parse on load
-        TeX-auto-save t  ; parse on save
-        ;; use hidden dirs for auctex files
-        TeX-auto-local ".auctex-auto"
-        TeX-style-local ".auctex-style"
-        TeX-source-correlate-mode t
-        TeX-source-correlate-method 'synctex
-        ;; don't start the emacs server when correlating sources
-        TeX-source-correlate-start-server nil
-        ;; automatically insert braces after sub/superscript in math mode
-        TeX-electric-sub-and-superscript t)
   ;; fontify common latex commands
   (load! "+fontification")
   ;; select viewer
   (load! "+viewers")
-  ;; prompt for master
-  (setq-default TeX-master nil)
+  ;; do not prompt for master
+  (setq-default TeX-master t)
   ;; set-up chktex
   (setcar (cdr (assoc "Check" TeX-command-list)) "chktex -v6 -H %s")
   ;; tell emacs how to parse tex files
@@ -55,21 +55,13 @@ If no viewers are found, `latex-preview-pane' is used.")
   ;; Fold TeX macros
   (add-hook 'TeX-mode-hook #'TeX-fold-mode)
   ;; Enable rainbow mode after applying styles to the buffer
-  (add-hook 'TeX-mode-hook #'rainbow-delimiters-mode)
+  (add-hook 'TeX-update-style-hook #'rainbow-delimiters-mode)
   ;; display output of latex commands in popup
   (set-popup-rule! " output\\*$" :size 15)
-  ;; Do not prompt for Master files, this allows auto-insert to add templates to
-  ;; .tex files
-  (add-hook! 'TeX-mode-hook
-    ;; Necessary because it is added as an anonymous, byte-compiled function
-    (remove-hook 'find-file-hook
-                 (cl-find-if #'byte-code-function-p find-file-hook)
-                 'local))
-  (add-hook 'latex-mode-local-vars-hook #'flyspell-mode!)
-  ;; All these excess pairs dramatically slow down typing in latex buffers, so
-  ;; we remove them. Let snippets do their job.
   (after! smartparens-latex
     (let ((modes '(tex-mode plain-tex-mode latex-mode LaTeX-mode)))
+      ;; All these excess pairs dramatically slow down typing in latex buffers,
+      ;; so we remove them. Let snippets do their job.
       (dolist (open '("\\left(" "\\left[" "\\left\\{" "\\left|"
                       "\\bigl(" "\\biggl(" "\\Bigl(" "\\Biggl(" "\\bigl["
                       "\\biggl[" "\\Bigl[" "\\Biggl[" "\\bigl\\{" "\\biggl\\{"
@@ -77,6 +69,8 @@ If no viewers are found, `latex-preview-pane' is used.")
                       "\\lfloor" "\\lceil" "\\langle"
                       "\\lVert" "\\lvert" "`"))
         (sp-local-pair modes open nil :actions :rem))
+      ;; And tweak these so that users can decide whether they want use latex
+      ;; quotes or not, via `+latex-enable-plain-double-quotes'
       (sp-local-pair modes "``" nil :unless '(:add sp-in-math-p)))))
 
 
@@ -91,9 +85,27 @@ If no viewers are found, `latex-preview-pane' is used.")
         LaTeX-item-indent 0)
   (when +latex--company-backends
     (set-company-backend! 'latex-mode +latex--company-backends))
-  ;; Set custom item indentation
+
+  ;; Provide proper indentation for LaTeX "itemize","enumerate", and
+  ;; "description" environments. See
+  ;; http://emacs.stackexchange.com/questions/3083/how-to-indent-items-in-latex-auctex-itemize-environments
   (dolist (env '("itemize" "enumerate" "description"))
-    (add-to-list 'LaTeX-indent-environment-list `(,env +latex/LaTeX-indent-item))))
+    (add-to-list 'LaTeX-indent-environment-list `(,env +latex/LaTeX-indent-item)))
+
+  ;; Fix #1849: allow fill-paragraph in itemize/enumerate
+  (defadvice! +latex--re-indent-itemize-and-enumerate-a (orig-fn &rest args)
+    :around #'LaTeX-fill-region-as-para-do
+    (let ((LaTeX-indent-environment-list
+           (append LaTeX-indent-environment-list
+                   '(("itemize"   +latex/LaTeX-indent-item)
+                     ("enumerate" +latex/LaTeX-indent-item)))))
+      (apply orig-fn args)))
+  (defadvice! +latex--dont-indent-itemize-and-enumerate-a (orig-fn &rest args)
+    :around #'LaTeX-fill-region-as-paragraph
+    (let ((LaTeX-indent-environment-list LaTeX-indent-environment-list))
+      (delq! "itemize" LaTeX-indent-environment-list 'assoc)
+      (delq! "enumerate" LaTeX-indent-environment-list 'assoc)
+      (apply orig-fn args))))
 
 
 (use-package! preview

@@ -74,8 +74,8 @@ missing) and shouldn't be deleted.")
 ;; shouldn't be using it, but it may be convenient for quick package testing.
 (setq package--init-file-ensured t
       package-enable-at-startup nil
-      package-user-dir doom-elpa-dir
-      package-gnupghome-dir (expand-file-name "gpg" doom-elpa-dir)
+      package-user-dir (concat doom-local-dir "elpa/")
+      package-gnupghome-dir (expand-file-name "gpg" package-user-dir)
       ;; I omit Marmalade because its packages are manually submitted rather
       ;; than pulled, so packages are often out of date with upstream.
       package-archives
@@ -88,6 +88,9 @@ missing) and shouldn't be deleted.")
 (defadvice! doom--package-inhibit-custom-file-a (&optional value)
   :override #'package--save-selected-packages
   (if value (setq package-selected-packages value)))
+
+;; Refresh package.el the first time you call `package-install'
+(add-transient-hook! 'package-install (package-refresh-contents))
 
 ;;; straight
 (setq straight-base-dir doom-local-dir
@@ -115,6 +118,64 @@ missing) and shouldn't be deleted.")
 (defun doom--finalize-straight ()
   (mapc #'funcall (delq nil (mapcar #'cdr straight--transaction-alist)))
   (setq straight--transaction-alist nil))
+
+;;; Getting straight to behave in batch mode
+(when noninteractive
+  ;; HACK Remove dired & magit options from prompt, since they're inaccessible
+  ;;      in noninteractive sessions.
+  (advice-add #'straight-vc-git--popup-raw :override #'straight--popup-raw))
+
+;; HACK Replace GUI popup prompts (which hang indefinitely in tty Emacs) with
+;;      simple prompts.
+(defadvice! doom--straight-fallback-to-y-or-n-prompt-a (orig-fn &optional prompt)
+  :around #'straight-are-you-sure
+  (if noninteractive
+      (y-or-n-p (format! "%s" (or prompt "")))
+    (funcall orig-fn prompt)))
+
+(defadvice! doom--straight-fallback-to-tty-prompt-a (orig-fn prompt actions)
+  "Modifies straight to prompt on the terminal when in noninteractive sessions."
+  :around #'straight--popup-raw
+  (if (not noninteractive)
+      (funcall orig-fn prompt actions)
+    ;; We can't intercept C-g, so no point displaying any options for this key
+    ;; Just use C-c
+    (delq! "C-g" actions 'assoc)
+    ;; HACK These are associated with opening dired or magit, which isn't
+    ;;      possible in tty Emacs, so...
+    (delq! "e" actions 'assoc)
+    (delq! "g" actions 'assoc)
+    (let ((options (list (lambda ()
+                           (let ((doom-format-indent 0))
+                             (terpri)
+                             (print! (error "Aborted")))
+                           (kill-emacs)))))
+      (print! (start "%s") (red prompt))
+      (terpri)
+      (print-group!
+       (print-group!
+        (print! " 1) Abort")
+        (dolist (action actions)
+          (cl-destructuring-bind (_key desc func) action
+            (when desc
+              (push func options)
+              (print! "%2s) %s" (length options) desc)))))
+       (terpri)
+       (let ((options (nreverse options))
+             answer fn)
+         (while
+             (not
+              (setq
+               fn (ignore-errors
+                    (nth (1- (setq answer
+                                   (read-number
+                                    (format! "How to proceed? (%s) "
+                                             (mapconcat #'number-to-string
+                                                        (number-sequence 1 (length options))
+                                                        ", ")))))
+                         options))))
+           (print! (warn "%s is not a valid answer, try again.") answer))
+         (funcall fn))))))
 
 
 ;;
@@ -153,8 +214,8 @@ necessary package metadata is initialized and available for them."
     (setq doom-disabled-packages nil
           doom-packages (doom-package-list))
     (cl-loop for (pkg . plist) in doom-packages
-             for ignored = (eval (plist-get plist :ignore) t)
-             for disabled = (eval (plist-get plist :disable) t)
+             for ignored = (plist-get plist :ignore)
+             for disabled = (plist-get plist :disable)
              if disabled
              do (cl-pushnew pkg doom-disabled-packages)
              else if (not ignored)
@@ -193,7 +254,7 @@ necessary package metadata is initialized and available for them."
 ;;; Module package macros
 
 (cl-defmacro package!
-    (name &rest plist &key built-in _recipe disable ignore _freeze)
+    (name &rest plist &key built-in recipe ignore _disable _freeze)
   "Declares a package and how to install it (if applicable).
 
 This macro is declarative and does not load nor install packages. It is used to
@@ -208,7 +269,7 @@ Accepts the following properties:
    Takes a MELPA-style recipe (see `quelpa-recipe' in `quelpa' for an example);
    for packages to be installed from external sources.
  :disable BOOL
-   Do not install or update this package AND disable all of its `def-package!'
+   Do not install or update this package AND disable all of its `use-package!'
    blocks.
  :ignore FORM
    Do not install this package.
@@ -221,48 +282,43 @@ Accepts the following properties:
 Returns t if package is successfully registered, and nil if it was disabled
 elsewhere."
   (declare (indent defun))
-  (let ((old-plist (cdr (assq name doom-packages))))
-    ;; Add current module to :modules
-    (let ((module-list (plist-get old-plist :modules))
-          (module (doom-module-from-path)))
-      (unless (member module module-list)
-        (plist-put! plist :modules
-                    (append module-list
-                            (list module)
-                            nil))))
+  (when (and recipe (keywordp (car-safe recipe)))
+    (plist-put! plist :recipe `(quote ,recipe)))
+  (when built-in
+    (when (and (not ignore) (equal built-in '(quote prefer)))
+      (setq built-in `(locate-library ,(symbol-name name) nil doom--initial-load-path)))
+    (plist-delete! plist :built-in)
+    (plist-put! plist :ignore built-in))
+  `(let* ((name ',name)
+          (plist (cdr (assq name doom-packages))))
+     (let ((module-list (plist-get plist :modules))
+           (module ',(doom-module-from-path)))
+       (unless (member module module-list)
+         (plist-put! plist :modules
+                     (append module-list
+                             (list module)
+                             nil))))
 
-    ;; Handle :built-in
-    (unless ignore
-      (when built-in
-        (doom-log "Ignoring built-in package %S" name)
-        (when (equal built-in '(quote prefer))
-          (setq built-in `(locate-library ,(symbol-name name) nil doom--initial-load-path))))
-      (plist-put! plist :ignore built-in))
+     (doplist! ((prop val) (list ,@plist) plist)
+       (unless (null val)
+         (plist-put! plist prop val)))
 
-    ;; DEPRECATED Translate :fetcher to :host
-    (with-plist! plist (recipe)
-      (with-plist! recipe (fetcher)
-        (when fetcher
-          (message "%s\n%s"
-                   (format "WARNING: The :fetcher property was used for the %S package."
-                           name)
-                   "This property is deprecated. Replace it with :host.")
-          (plist-put! recipe :host fetcher)
-          (plist-delete! recipe :fetcher))
-        (plist-put! plist :recipe recipe)))
+     ;; Some basic key validation; error if you're not using a valid key
+     (condition-case e
+         (cl-destructuring-bind
+             (&key _local-repo _files _flavor _no-build
+                   _type _repo _host _branch _remote _nonrecursive _fork _depth)
+             (plist-get plist :recipe))
+       (error
+        (signal 'doom-package-error
+                (cons ,(symbol-name name)
+                      (error-message-string e)))))
 
-    (doplist! ((prop val) plist)
-      (unless (null val)
-        (plist-put! old-plist prop val)))
-    (setq plist old-plist)
-
-    ;; TODO Add `straight-use-package-pre-build-function' support
-    (macroexp-progn
-     (append `((setf (alist-get ',name doom-packages) ',plist))
-             (when disable
-               `((doom-log "Disabling package %S" ',name)
-                 (add-to-list 'doom-disabled-packages ',name nil 'eq)
-                 nil))))))
+     (setf (alist-get name doom-packages) plist)
+     (if (not (plist-get plist :disable)) t
+       (doom-log "Disabling package %S" name)
+       (cl-pushnew name doom-disabled-packages)
+       nil)))
 
 (defmacro disable-packages! (&rest packages)
   "A convenience macro for disabling packages in bulk.

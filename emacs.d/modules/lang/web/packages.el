@@ -12,10 +12,11 @@
 
 ;; +css.el
 (package! css-mode :built-in t)
-(package! less-css-mode :built-in (not (version< emacs-version "26.1")))
+(package! less-css-mode :built-in t)
 
 (package! sass-mode)
 (package! stylus-mode)
+(package! sws-mode)
 (package! rainbow-mode)
 (when (featurep! :completion ivy)
   (package! counsel-css))

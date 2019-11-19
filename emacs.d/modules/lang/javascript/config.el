@@ -145,9 +145,7 @@ to tide."
             ;; necessary because `tide-setup' and `lsp' will error if not a
             ;; file-visiting buffer
             (add-hook 'after-save-hook #'+javascript-init-tide-or-lsp-maybe-h nil 'local)
-          (or (and (featurep! +lsp)
-                   (lsp!)
-                   (bound-and-true-p lsp-mode))
+          (or (and (featurep! +lsp) (lsp!))
               ;; fall back to tide
               (if (executable-find "node")
                   (and (require 'tide nil t)
@@ -190,7 +188,7 @@ to tide."
         :map tide-mode-map
         "R"   #'tide-restart-server
         "f"   #'tide-format
-        "rs"  #'tide-rename-symbol
+        "rrs"  #'tide-rename-symbol
         "roi" #'tide-organize-imports))
 
 
@@ -207,7 +205,25 @@ to tide."
   :config
   (when (featurep! :editor evil +everywhere)
     (let ((js2-refactor-mode-map (evil-get-auxiliary-keymap js2-refactor-mode-map 'normal t t)))
-      (js2r-add-keybindings-with-prefix (format "%s r" doom-localleader-key)))))
+      (js2r-add-keybindings-with-prefix (format "%s r" doom-localleader-key))))
+  (map! :map js2-mode-map
+        :localleader
+        (:prefix ("r" . "refactor")
+          (:prefix ("a" . "add/arguments"))
+          (:prefix ("b" . "barf"))
+          (:prefix ("c" . "contract"))
+          (:prefix ("d" . "debug"))
+          (:prefix ("e" . "expand/extract"))
+          (:prefix ("i" . "inject/inline/introduce"))
+          (:prefix ("l" . "localize/log"))
+          (:prefix ("o" . "organize"))
+          (:prefix ("r" . "rename"))
+          (:prefix ("s" . "slurp/split/string"))
+          (:prefix ("t" . "toggle"))
+          (:prefix ("u" . "unwrap"))
+          (:prefix ("v" . "var"))
+          (:prefix ("w" . "wrap"))
+          (:prefix ("3" . "ternary")))))
 
 
 (use-package! eslintd-fix
@@ -236,6 +252,9 @@ to tide."
       (:after skewer-html
         :map skewer-html-mode-map
         "e" #'skewer-html-eval-tag))
+(map! :map js2-mode-map
+      :localleader
+      (:prefix ("s" . "skewer")))
 
 
 ;;;###package npm-mode
@@ -244,7 +263,10 @@ to tide."
   :config
   (map! :localleader
         :map npm-mode-keymap
-        "n" npm-mode-command-keymap))
+        "n" npm-mode-command-keymap)
+  (map! :map js2-mode-map
+        :localleader
+        (:prefix ("n" . "npm"))))
 
 
 ;;

@@ -1,19 +1,9 @@
 ;;; lang/web/+html.el -*- lexical-binding: t; -*-
 
 (use-package! web-mode
-  :mode "\\.p?html?$"
-  :mode "\\.\\(?:tpl\\|blade\\)\\(\\.php\\)?$"
-  :mode "\\.erb$"
-  :mode "\\.jsp$"
-  :mode "\\.as[cp]x$"
-  :mode "\\.hbs$"
-  :mode "\\.mustache$"
-  :mode "\\.tsx$"
-  :mode "\\.vue$"
-  :mode "\\.twig$"
-  :mode "\\.jinja$"
-  :mode "wp-content/themes/.+/.+\\.php$"
-  :mode "templates/.+\\.php$"
+  :mode "\\.\\(?:as\\(?:[cp]x\\)\\|blade\\.php\\|erb\\|hbs\\|j\\(?:inja\\|sp\\)\\|mustache\\|p?html?\\|svelte\\|t\\(?:pl\\.php\\|sx\\|wig\\)\\|vue\\)\\'"
+  :mode "wp-content/themes/.+/.+\\.php\\'"
+  :mode "templates/.+\\.php\\'"
   :config
   (set-docsets! 'web-mode "HTML" "CSS" "Twig" "WordPress")
 
@@ -52,18 +42,14 @@
               (cl-loop for pair in (cdr alist)
                        unless (string-match-p "^[a-z-]" (cdr pair))
                        collect (cons (car pair)
-                                     ;; TODO Replace with `string-trim-right' (Emacs 26+)
-                                     (let ((string (cdr pair)))
-                                       (if (string-match "\\(?:>\\|]\\|}\\)+\\'" string)
-                                           (replace-match "" t t string)
-                                         string))))))
+                                     (string-trim-right (cdr pair)
+                                                        "\\(?:>\\|]\\|}\\)+\\'")))))
     (delq! nil web-mode-engines-auto-pairs))
 
   (map! :map web-mode-map
         (:localleader
           :desc "Rehighlight buffer" "h" #'web-mode-buffer-highlight
           :desc "Indent buffer"      "i" #'web-mode-buffer-indent
-
           (:prefix ("a" . "attribute")
             "b" #'web-mode-attribute-beginning
             "e" #'web-mode-attribute-end
@@ -73,7 +59,6 @@
             "k" #'web-mode-attribute-kill
             "p" #'web-mode-attribute-previous
             "p" #'web-mode-attribute-transpose)
-
           (:prefix ("b" . "block")
             "b" #'web-mode-block-beginning
             "c" #'web-mode-block-close
@@ -82,7 +67,6 @@
             "n" #'web-mode-block-next
             "p" #'web-mode-block-previous
             "s" #'web-mode-block-select)
-
           (:prefix ("d" . "dom")
             "a" #'web-mode-dom-apostrophes-replace
             "d" #'web-mode-dom-errors-show
@@ -91,7 +75,6 @@
             "q" #'web-mode-dom-quotes-replace
             "t" #'web-mode-dom-traverse
             "x" #'web-mode-dom-xpath)
-
           (:prefix ("e" . "element")
             "/" #'web-mode-element-close
             "a" #'web-mode-element-content-select
@@ -111,7 +94,6 @@
             "u" #'web-mode-element-parent
             "v" #'web-mode-element-vanish
             "w" #'web-mode-element-wrap)
-
           (:prefix ("t" . "tag")
             "a" #'web-mode-tag-attributes-sort
             "b" #'web-mode-tag-beginning
@@ -136,7 +118,7 @@
 (after! pug-mode
   (set-company-backend! 'pug-mode 'company-web-jade))
 (after! web-mode
-  (set-company-backend! 'web-mode 'company-web-html))
+  (set-company-backend! 'web-mode 'company-css 'company-web-html))
 (after! slim-mode
   (set-company-backend! 'slim-mode 'company-web-slim))
 

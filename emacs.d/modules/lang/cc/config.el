@@ -30,16 +30,12 @@ This is ignored by ccls.")
 
 
 ;;
-;; Packages
+;;; Packages
 
 (use-package! cc-mode
   :commands (c-mode c++-mode objc-mode java-mode)
   :mode ("\\.mm\\'" . objc-mode)
   :init
-  (setq-default c-basic-offset tab-width
-                c-backspace-function #'delete-backward-char
-                c-default-style "doom")
-
   ;; The plusses in c++-mode can be annoying to search for ivy/helm (which reads
   ;; queries as regexps), so we add these for convenience.
   (defalias 'cpp-mode 'c++-mode)
@@ -85,9 +81,11 @@ This is ignored by ccls.")
   (add-hook! '(c-mode-hook c++-mode-hook) #'+cc-fontify-constants-h)
 
   ;; Custom style, based off of linux
+  (setq c-basic-offset tab-width
+        c-backspace-function #'delete-backward-char)
+
   (c-add-style
-   "doom" '((c-basic-offset . tab-width)
-            (c-comment-only-line-offset . 0)
+   "doom" '((c-comment-only-line-offset . 0)
             (c-hanging-braces-alist (brace-list-open)
                                     (brace-entry-open)
                                     (substatement-open after)
@@ -114,7 +112,9 @@ This is ignored by ccls.")
              ;; another level
              (access-label . -)
              (inclass +cc-c++-lineup-inclass +)
-             (label . 0)))))
+             (label . 0))))
+
+  (setf (alist-get 'other c-default-style) "doom"))
 
 
 (use-package! modern-cpp-font-lock
@@ -159,6 +159,10 @@ This is ignored by ccls.")
 
 ;;
 ;; Major modes
+
+(use-package! cmake-mode
+  :defer t
+  :config (set-docsets! 'cmake-mode "CMake"))
 
 (use-package! company-cmake  ; for `cmake-mode'
   :when (featurep! :completion company)

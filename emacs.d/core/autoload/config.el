@@ -23,6 +23,29 @@
   (doom-project-find-file doom-private-dir))
 
 ;;;###autoload
+(defun doom/goto-doomblock ()
+  "Open your private init.el and go to your `doom!' block."
+  (interactive)
+  (find-file (expand-file-name "init.el" doom-private-dir))
+  (goto-char
+   (or (save-excursion
+         (goto-char (point-min))
+         (search-forward "(doom!" nil t))
+       (point))))
+
+;;;###autoload
+(defun doom/goto-config-file ()
+  "Open your private config.el file."
+  (interactive)
+  (find-file (expand-file-name "config.el" doom-private-dir)))
+
+;;;###autoload
+(defun doom/goto-packages-file ()
+  "Open your private packages.el file."
+  (interactive)
+  (find-file (expand-file-name "packages.el" doom-private-dir)))
+
+;;;###autoload
 (defun doom/reload ()
   "Reloads your private config.
 
@@ -57,8 +80,8 @@ Runs `doom-reload-hook' afterwards."
   "Reload only `doom-autoload-file' and `doom-package-autoload-file'.
 
 This is much faster and safer than `doom/reload', but not as comprehensive. This
-reloads your package and module visibility, but does not enable/disable It does
-not reload your private config.
+reloads your package and module visibility, but does not install new packages or
+remove orphaned ones. It also doesn't reload your private config.
 
 It is useful to only pull in changes performed by 'doom refresh' on the command
 line."
@@ -74,7 +97,7 @@ line."
 
 Uses the same mechanism as 'bin/doom env reload'."
   (interactive)
-  (compile (format "%s env refresh" (expand-file-name "bin/doom" doom-emacs-dir)))
+  (compile (format "%s env" (expand-file-name "bin/doom" doom-emacs-dir)))
   (while compilation-in-progress
     (sit-for 1))
   (unless (file-readable-p doom-env-file)

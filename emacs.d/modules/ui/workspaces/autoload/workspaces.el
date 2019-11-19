@@ -240,15 +240,18 @@ workspace to delete."
       (if current-prefix-arg
           (completing-read (format "Delete workspace (default: %s): " current-name)
                            (+workspace-list-names)
-                           nil nil current-name)
+                           nil nil nil nil current-name)
         current-name))))
   (condition-case-unless-debug ex
+      ;; REVIEW refactor me
       (let ((workspaces (+workspace-list-names)))
         (if (not (member name workspaces))
             (+workspace-message (format "'%s' workspace doesn't exist" name) 'warn)
           (cond ((delq (selected-frame) (persp-frames-with-persp (get-frame-persp)))
                  (user-error "Can't close workspace, it's visible in another frame"))
-                ((> (length workspaces) 1)
+                ((not (equal (+workspace-current-name) name))
+                 (+workspace-delete name))
+                ((cdr workspaces)
                  (+workspace-delete name)
                  (+workspace-switch
                   (if (+workspace-exists-p +workspace--last)
@@ -260,7 +263,7 @@ workspace to delete."
                  (+workspace-switch +workspaces-main t)
                  (unless (string= (car workspaces) +workspaces-main)
                    (+workspace-delete name))
-                 (doom/kill-all-buffers)))
+                 (doom/kill-all-buffers (doom-buffer-list))))
           (+workspace-message (format "Deleted '%s' workspace" name) 'success)))
     ('error (+workspace-error ex t))))
 
@@ -271,7 +274,7 @@ workspace to delete."
   (unless (cl-every #'+workspace-delete (+workspace-list-names))
     (+workspace-error "Could not clear session"))
   (+workspace-switch +workspaces-main t)
-  (doom/kill-all-buffers))
+  (doom/kill-all-buffers (buffer-list)))
 
 ;;;###autoload
 (defun +workspace/kill-session-and-quit ()
@@ -328,8 +331,8 @@ end of the workspace list."
 
 ;;;###autoload
 (dotimes (i 9)
-  (fset (intern (format "+workspace/switch-to-%d" i))
-        (lambda () (interactive) (+workspace/switch-to i))))
+  (defalias (intern (format "+workspace/switch-to-%d" i))
+    (lambda () (interactive) (+workspace/switch-to i))))
 
 ;;;###autoload
 (defun +workspace/switch-to-final ()
@@ -491,10 +494,9 @@ This be hooked to `projectile-after-switch-project-hook'."
         (if (and (not (null +workspaces-on-switch-project-behavior))
                  (or (eq +workspaces-on-switch-project-behavior t)
                      (+workspace-buffer-list)))
-            (let* (persp-p
-                   (persp
+            (let* ((persp
                     (let ((project-name (doom-project-name +workspaces--project-dir)))
-                      (or (setq persp-p (+workspace-get project-name t))
+                      (or (+workspace-get project-name t)
                           (+workspace-new project-name))))
                    (new-name (persp-name persp)))
               (+workspace-switch new-name)
@@ -508,6 +510,8 @@ This be hooked to `projectile-after-switch-project-hook'."
           (with-current-buffer (doom-fallback-buffer)
             (setq default-directory +workspaces--project-dir)
             (message "Switched to '%s'" (doom-project-name +workspaces--project-dir)))
+          (with-demoted-errors "Workspace error: %s"
+            (+workspace-rename (+workspace-current-name) (doom-project-name +workspaces--project-dir)))
           (unless current-prefix-arg
             (funcall +workspaces-switch-project-function +workspaces--project-dir)))
       (setq +workspaces--project-dir nil))))

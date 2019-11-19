@@ -3,6 +3,9 @@
 (after! csharp-mode
   (add-hook 'csharp-mode-hook #'rainbow-delimiters-mode)
 
+  (when (featurep! +lsp)
+    (add-hook 'csharp-mode-local-vars-hook #'lsp!))
+
   (set-electric! 'csharp-mode :chars '(?\n ?\}))
   (set-rotate-patterns! 'csharp-mode
     :symbols '(("public" "protected" "private")
@@ -13,11 +16,12 @@
 
 
 (use-package! omnisharp
+  :unless (featurep! +lsp)
   :hook (csharp-mode . omnisharp-mode)
   :commands omnisharp-install-server
   :preface
   (setq omnisharp-auto-complete-want-documentation nil
-        omnisharp-cache-directory (concat doom-cache-dir "omnisharp"))
+        omnisharp-cache-directory (concat doom-etc-dir "omnisharp"))
   :config
   (defun +csharp-cleanup-omnisharp-server-h ()
     "Clean up the omnisharp server once you kill the last csharp-mode buffer."
@@ -40,7 +44,7 @@
           "r"  #'omnisharp-rename
           "a"  #'omnisharp-show-last-auto-complete-result
           "o"  #'omnisharp-show-overloads-at-point)
-        (:prefix "f"
+        (:prefix "g"
           "u"  #'omnisharp-find-usages
           "i"  #'omnisharp-find-implementations
           "f"  #'omnisharp-navigate-to-current-file-member
@@ -56,9 +60,10 @@
           "b" #'omnisharp-unit-test-buffer)))
 
 
+;;;###package shader-mode
 (when (featurep! +unity)
-  ;; `shader-mode' --- unity shaders
-  (add-to-list 'auto-mode-alist '("\\.shader$" . shader-mode))
+  ;; Unity shaders
+  (add-to-list 'auto-mode-alist '("\\.shader\\'" . shader-mode))
 
   (def-project-mode! +csharp-unity-mode
     :modes '(csharp-mode shader-mode)

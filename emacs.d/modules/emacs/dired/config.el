@@ -12,6 +12,8 @@
         dired-auto-revert-buffer t
         ;; Auto refresh dired, but be quiet about it
         dired-hide-details-hide-symlink-targets nil
+        ;; make dired suggest a target for moving/copying intelligently
+        dired-dwim-target t
         ;; files
         image-dired-dir (concat doom-cache-dir "image-dired/")
         image-dired-db-file (concat image-dired-dir "db.el")
@@ -30,11 +32,27 @@
         (setq args (delete "--group-directories-first" args))))
     (setq dired-listing-switches (string-join args " ")))
 
-  (define-key! dired-mode-map
-    ;; Kill buffer when quitting dired buffers
-    [remap quit-window] (λ! (quit-window t))
-    ;; To be consistent with ivy/helm+wgrep integration
-    "C-c C-e" #'wdired-change-to-wdired-mode))
+  (add-hook! 'dired-mode-hook
+    (defun +dired-disable-gnu-ls-flags-in-tramp-buffers-h ()
+      "Fix #1703: dired over TRAMP displays a blank screen.
+
+This is because there's no guarantee the remote system has GNU ls, which is the
+only variant that supports --group-directories-first."
+      (when (file-remote-p default-directory)
+        (setq-local dired-listing-switches
+                    (string-join
+                     (split-string dired-listing-switches
+                                   "--group-directories-first")
+                     " ")))))
+
+  ;; Don't complain about this command being disabled when we use it
+  (put 'dired-find-alternate-file 'disabled nil)
+
+  (map! :map dired-mode-map
+        ;; Kill all dired buffers on q
+        :ng "q" #'+dired/quit-all
+        ;; To be consistent with ivy/helm+wgrep integration
+        "C-c C-e" #'wdired-change-to-wdired-mode))
 
 
 (use-package! dired-rsync
@@ -95,14 +113,58 @@ we have to clean it up ourselves."
 
 (use-package! all-the-icons-dired
   :when (featurep! +icons)
-  :hook (dired-mode . all-the-icons-dired-mode))
+  :hook (dired-mode . all-the-icons-dired-mode)
+  :config
+  ;; HACK Fixes #1929: icons break file renaming in Emacs 27+, because the icon
+  ;;      is considered part of the filename, so we disable icons while we're in
+  ;;      wdired-mode.
+  (when EMACS27+
+    (defvar +wdired-icons-enabled -1)
+
+    (defadvice! +dired-disable-icons-in-wdired-mode-a (&rest _)
+      :before #'+wdired-before-start-advice
+      (setq-local +wdired-icons-enabled (if all-the-icons-dired-mode 1 -1))
+      (when all-the-icons-dired-mode
+        (all-the-icons-dired-mode -1)))
+
+    (defadvice! +dired-restore-icons-after-wdired-mode-a (&rest _)
+      :after #'+wdired-after-finish-advice
+      (all-the-icons-dired-mode +wdired-icons-enabled))))
 
 
 (use-package! dired-x
   :unless (featurep! +ranger)
   :hook (dired-mode . dired-omit-mode)
   :config
-  (setq dired-omit-verbose nil)
+  (setq dired-omit-verbose nil
+        dired-omit-files
+        (concat dired-omit-files
+                "\\|^.DS_Store\\'"
+                "\\|^.project\\(?:ile\\)?\\'"
+                "\\|^.\\(svn\\|git\\)\\'"
+                "\\|^.ccls-cache\\'"
+                "\\|\\(?:\\.js\\)?\\.meta\\'"
+                "\\|\\.\\(?:elc\\|o\\|pyo\\|swp\\|class\\)\\'"))
   ;; Disable the prompt about whether I want to kill the Dired buffer for a
   ;; deleted directory. Of course I do!
-  (setq dired-clean-confirm-killing-deleted-buffers nil))
+  (setq dired-clean-confirm-killing-deleted-buffers nil)
+  ;; Let OS decide how to open certain files
+  (when-let (cmd (cond (IS-MAC "open")
+                       (IS-LINUX "xdg-open")
+                       (IS-WINDOWS "start")))
+    (setq dired-guess-shell-alist-user
+          `(("\\.\\(?:docx\\|pdf\\|djvu\\|eps\\)\\'" ,cmd)
+            ("\\.\\(?:jpe?g\\|png\\|gif\\|xpm\\)\\'" ,cmd)
+            ("\\.\\(?:xcf\\)\\'" ,cmd)
+            ("\\.csv\\'" ,cmd)
+            ("\\.tex\\'" ,cmd)
+            ("\\.\\(?:mp4\\|mkv\\|avi\\|flv\\|rm\\|rmvb\\|ogv\\)\\(?:\\.part\\)?\\'" ,cmd)
+            ("\\.\\(?:mp3\\|flac\\)\\'" ,cmd)
+            ("\\.html?\\'" ,cmd)
+            ("\\.md\\'" ,cmd)))))
+
+
+(use-package! fd-dired
+  :when (executable-find doom-projectile-fd-binary)
+  :defer t
+  :init (advice-add #'find-dired :override #'fd-dired))

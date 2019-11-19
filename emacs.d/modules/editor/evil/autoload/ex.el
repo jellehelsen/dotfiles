@@ -57,10 +57,13 @@
 ;;; Ex Commands
 
 ;;;###autoload (autoload '+evil:align "editor/evil/autoload/ex" nil t)
-(evil-define-operator +evil:align (beg end pattern &optional flags)
-  "Ex interface to `align-regexp'. PATTERN is a vim-style regexp. If BANG,
-repeat the alignment for all matches (otherwise just the first match on each
-line)."
+(evil-define-command +evil:align (beg end pattern &optional flags)
+  "Ex interface to `align-regexp'.
+
+PATTERN is a vim-style regexp. FLAGS is an optional string of characters.
+Supports the following flags:
+
+g   Repeat alignment on all matches in each line"
   (interactive "<r><//>")
   (align-regexp
    beg end
@@ -68,10 +71,13 @@ line)."
    1 1 (memq ?g flags)))
 
 ;;;###autoload (autoload '+evil:align-right "editor/evil/autoload/ex" nil t)
-(evil-define-operator +evil:align-right (beg end pattern &optional flags)
-  "Like `+evil:align', except alignments are right-justified. PATTERN is a
-vim-style regexp. If BANG, repeat the alignment for all matches (otherwise just
-the first match on each line)."
+(evil-define-command +evil:align-right (beg end pattern &optional flags)
+  "Ex interface to `align-regexp' that right-aligns matches.
+
+PATTERN is a vim-style regexp. FLAGS is an optional string of characters.
+Supports the following flags:
+
+g   Repeat alignment on all matches in each line"
   (interactive "<r><//>")
   (align-regexp
    beg end
@@ -143,41 +149,42 @@ This command understands vim file modifiers (like %:p:h). See
   (interactive "<!>")
   (if (and bang (fboundp '+workspace/kill-session))
       (+workspace/kill-session)
-    (doom/kill-all-buffers)))
+    (call-interactively #'doom/kill-all-buffers)))
 
 ;;;###autoload (autoload '+evil:kill-matching-buffers "editor/evil/autoload/ex" nil t)
 (evil-define-command +evil:kill-matching-buffers (&optional bang pattern)
   "Kill all buffers matching PATTERN regexp. If BANG, only match project
 buffers."
   (interactive "<a>")
-  (doom/kill-matching-buffers pattern bang))
+  (doom/kill-matching-buffers
+   pattern (if bang (doom-project-buffer-list))))
 
 ;;;###autoload (autoload '+evil:help "editor/evil/autoload/ex" nil t)
 (evil-define-command +evil:help (&optional bang query)
-  "Look up help documentation for QUERY in Emacs documentation.
+  "Look up documentation for QUERY.
 
-If BANG, search Doom documentation."
+If QUERY is in the format of an ex command, it will map it to the underlying
+function and open its documentation with `helpful-function'. Otherwise, it will
+search for it with `apropos'.
+
+If QUERY is empty, this runs the equivalent of 'M-x apropos'. If BANG is
+non-nil, a search is preformed against Doom's manual (wiht `doom/help-search')."
   (interactive "<!><a>")
   (if bang
       (doom/help-search query)
-    (cond ((or (null query) (string-empty-p (string-trim query)))
-           (call-interactively
-            (or (command-remapping #'apropos)
-                #'apropos)))
-          ((string-match-p "^ *:[a-z]" query)
-           (let* ((modules
-                   (cl-loop for path in (doom-module-load-path 'all)
-                            for (cat . mod) = (doom-module-from-path path)
-                            for format = (format "%s %s" cat mod)
-                            if (doom-module-p cat mod)
-                            collect (propertize format 'module (list cat mod))
-                            else if (and cat mod)
-                            collect (propertize format
-                                                'face 'font-lock-comment-face
-                                                'module (list cat mod))))
-                  (module (completing-read "Describe module: " modules nil t query))
-                  (key (get-text-property 0 'module module)))
-             (doom/help-modules key)))
-          ((and (string-match-p "\\(?:SPC\\|[CMsSH]-[^ ]\\|<[^>]+>\\)" query)
-                (helpful-key (kbd (string-trim query)))))
-          ((apropos query t)))))
+    (save-match-data
+      (cond ((or (null query) (string-empty-p (string-trim query)))
+             (call-interactively
+              (or (command-remapping #'apropos)
+                  #'apropos)))
+            ((string-match "^ *:\\([^ ]+\\)$" query)
+             (helpful-function
+              (evil-ex-completed-binding (match-string 1 query))))
+            ((message "Searching for %S, this may take a while..." query)
+             (apropos query t))))))
+
+;;;###autoload (autoload '+evil:read "editor/evil/autoload/ex" nil t)
+(evil-define-command +evil:read (count file)
+  "Alternative version of `evil-read' that replaces filename modifiers in FILE."
+  (interactive "P<fsh>")
+  (evil-read count (evil-ex-replace-special-filenames file)))

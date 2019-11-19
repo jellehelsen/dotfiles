@@ -24,7 +24,6 @@ Modifying this has no effect, unless done before ui/popup loads.")
   "Size of the margins to give popup windows. Set this to nil to disable margin
 adjustment.")
 
-(defvar +popup--populate-wparams (not EMACS26+))
 (defvar +popup--inhibit-transient nil)
 (defvar +popup--inhibit-select nil)
 (defvar +popup--old-display-buffer-alist nil)
@@ -131,8 +130,7 @@ prevent the popup(s) from messing up the UI (or vice versa)."
     '(("^\\*"  :slot 1 :vslot -1 :select t)
       ("^ \\*" :slot 1 :vslot -1 :size +popup-shrink-to-fit)))
   (when (featurep! +defaults)
-    '(("^\\*Completions"
-       :slot -1 :vslot -2 :ttl 0)
+    '(("^\\*Completions" :ignore t)
       ("^\\*\\(?:Compil\\(?:ation\\|e-Log\\)\\|Messages\\)"
        :vslot -2 :size 0.3  :autosave t :quit t :ttl nil)
       ("^\\*\\(?:doom \\|Pp E\\)"  ; transient buffers (no interaction required)
@@ -151,7 +149,7 @@ prevent the popup(s) from messing up the UI (or vice versa)."
        :slot 2 :side left :size 20 :select t :quit t)
       ;; `help-mode', `helpful-mode'
       ("^\\*[Hh]elp"
-       :slot 2 :vslot -2 :size 0.35 :select t)
+       :slot 2 :vslot -8 :size 0.35 :select t)
       ("^\\*eww\\*"  ; `eww' (and used by dash docsets)
        :vslot -11 :size 0.35 :select t)
       ("^\\*info\\*$"  ; `Info-mode'
@@ -159,7 +157,8 @@ prevent the popup(s) from messing up the UI (or vice versa)."
   '(("^\\*Warnings" :vslot 99 :size 0.25)
     ("^\\*Backtrace" :vslot 99 :size 0.4 :quit nil)
     ("^\\*CPU-Profiler-Report "    :side bottom :vslot 100 :slot 1 :height 0.4 :width 0.5 :quit nil)
-    ("^\\*Memory-Profiler-Report " :side bottom :vslot 100 :slot 2 :height 0.4 :width 0.5 :quit nil)))
+    ("^\\*Memory-Profiler-Report " :side bottom :vslot 100 :slot 2 :height 0.4 :width 0.5 :quit nil)
+    ("^\\*unsent mail*" :ignore t)))
 
 (add-hook 'doom-init-ui-hook #'+popup-mode 'append)
 

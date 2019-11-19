@@ -7,32 +7,21 @@
 (defun +emacs-lisp-eval (beg end)
   "Evaluate a region and print it to the echo area (if one line long), otherwise
 to a pop up buffer."
-  (require 'pp)
-  (let ((result
-         (let ((debug-on-error t)
-               (doom--current-module (ignore-errors (doom-module-from-path buffer-file-name))))
-           (eval (read
-                  (concat "(progn "
-                          (buffer-substring-no-properties beg end)
-                          "\n)"))
-                 t)))
-        (buf (get-buffer-create "*doom eval*"))
-        (inhibit-read-only t))
-    (with-current-buffer buf
-      (read-only-mode +1)
-      (erase-buffer)
-      (setq-local scroll-margin 0)
-      (let (emacs-lisp-mode-hook)
-        (emacs-lisp-mode))
-      (pp result buf)
-      (let ((lines (count-lines (point-min) (point-max))))
-        (if (> lines 1)
-            (save-selected-window
-              (pop-to-buffer buf)
-              (with-current-buffer buf
-                (goto-char (point-min))))
-          (message "%s" (buffer-substring (point-min) (point-max)))
-          (kill-buffer buf))))))
+  (+eval-display-results
+   (let* ((buffer-file-name (buffer-file-name (buffer-base-buffer))))
+     (string-trim-right
+      (condition-case-unless-debug e
+          (let ((result
+                 (let ((debug-on-error t))
+                   (eval (read (buffer-substring-no-properties beg end))
+                         `((buffer-file-name . ,buffer-file-name)
+                           (doom--current-module
+                            . ,(ignore-errors
+                                 (doom-module-from-path buffer-file-name))))))))
+            (require 'pp)
+            (replace-regexp-in-string "\\\\n" "\n" (pp-to-string result)))
+        (error (error-message-string e)))))
+   (current-buffer)))
 
 (defvar +emacs-lisp--face nil)
 ;;;###autoload
@@ -135,7 +124,7 @@ if it's callable, `apropos' otherwise."
         `(("Section" "^[ \t]*;;;;*[ \t]+\\([^\n]+\\)" 1)
           ("Evil commands" "^\\s-*(evil-define-\\(?:command\\|operator\\|motion\\) +\\(\\_<[^ ()\n]+\\_>\\)" 1)
           ("Unit tests" "^\\s-*(\\(?:ert-deftest\\|describe\\) +\"\\([^\")]+\\)\"" 1)
-          ("Package" "^\\s-*(\\(?:;;;###package\\|def-package!\\|package!\\|use-package\\|after!\\) +\\(\\_<[^ ()\n]+\\_>\\)" 1)
+          ("Package" "^\\s-*(\\(?:;;;###package\\|package!\\|use-package!?\\|after!\\) +\\(\\_<[^ ()\n]+\\_>\\)" 1)
           ("Major modes" "^\\s-*(define-derived-mode +\\([^ ()\n]+\\)" 1)
           ("Minor modes" "^\\s-*(define-\\(?:global\\(?:ized\\)?-minor\\|generic\\|minor\\)-mode +\\([^ ()\n]+\\)" 1)
           ("Modelines" "^\\s-*(def-modeline! +\\([^ ()\n]+\\)" 1)
@@ -174,3 +163,15 @@ verbosity when editing a file in `doom-private-dir' or `doom-emacs-dir'."
                  " "
                  (default-value 'flycheck-emacs-lisp-check-form)
                  ")"))))
+
+;;;###autoload
+(defun +emacs-lisp/edebug-instrument-defun-on ()
+  "Toggle on instrumentalisation for the function under `defun'."
+  (interactive)
+  (eval-defun 'edebugit))
+
+;;;###autoload
+(defun +emacs-lisp/edebug-instrument-defun-off ()
+  "Toggle off instrumentalisation for the function under `defun'."
+  (interactive)
+  (eval-defun nil))

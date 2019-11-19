@@ -74,13 +74,6 @@ If ARG (universal argument), runs `compile' from the current directory."
         (funcall (default-value 'major-mode))))))
 
 ;;;###autoload
-(defun +default/project-tasks ()
-  "Invokes `+ivy/tasks' or `+helm/tasks', depending on which is available."
-  (interactive)
-  (cond ((featurep! :completion ivy) (+ivy/tasks))
-        ((featurep! :completion helm) (+helm/tasks))))
-
-;;;###autoload
 (defun +default/newline-above ()
   "Insert an indented new line before the current one."
   (interactive)
@@ -109,7 +102,7 @@ If ARG (universal argument), runs `compile' from the current directory."
          ((error "No kill-ring search backend available. Enable ivy or helm!")))))
 
 ;;;###autoload
-(defun +default*newline-indent-and-continue-comments ()
+(defun +default--newline-indent-and-continue-comments-a ()
   "A replacement for `newline-and-indent'.
 
 Continues comments if executed from a commented line, with special support for
@@ -118,7 +111,7 @@ languages)."
   (interactive)
   (if (and (sp-point-in-comment)
            comment-line-break-function)
-      (funcall comment-line-break-function)
+      (funcall comment-line-break-function nil)
     (delete-horizontal-space t)
     (newline nil t)
     (indent-according-to-mode)))
@@ -159,7 +152,7 @@ possible, or just one char if that's not possible."
           ((delete-char -1)))))
 
 ;;;###autoload
-(defun +default*delete-backward-char (n &optional killflag)
+(defun +default--delete-backward-char-a (n &optional killflag)
   "Same as `delete-backward-char', but preforms these additional checks:
 
 + If point is surrounded by (balanced) whitespace and a brace delimiter ({} []
@@ -268,26 +261,32 @@ If prefix ARG is set, prompt for a known project to search from."
   "Conduct a text search in the current project for symbol at point.
 If prefix ARG is set, prompt for a known project to search from."
   (interactive
-   (list current-prefix-arg (or (thing-at-point 'symbol t) "")))
+   (list current-prefix-arg
+         (or (and (use-region-p)
+                  (rxt-quote-pcre
+                   (buffer-substring-no-properties (region-beginning)
+                                                   (region-end))))
+             (rxt-quote-pcre (thing-at-point 'symbol t))
+             "")))
   (let ((default-directory
           (if arg
-              (if-let* ((projects (projectile-relevant-known-projects)))
+              (if-let (projects (projectile-relevant-known-projects))
                   (completing-read "Switch to project: " projects
                                    nil t nil nil (doom-project-root))
                 (user-error "There are no known projects"))
             default-directory)))
     (cond ((featurep! :completion ivy)
-           (+ivy/project-search nil (rxt-quote-pcre symbol)))
+           (+ivy/project-search nil symbol))
           ((featurep! :completion helm)
-           (+helm/project-search nil (rxt-quote-pcre symbol)))
+           (+helm/project-search nil symbol))
           ((rgrep (regexp-quote symbol))))))
 
 ;;;###autoload
-(defun +default/search-notes-for-symbol-at-point (&optional arg symbol)
+(defun +default/search-notes-for-symbol-at-point (&optional symbol)
   "Conduct a text search in the current project for symbol at point. If prefix
 ARG is set, prompt for a known project to search from."
   (interactive
-   (list current-prefix-arg (thing-at-point 'symbol t)))
+   (list (rxt-quote-pcre (or (thing-at-point 'symbol t) ""))))
   (require 'org)
   (let ((default-directory org-directory))
     (+default/search-project-for-symbol-at-point
@@ -307,3 +306,40 @@ ARG is set, prompt for a known project to search from."
   (interactive)
   (doom-completing-read-org-headings
    "Jump to org headline: " org-agenda-files 3 t))
+
+;;;###autoload
+(defun +default/lsp-format-region-or-buffer ()
+  "Format the buffer (or selection) with LSP."
+  (interactive)
+  (call-interactively
+   (if (use-region-p)
+       #'lsp-format-region
+     #'lsp-format-buffer)))
+
+;;;###autoload
+(defun +default/restart-server ()
+  "Restart the Emacs server."
+  (interactive)
+  (server-force-delete)
+  (while (server-running-p)
+    (sit-for 1))
+  (server-start))
+
+;;;###autoload
+(defun +default/find-file-under-here ()
+  "Perform a recursive file search from the current directory."
+  (interactive)
+  (if (featurep! :completion ivy)
+      (call-interactively #'counsel-file-jump)
+    (λ! (doom-project-find-file default-directory))))
+
+;;;###autoload
+(defun +default/insert-file-path (arg)
+  "Insert the file name (absolute path if prefix ARG).
+If `buffer-file-name' isn't set, uses `default-directory'."
+  (interactive "P")
+  (let ((path (or buffer-file-name default-directory)))
+    (insert
+     (if arg
+         (abbreviate-file-name path)
+       (file-name-nondirectory path)))))

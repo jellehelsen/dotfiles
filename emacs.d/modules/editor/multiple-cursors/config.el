@@ -1,5 +1,14 @@
 ;;; editor/multiple-cursors/config.el -*- lexical-binding: t; -*-
 
+(use-package! evil-multiedit
+  :when (featurep! :editor evil)
+  :defer t
+  :config
+  (map! :map (evil-multiedit-state-map evil-multiedit-insert-state-map)
+        "C-n" #'evil-multiedit-next
+        "C-p" #'evil-multiedit-prev))
+
+
 (use-package! evil-mc
   :when (featurep! :editor evil)
   :commands (evil-mc-make-cursor-here
@@ -9,6 +18,8 @@
              evil-mc-resume-cursors
              evil-mc-make-and-goto-first-cursor
              evil-mc-make-and-goto-last-cursor
+             evil-mc-make-cursor-in-visual-selection-beg
+             evil-mc-make-cursor-in-visual-selection-end
              evil-mc-make-cursor-move-next-line
              evil-mc-make-cursor-move-prev-line
              evil-mc-make-cursor-at-pos
@@ -23,9 +34,14 @@
              evil-mc-make-and-goto-prev-match
              evil-mc-skip-and-goto-prev-match)
   :init
+  ;; The included keybindings are too imposing and are likely to cause
+  ;; conflicts, so we'll set them ourselves.
   (defvar evil-mc-key-map (make-sparse-keymap))
+
   :config
   (global-evil-mc-mode +1)
+
+  ;; REVIEW This is tremendously slow on macos and windows for some reason.
   (setq evil-mc-enable-bar-cursor (not (or IS-MAC IS-WINDOWS)))
 
   (after! smartparens
@@ -35,18 +51,30 @@
         (setcdr (assq :default evil-mc-cursor-variables)
                 (append vars sp--mc/cursor-specific-vars)))))
 
-  ;; Add custom commands to whitelisted commands
-  (dolist (fn '(doom/backward-to-bol-or-indent doom/forward-to-last-non-comment-or-eol
-                doom/backward-kill-to-bol-and-indent delete-char))
-    (add-to-list 'evil-mc-custom-known-commands `(,fn (:default . evil-mc-execute-default-call-with-count))))
-  ;; Have evil-mc work with explicit `evil-escape' (typically bound to C-g)
-  (add-to-list 'evil-mc-custom-known-commands '(evil-escape (:default . evil-mc-execute-default-evil-normal-state)))
+  ;; Whitelist more commands
+  (dolist (fn '((delete-char)
+                (backward-kill-word)
+                (company-complete-common . evil-mc-execute-default-complete)
+                (doom/backward-to-bol-or-indent . evil-mc-execute-default-call)
+                (doom/forward-to-last-non-comment-or-eol . evil-mc-execute-default-call)
+                (doom/backward-kill-to-bol-and-indent . evil-mc-execute-default-call)
+                ;; Have evil-mc work with explicit `evil-escape' (on C-g)
+                (evil-escape . evil-mc-execute-default-evil-normal-state)
+                ;; Add `evil-org' support
+                (evil-org-delete . evil-mc-execute-default-evil-delete)
+                (evil-org-delete-char . evil-mc-execute-default-evil-delete)
+                (evil-org-delete-backward-char . evil-mc-execute-default-evil-delete)))
+    (cl-pushnew `(,(car fn) (:default . ,(or (cdr fn) #'evil-mc-execute-default-call-with-count)))
+                evil-mc-custom-known-commands
+                :test #'eq
+                :key #'car))
 
-  ;; Activate evil-mc cursors upon switching to insert mode
+  ;; If we're entering insert mode, it's a good bet that we want to start using
+  ;; our multiple cursors
   (add-hook 'evil-insert-state-entry-hook #'evil-mc-resume-cursors)
 
-  ;; disable evil-escape in evil-mc; causes unwanted text on invocation
-  (add-to-list 'evil-mc-incompatible-minor-modes 'evil-escape-mode nil #'eq)
+  ;; evil-escape's escape key sequence leaves behind extraneous characters
+  (cl-pushnew 'evil-escape-mode evil-mc-incompatible-minor-modes)
 
   (add-hook! 'doom-escape-hook
     (defun +multiple-cursors-escape-multiple-cursors-h ()
@@ -59,11 +87,13 @@
   ;; Forward declare these so that ex completion and evil-mc support is
   ;; recognized before the autoloaded functions are loaded.
   (evil-add-command-properties '+evil:align :evil-mc t)
-  (evil-set-command-properties '+multiple-cursors:evil-mc
-                               :move-point nil
-                               :ex-arg 'global-match
-                               :ex-bang t
-                               :evil-mc t))
+  (evil-add-command-properties '+multiple-cursors:evil-mc :evil-mc t)
+
+  (map! :map evil-mc-key-map
+        :nv "C-n" #'evil-mc-make-and-goto-next-cursor
+        :nv "C-N" #'evil-mc-make-and-goto-last-cursor
+        :nv "C-p" #'evil-mc-make-and-goto-prev-cursor
+        :nv "C-P" #'evil-mc-make-and-goto-first-cursor))
 
 
 (after! multiple-cursors-core

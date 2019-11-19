@@ -6,7 +6,7 @@ It is passed a user and repository name.")
 
 
 ;;
-;; Packages
+;;; Packages
 
 (use-package! magit
   :commands magit-file-delete
@@ -25,6 +25,11 @@ It is passed a user and repository name.")
         ;; trigger a bunch of unwanted side-effects, like save hooks and
         ;; formatters. Trust us to know what we're doing.
         magit-save-repository-buffers nil)
+
+  (defadvice! +magit-invalidate-projectile-cache-a (&rest _args)
+    ;; We ignore the args to `magit-checkout'.
+    :after '(magit-checkout magit-branch-and-checkout)
+    (projectile-invalidate-cache nil))
 
   ;; The default location for git-credential-cache is in
   ;; ~/.config/git/credential. However, if ~/.git-credential-cache/ exists, then
@@ -48,6 +53,7 @@ It is passed a user and repository name.")
   (setq transient-display-buffer-action '(display-buffer-below-selected)
         magit-display-buffer-function #'+magit-display-buffer-fn)
   (set-popup-rule! "^\\(?:\\*magit\\|magit:\\| \\*transient\\*\\)" :ignore t)
+  (add-hook 'magit-popup-mode-hook #'hide-mode-line-mode)
 
   ;; Add --tags switch
   (transient-append-suffix 'magit-fetch "-p"
@@ -96,9 +102,18 @@ ensure it is built when we actually use Forge."
     :before #'forge-dispatch
     (unless (file-executable-p emacsql-sqlite-executable)
       (emacsql-sqlite-compile 2)
-      (unless (file-executable-p emacsql-sqlite-executable)
-        (message (concat "Failed to build emacsql; forge may not work correctly.\n"
-                         "See *Compile-Log* buffer for details"))))))
+      (if (not (file-executable-p emacsql-sqlite-executable))
+          (message (concat "Failed to build emacsql; forge may not work correctly.\n"
+                           "See *Compile-Log* buffer for details"))
+        ;; HACK Due to changes upstream, forge doesn't initialize completely if
+        ;; it doesn't find `emacsql-sqlite-executable', so we have to do it
+        ;; manually after installing it.
+        (setq forge--sqlite-available-p t)
+        (magit-add-section-hook 'magit-status-sections-hook 'forge-insert-pullreqs nil t)
+        (magit-add-section-hook 'magit-status-sections-hook 'forge-insert-issues   nil t)
+        (after! forge-topic
+          (dolist (hook forge-bug-reference-hooks)
+            (add-hook hook #'forge-bug-reference-setup)))))))
 
 
 (use-package! magit-todos
@@ -106,16 +121,9 @@ ensure it is built when we actually use Forge."
   :config
   (setq magit-todos-keyword-suffix "\\(?:([^)]+)\\)?:?") ; make colon optional
   (define-key magit-todos-section-map "j" nil)
-  ;; magit-todos fails to list TODOs over TRAMP (and instead, tries to list all
-  ;; TODOs in your HOME), so we disable it on remotes.
-  (defadvice! +magit--disable-todos-over-tramp-a (orig-fn)
-    :around #'magit-todos--insert-todos
-    (unless (file-remote-p default-directory)
-      (funcall orig-fn)))
   ;; Warns that jT isn't bound. Well, yeah, you don't need to tell me, that was
   ;; on purpose ya goose.
-  (advice-add #'magit-todos-mode :around #'doom-shut-up-a)
-  (magit-todos-mode +1))
+  (advice-add #'magit-todos-mode :around #'doom-shut-up-a))
 
 
 (use-package! magit-gitflow
@@ -129,11 +137,16 @@ ensure it is built when we actually use Forge."
   (setq evil-magit-state 'normal
         evil-magit-use-z-for-folds t)
   :config
-  (unmap! magit-mode-map "M-1" "M-2" "M-3" "M-4") ; replaced by z1, z2, z3, etc
+  (unmap! magit-mode-map
+    ;; Replaced by z1, z2, z3, etc
+    "M-1" "M-2" "M-3" "M-4"
+    "1" "2" "3" "4"
+    "0") ; moved to g=
   (evil-define-key* 'normal magit-status-mode-map [escape] nil) ; q is enough
   (evil-define-key* '(normal visual) magit-mode-map
+    "%"  #'magit-gitflow-popup
     "zz" #'evil-scroll-line-to-center
-    "%"  #'magit-gitflow-popup)
+    "g=" #'magit-diff-default-context)
   (define-key! 'normal
     (magit-status-mode-map
      magit-stash-mode-map

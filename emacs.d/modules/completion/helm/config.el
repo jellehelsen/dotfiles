@@ -1,15 +1,5 @@
 ;;; completion/helm/config.el -*- lexical-binding: t; -*-
 
-(defvar +helm-project-search-engines '(rg ag pt)
-  "What search tools for `+helm/project-search' (and `+helm-file-search' when no
-ENGINE is specified) to try, and in what order.
-
-To disable a particular tool, remove it from this list. To prioritize a tool
-over others, move it to the front of the list. Later duplicates in this list are
-silently ignored.
-
-This falls back to git-grep (then grep) if none of these available.")
-
 ;; Posframe (requires +childframe)
 (defvar +helm-posframe-handler #'+helm-poshandler-frame-center-near-bottom-fn
   "The function that determines the location of the childframe. It should return
@@ -41,6 +31,7 @@ be negative.")
         [remap bookmark-jump]             #'helm-bookmarks
         [remap execute-extended-command]  #'helm-M-x
         [remap find-file]                 #'helm-find-files
+        [remap locate]                    #'helm-locate
         [remap imenu]                     #'helm-semantic-or-imenu
         [remap noop-show-kill-ring]       #'helm-show-kill-ring
         [remap persp-switch-to-buffer]    #'+helm/workspace-mini
@@ -81,7 +72,7 @@ be negative.")
     (setq helm-default-prompt-display-function #'+helm--set-prompt-display))
 
   :init
-  (when (and EMACS26+ (featurep! +childframe))
+  (when (featurep! +childframe)
     (setq helm-display-function #'+helm-posframe-display-fn))
 
   (let ((fuzzy (featurep! +fuzzy)))
@@ -134,7 +125,6 @@ be negative.")
   :config (helm-flx-mode +1))
 
 
-;;;###package helm-ag
 (after! helm-ag
   (map! :map helm-ag-edit-map :n "RET" #'compile-goto-error)
   (define-key helm-ag-edit-map [remap quit-window] #'helm-ag--edit-abort)
@@ -149,19 +139,31 @@ be negative.")
 (setq helm-bookmark-show-location t)
 
 
-;;;###package helm-files
 (after! helm-files
   (setq helm-boring-file-regexp-list
         (append (list "\\.projects$" "\\.DS_Store$")
                 helm-boring-file-regexp-list)))
 
 
-;;;###package helm-locate
 (defvar helm-generic-files-map (make-sparse-keymap))
-(after! helm-locate (set-keymap-parent helm-generic-files-map helm-map))
+(after! helm-locate
+  (when (and IS-MAC
+             (null helm-locate-command)
+             (executable-find "mdfind"))
+    (setq helm-locate-command "mdfind -name %s"))
+  (set-keymap-parent helm-generic-files-map helm-map))
 
 
-;;;###package helm-projectile
+(use-package! helm-org
+  :when (featurep! :lang org)
+  :defer t
+  :init
+  (after! helm-mode
+    (pushnew! helm-completing-read-handlers-alist
+              '(org-capture . helm-org-completing-read-tags)
+              '(org-set-tags . helm-org-completing-read-tags))))
+
+
 (use-package! helm-projectile
   :commands (helm-projectile-find-file
              helm-projectile-recentf
@@ -174,7 +176,6 @@ be negative.")
   (set-keymap-parent helm-projectile-find-file-map helm-map))
 
 
-;;;###package swiper-helm
 (after! swiper-helm
   (setq swiper-helm-display-function
         (lambda (buf &optional _resume) (pop-to-buffer buf)))

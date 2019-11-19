@@ -81,6 +81,9 @@ Any of these classes can be called like functions from within `format!' and
 (defvar doom-format-indent 0
   "Level to rigidly indent text returned by `format!' and `print!'.")
 
+(defvar doom-format-indent-increment 2
+  "Steps in which to increment `doom-format-indent' for consecutive levels.")
+
 (defvar doom-format-backend
   (if noninteractive 'ansi 'text-properties)
   "Determines whether to print colors with ANSI codes or with text properties.
@@ -91,6 +94,7 @@ Accepts 'ansi and 'text-properties. nil means don't render colors.")
 ;;
 ;;; Library
 
+;;;###autoload
 (defun doom--format (output)
   (if (string-empty-p (string-trim output))
       ""
@@ -99,6 +103,7 @@ Accepts 'ansi and 'text-properties. nil means don't render colors.")
              "\n" (concat "\n" (make-string doom-format-indent 32))
              output t t))))
 
+;;;###autoload
 (defun doom--format-print (output)
   (unless (string-empty-p output)
     (if (not noninteractive)
@@ -107,6 +112,7 @@ Accepts 'ansi and 'text-properties. nil means don't render colors.")
       (terpri)) ; newline
     t))
 
+;;;###autoload
 (defun doom--format-indent (width text &optional prefix)
   "Indent TEXT by WIDTH spaces. If ARGS, format TEXT with them."
   (with-temp-buffer
@@ -121,6 +127,7 @@ Accepts 'ansi and 'text-properties. nil means don't render colors.")
         (insert prefix)))
     (buffer-string)))
 
+;;;###autoload
 (defun doom--format-autofill (&rest msgs)
   "Ensure MSG is split into lines no longer than `fill-column'."
   (with-temp-buffer
@@ -131,6 +138,7 @@ Accepts 'ansi and 'text-properties. nil means don't render colors.")
       (fill-region (point-min) (point-max))
       (buffer-string))))
 
+;;;###autoload
 (defun doom--format-color (style format &rest args)
   "Apply STYLE to formatted MESSAGE with ARGS.
 
@@ -159,6 +167,7 @@ Otherwise, it maps colors to a term-color-* face."
                       ((cddr (assq style doom-format-ansi-alist)))))))
       (_ message))))
 
+;;;###autoload
 (defun doom--format-class (class format &rest args)
   "Apply CLASS to formatted format with ARGS.
 
@@ -172,6 +181,7 @@ transformative logic."
           (args (apply #'format format args))
           (format))))
 
+;;;###autoload
 (defun doom--format-apply (forms &optional sub)
   "Replace color-name functions with calls to `doom--format-color'."
   (cond ((null forms) nil)
@@ -198,7 +208,7 @@ into faces or ANSI codes depending on the type of sesssion we're in."
 ;;;###autoload
 (defmacro print-group! (&rest body)
   "Indents any `print!' or `format!' output within BODY."
-  `(let ((doom-format-indent (+ 2 doom-format-indent)))
+  `(let ((doom-format-indent (+ doom-format-indent-increment doom-format-indent)))
      ,@body))
 
 ;;;###autoload

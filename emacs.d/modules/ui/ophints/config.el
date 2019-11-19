@@ -11,6 +11,15 @@
         evil-goggles-enable-delete nil
         evil-goggles-enable-change nil)
   :config
+  (pushnew! evil-goggles--commands
+            '(+evil:yank-unindented
+              :face evil-goggles-yank-face
+              :switch evil-goggles-enable-yank
+              :advice evil-goggles--generic-async-advice)
+            '(+eval:region
+              :face evil-goggles-yank-face
+              :switch evil-goggles-enable-yank
+              :advice evil-goggles--generic-async-advice))
   (evil-goggles-mode +1))
 
 

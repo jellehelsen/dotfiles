@@ -1,6 +1,6 @@
 ;;; core-editor.el -*- lexical-binding: t; -*-
 
-(defvar doom-detect-indentation-excluded-modes '(fundamental-mode)
+(defvar doom-detect-indentation-excluded-modes '(fundamental-mode so-long-mode)
   "A list of major modes in which indentation should be automatically
 detected.")
 
@@ -9,9 +9,45 @@ detected.")
 indentation settings or not. This should be set by editorconfig if it
 successfully sets indent_style/indent_size.")
 
+(defvar-local doom-large-file-p nil)
+(put 'doom-large-file-p 'permanent-local t)
+
+(defvar doom-large-file-size 1
+  "The threshold above which Doom enables emergency optimizations.
+
+This threshold is in MB. See `doom--optimize-for-large-files-a' for
+implementation details.")
+
+(defvar doom-large-file-excluded-modes
+  '(so-long-mode special-mode archive-mode tar-mode jka-compr
+    git-commit-mode image-mode doc-view-mode doc-view-mode-maybe
+    ebrowse-tree-mode pdf-view-mode tags-table-mode)
+  "Major modes that `doom-check-large-file-h' will ignore.")
+
 
 ;;
 ;;; File handling
+
+(defadvice! doom--optimize-for-large-files-a (orig-fn &rest args)
+  "Set `doom-large-file-p' if the file is too large.
+
+Uses `doom-large-file-size' to determine when a file is too large. When
+`doom-large-file-p' is set, other plugins can detect this and reduce their
+runtime costs (or disable themselves) to ensure the buffer is as fast as
+possible."
+  :around #'after-find-file
+  (if (setq doom-large-file-p
+            (and buffer-file-name
+                 (not doom-large-file-p)
+                 (file-readable-p buffer-file-name)
+                 (> (nth 7 (file-attributes buffer-file-name))
+                    (* 1024 1024 doom-large-file-size))))
+      (prog1 (apply orig-fn args)
+        (if (memq major-mode doom-large-file-excluded-modes)
+            (setq doom-large-file-p nil)
+          (so-long-minor-mode +1)
+          (message "Large file detected! Cutting a few corners to improve performance...")))
+    (apply orig-fn args)))
 
 ;; Resolve symlinks when opening files, so that any operations are conducted
 ;; from the file's true directory (like `find-file').
@@ -26,20 +62,31 @@ successfully sets indent_style/indent_size.")
 (add-hook! 'find-file-not-found-functions
   (defun doom-create-missing-directories-h ()
     "Automatically create missing directories when creating new files."
-    (let ((parent-directory (file-name-directory buffer-file-name)))
-      (when (and (not (file-exists-p parent-directory))
-                 (y-or-n-p (format "Directory `%s' does not exist! Create it?" parent-directory)))
-        (make-directory parent-directory t)))))
+    (unless (file-remote-p buffer-file-name)
+      (let ((parent-directory (file-name-directory buffer-file-name)))
+        (and (not (file-directory-p parent-directory))
+             (y-or-n-p (format "Directory `%s' does not exist! Create it?"
+                               parent-directory))
+             (progn (make-directory parent-directory 'parents)
+                    t))))))
 
-;; Don't autosave files or create lock/history/backup files. The
-;; editor doesn't need to hold our hands so much. We'll rely on git
-;; and our own good fortune instead. Fingers crossed!
+;; Don't autosave files or create lock/history/backup files. We don't want
+;; copies of potentially sensitive material floating around, and we'll rely on
+;; git and our own good fortune instead. Fingers crossed!
 (setq auto-save-default nil
       create-lockfiles nil
       make-backup-files nil
       ;; But have a place to store them in case we do use them...
       auto-save-list-file-name (concat doom-cache-dir "autosave")
       backup-directory-alist `(("." . ,(concat doom-cache-dir "backup/"))))
+
+(add-hook! 'after-save-hook
+  (defun doom-guess-mode-h ()
+    "Guess mode when saving a file in `fundamental-mode'."
+    (and (eq major-mode 'fundamental-mode)
+         (buffer-file-name (buffer-base-buffer))
+         (eq (current-buffer) (window-buffer (selected-window))) ; only visible buffers
+         (set-auto-mode))))
 
 
 ;;
@@ -61,13 +108,16 @@ successfully sets indent_style/indent_size.")
       require-final-newline t
       tabify-regexp "^\t* [ \t]+")  ; for :retab
 
+;; Favor hard-wrapping in text modes
+(add-hook 'text-mode-hook #'auto-fill-mode)
+
 
 ;;
 ;;; Clipboard / kill-ring
 
- ;; Eliminate duplicates in the kill ring. That is, if you kill the
- ;; same thing twice, you won't have to use M-y twice to get past it
- ;; to older entries in the kill ring.
+;; Eliminate duplicates in the kill ring. That is, if you kill the same thing
+;; twice, you won't have to use M-y twice to get past it to older entries in the
+;; kill ring.
 (setq kill-do-not-save-duplicates t)
 
 ;;
@@ -76,20 +126,20 @@ successfully sets indent_style/indent_size.")
 ;; Save clipboard contents into kill-ring before replacing them
 (setq save-interprogram-paste-before-kill t)
 
-;; Fix the clipboard in terminal or daemon Emacs (non-GUI)
+;; Fixes the clipboard in tty Emacs by piping clipboard I/O through xclip, xsel,
+;; pb{copy,paste}, wl-copy, termux-clipboard-get, or getclip (cygwin).
 (add-hook! 'tty-setup-hook
   (defun doom-init-clipboard-in-tty-emacs-h ()
-    (unless (getenv "SSH_CONNECTION")
-      (cond (IS-MAC
-             (if (require 'osx-clipboard nil t) (osx-clipboard-mode)))
-            ((executable-find "xclip")
-             (if (require 'xclip nil t) (xclip-mode)))))))
+    (and (not (getenv "SSH_CONNECTION"))
+         (require 'xclip nil t)
+         (xclip-mode +1))))
 
 
 ;;
 ;;; Extra file extensions to support
 
 (push '("/LICENSE\\'" . text-mode) auto-mode-alist)
+(push '("\\.log\\'" . text-mode) auto-mode-alist)
 
 
 ;;
@@ -104,7 +154,9 @@ successfully sets indent_style/indent_size.")
   :config
   (setq auto-revert-verbose t ; let us know when it happens
         auto-revert-use-notify nil
-        auto-revert-stop-on-user-input nil)
+        auto-revert-stop-on-user-input nil
+        ;; Only prompts for confirmation when buffer is unsaved.
+        revert-without-query (list "."))
 
   ;; Instead of using `auto-revert-mode' or `global-auto-revert-mode', we employ
   ;; lazy auto reverting on `focus-in-hook' and `doom-switch-buffer-hook'.
@@ -115,20 +167,14 @@ successfully sets indent_style/indent_size.")
   ;; changes when we switch to a buffer or when we focus the Emacs frame.
   (defun doom-auto-revert-buffer-h ()
     "Auto revert current buffer, if necessary."
-    (unless auto-revert-mode
-      (let ((revert-without-query t))
-        (auto-revert-handler))))
+    (unless (or auto-revert-mode (active-minibuffer-window))
+      (auto-revert-handler)))
 
   (defun doom-auto-revert-buffers-h ()
-    "Auto revert's stale buffers (that are visible)."
-    (unless auto-revert-mode
-      (dolist (buf (doom-visible-buffers))
-        (with-current-buffer buf
-          (doom-auto-revert-buffer-h))))))
-
-
-(after! bookmark
-  (setq bookmark-save-flag t))
+    "Auto revert stale buffers in visible windows, if necessary."
+    (dolist (buf (doom-visible-buffers))
+      (with-current-buffer buf
+        (doom-auto-revert-buffer-h)))))
 
 
 (use-package! recentf
@@ -137,6 +183,13 @@ successfully sets indent_style/indent_size.")
   :after-call after-find-file
   :commands recentf-open-files
   :config
+  (defun doom--recent-file-truename (file)
+    (if (or (file-remote-p file nil t)
+            (not (file-remote-p file)))
+        (file-truename file)
+      file))
+  (setq recentf-filename-handlers '(doom--recent-file-truename abbreviate-file-name))
+
   (setq recentf-save-file (concat doom-cache-dir "recentf")
         recentf-auto-cleanup 'never
         recentf-max-menu-items 0
@@ -145,15 +198,7 @@ successfully sets indent_style/indent_size.")
         (list "\\.\\(?:gz\\|gif\\|svg\\|png\\|jpe?g\\)$" "^/tmp/" "^/ssh:"
               "\\.?ido\\.last$" "\\.revive$" "/TAGS$" "^/var/folders/.+$"
               ;; ignore private DOOM temp files
-              (lambda (path)
-                (ignore-errors (file-in-directory-p path doom-local-dir)))))
-
-  (defun doom--recent-file-truename (file)
-    (if (or (file-remote-p file nil t)
-            (not (file-remote-p file)))
-        (file-truename file)
-      file))
-  (setq recentf-filename-handlers '(doom--recent-file-truename abbreviate-file-name))
+              (concat "^" (recentf-apply-filename-handlers doom-local-dir))))
 
   (add-hook! '(doom-switch-window-hook write-file-functions)
     (defun doom--recentf-touch-buffer-h ()
@@ -198,12 +243,22 @@ successfully sets indent_style/indent_size.")
   :after-call after-find-file dired-initial-position-hook
   :config
   (setq save-place-file (concat doom-cache-dir "saveplace")
-        save-place-forget-unreadable-files t
-        save-place-limit 200)
+        save-place-limit 100)
+
   (defadvice! doom--recenter-on-load-saveplace-a (&rest _)
     "Recenter on cursor when loading a saved place."
     :after-while #'save-place-find-file-hook
     (if buffer-file-name (ignore-errors (recenter))))
+
+  (defadvice! doom--dont-prettify-saveplace-cache-a (orig-fn)
+    "`save-place-alist-to-file' uses `pp' to prettify the contents of its cache.
+`pp' can be expensive for longer lists, and there's no reason to prettify cache
+files, so we replace calls to `pp' with the much faster `prin1'."
+    :around #'save-place-alist-to-file
+    (cl-letf (((symbol-function #'pp)
+               (symbol-function #'prin1)))
+      (funcall orig-fn)))
+
   (save-place-mode +1))
 
 
@@ -223,6 +278,10 @@ successfully sets indent_style/indent_size.")
 
 (use-package! better-jumper
   :after-call pre-command-hook
+  :preface
+  ;; REVIEW Suppress byte-compiler warning spawning a *Compile-Log* buffer at
+  ;; startup. This can be removed once gilbertw1/better-jumper#2 is merged.
+  (defvar better-jumper-local-mode nil)
   :init
   (global-set-key [remap evil-jump-forward]  #'better-jumper-jump-forward)
   (global-set-key [remap evil-jump-backward] #'better-jumper-jump-backward)
@@ -256,7 +315,15 @@ successfully sets indent_style/indent_size.")
   (defun doom-set-jump-h ()
     "Run `better-jumper-set-jump' but return nil, for short-circuiting hooks."
     (better-jumper-set-jump)
-    nil))
+    nil)
+
+  ;; Creates a jump point before killing a buffer. This allows you to undo
+  ;; killing a buffer easily (only works with file buffers though; it's not
+  ;; possible to resurrect special buffers).
+  (advice-add #'kill-current-buffer :around #'doom-set-jump-a)
+
+  ;; Create a jump point before jumping with imenu.
+  (advice-add #'imenu :around #'doom-set-jump-a))
 
 
 (use-package! dtrt-indent
@@ -268,13 +335,18 @@ successfully sets indent_style/indent_size.")
     (defun doom-detect-indentation-h ()
       (unless (or (not after-init-time)
                   doom-inhibit-indent-detection
-                  (member (substring (buffer-name) 0 1) '(" " "*"))
-                  (memq major-mode doom-detect-indentation-excluded-modes))
+                  doom-large-file-p
+                  (memq major-mode doom-detect-indentation-excluded-modes)
+                  (member (substring (buffer-name) 0 1) '(" " "*")))
         ;; Don't display messages in the echo area, but still log them
         (let ((inhibit-message (not doom-debug-mode)))
           (dtrt-indent-mode +1)))))
   :config
+  ;; Enable dtrt-indent even in smie modes so that it can update `tab-width',
+  ;; `standard-indent' and `evil-shift-width' there as well.
   (setq dtrt-indent-run-after-smie t)
+  ;; Reduced from the default of 5000 for slightly faster analysis
+  (setq dtrt-indent-max-lines 2000)
 
   ;; always keep tab-width up-to-date
   (push '(t tab-width) dtrt-indent-hook-generic-mapping-list)
@@ -380,34 +452,79 @@ successfully sets indent_style/indent_size.")
   (sp-local-pair 'minibuffer-inactive-mode "`" nil :actions nil)
 
   ;; Smartparens breaks evil-mode's replace state
-  (add-hook 'evil-replace-state-entry-hook #'turn-off-smartparens-mode)
-  (add-hook 'evil-replace-state-exit-hook  #'turn-on-smartparens-mode)
+  (defvar doom-buffer-smartparens-mode nil)
+  (add-hook! 'evil-replace-state-exit-hook
+    (defun doom-enable-smartparens-mode-maybe-h ()
+      (when doom-buffer-smartparens-mode
+        (turn-on-smartparens-mode)
+        (kill-local-variable 'doom-buffer-smartparens-mode))))
+  (add-hook! 'evil-replace-state-entry-hook
+    (defun doom-disable-smartparens-mode-maybe-h ()
+      (when smartparens-mode
+        (setq-local doom-buffer-smartparens-mode t)
+        (turn-off-smartparens-mode))))
 
   (smartparens-global-mode +1))
 
 
 (use-package! so-long
   :after-call after-find-file
-  :config (global-so-long-mode +1))
+  :config
+  (when doom-interactive-mode
+    (global-so-long-mode +1))
+  ;; Don't disable syntax highlighting and line numbers, or make the buffer
+  ;; read-only, in `so-long-minor-mode', so we can have a basic editing
+  ;; experience in them, at least. It will remain off in `so-long-mode',
+  ;; however, because long files have a far bigger impact on Emacs performance.
+  (delq! 'font-lock-mode so-long-minor-modes)
+  (delq! 'display-line-numbers-mode so-long-minor-modes)
+  (delq! 'buffer-read-only so-long-variable-overrides 'assq)
+  ;; ...but at least reduce the level of syntax highlighting
+  (add-to-list 'so-long-variable-overrides '(font-lock-maximum-decoration . 1))
+  ;; But disable everything else that may be unnecessary/expensive for large
+  ;; or wide buffers.
+  (appendq! so-long-minor-modes
+            '(flycheck-mode
+              flyspell-mode
+              eldoc-mode
+              smartparens-mode
+              highlight-numbers-mode
+              better-jumper-local-mode
+              ws-butler-mode
+              auto-composition-mode
+              undo-tree-mode
+              highlight-indent-guides-mode
+              hl-fill-column-mode)))
 
 
 (use-package! undo-tree
   ;; Branching & persistent undo
   :after-call doom-switch-buffer-hook after-find-file
   :config
-  (setq undo-tree-auto-save-history nil ; disable because unstable
-        ;; undo-in-region is known to cause undo history corruption, which can
-        ;; be very destructive! Disabling it deters the error, but does not fix
-        ;; it entirely!
-        undo-tree-enable-undo-in-region nil
+  (setq undo-tree-auto-save-history t
+        ;; Increase undo-limits by a factor of ten to avoid emacs prematurely
+        ;; truncating the undo history and corrupting the tree. See
+        ;; https://github.com/syl20bnr/spacemacs/issues/12110
+        undo-limit 800000
+        undo-strong-limit 12000000
+        undo-outer-limit 120000000
         undo-tree-history-directory-alist
         `(("." . ,(concat doom-cache-dir "undo-tree-hist/"))))
 
+  ;; Compress undo-tree history files with zstd, if available. File size isn't
+  ;; the (only) concern here: the file IO barrier is slow for Emacs to cross;
+  ;; reading a tiny file and piping it in-memory through zstd is *slightly*
+  ;; faster than Emacs reading the entire undo-tree file from the get go (on
+  ;; SSDs). Whether or not that's true in practice, we still enjoy zstd's ~80%
+  ;; file savings (these files add up over time and zstd is so incredibly fast).
   (when (executable-find "zstd")
     (defadvice! doom--undo-tree-make-history-save-file-name-a (file)
       :filter-return #'undo-tree-make-history-save-file-name
       (concat file ".zst")))
 
+  ;; Strip text properties from undo-tree data to stave off bloat. File size
+  ;; isn't the concern here; undo cache files bloat easily, which can cause
+  ;; freezing, crashes, GC-induced stuttering or delays when opening files.
   (defadvice! doom--undo-tree-strip-text-properties-a (&rest _)
     :before #'undo-list-transfer-to-tree
     (dolist (item buffer-undo-list)

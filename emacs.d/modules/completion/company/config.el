@@ -2,7 +2,7 @@
 
 (use-package! company
   :commands company-complete-common company-manual-begin company-grab-line
-  :after-call evil-insert-state-entry-hook evil-emacs-state-entry-hook
+  :after-call pre-command-hook after-find-file
   :init
   (setq company-minimum-prefix-length 2
         company-tooltip-limit 14
@@ -17,9 +17,6 @@
         company-frontends
         '(company-pseudo-tooltip-frontend
           company-echo-metadata-frontend))
-  ;; Lazy load until user starts entering text
-  (unless (featurep! :editor evil)
-    (add-transient-hook! 'post-self-insert-hook (require 'company)))
   :config
   (when (featurep! :editor evil)
     (add-hook 'company-mode-hook #'evil-normalize-keymaps)
@@ -51,6 +48,11 @@
 ;;
 ;; Packages
 
+(after! company-files
+  (pushnew! company-files--regexps
+            "file:\\(\\(?:\\.\\{1,2\\}/\\|~/\\|/\\)[^\]\n]*\\)"))
+
+
 (use-package! company-prescient
   :hook (company-mode . company-prescient-mode)
   :config
@@ -60,7 +62,7 @@
 
 
 (use-package! company-box
-  :when (and EMACS26+ (featurep! +childframe))
+  :when (featurep! +childframe)
   :hook (company-mode . company-box-mode)
   :config
   (setq company-box-show-single-candidate t

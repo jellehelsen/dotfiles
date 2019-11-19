@@ -233,9 +233,9 @@
 #+RESULTS:
 * Node
 #+BEGIN_SRC emacs-lisp
-(nvm-use "10.11.0")
-(setq exec-path (append '("~/.nvm/versions/node/v10.11.0/bin/") exec-path))
-(setenv "PATH" (concat "~/.nvm/versions/node/v10.11.0/bin/:" (getenv "PATH")))
+;(nvm-use "10.11.0")
+;(setq exec-path (append '("~/.nvm/versions/node/v10.11.0/bin/") exec-path))
+;(setenv "PATH" (concat "~/.nvm/versions/node/v10.11.0/bin/:" (getenv "PATH")))
 #+END_SRC
 
 #+RESULTS:
@@ -275,5 +275,5 @@
 : 2
 * Tramp
 #+BEGIN_SRC emacs-lisp
-(add-to-list 'tramp-remote-path 'tramp-own-remote-path)
+;; (add-to-list 'tramp-remote-path 'tramp-own-remote-path)
 #+END_SRC

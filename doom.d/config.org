@@ -277,3 +277,12 @@
 #+BEGIN_SRC emacs-lisp
 ;; (add-to-list 'tramp-remote-path 'tramp-own-remote-path)
 #+END_SRC
+* IRC
+#+BEGIN_SRC emacs-lisp
+(set-irc-server! "irc.freenode.net"
+  `(:tls t
+    :nick "doom"
+    :channels ("#emacs")))
+#+END_SRC
+
+#+RESULTS:

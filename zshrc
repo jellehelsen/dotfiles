@@ -40,7 +40,7 @@ if [ `uname` = 'Darwin' ]; then
 fi
 case "$(uname)" in
   Linux)
-    . /usr/local/lib/python2.7/dist-packages/powerline/bindings/zsh/powerline.zsh
+    # . /usr/local/lib/python2.7/dist-packages/powerline/bindings/zsh/powerline.zsh
     export NVM_DIR="$HOME/.nvm"
     [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
     [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
@@ -52,11 +52,11 @@ case "$(uname)" in
     ;;
 
   Darwin)
-    export NVM_DIR="$HOME/.nvm"
-    source /usr/local/opt/nvm/nvm.sh
+    # export NVM_DIR="$HOME/.nvm"
+    # source /usr/local/opt/nvm/nvm.sh
     export PATH=$PATH:$HOME/Library/Python/2.7/bin:$HOME/go/bin
-    eval "$(rbenv init -)"
-    . /usr/local/lib/python2.7/site-packages/powerline/bindings/zsh/powerline.zsh
+    # eval "$(rbenv init -)"
+    # . /usr/local/lib/python2.7/site-packages/powerline/bindings/zsh/powerline.zsh
     ;;
 
   CYGWIN*)

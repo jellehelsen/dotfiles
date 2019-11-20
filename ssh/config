@@ -1,0 +1,8 @@
+Host jumphost
+  HostName 195.130.158.150
+  User devoteam
+
+Host dawndove
+  HostName 10.101.8.19
+  User core
+  ProxyCommand ssh -W %h:%p -q nvt@192.168.186.10

@@ -286,3 +286,7 @@
 #+END_SRC
 
 #+RESULTS:
+* Python
+#+BEGIN_SRC emacs-lisp
+(advice-add 'python-mode :before 'elpy-enable)
+#+END_SRC

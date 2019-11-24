@@ -22,3 +22,4 @@
 (package! kubernetes-tramp)
 (package! exec-path-from-shell)
 (package! ox-hugo)
+(package! elpy)

@@ -12,11 +12,14 @@ successfully sets indent_style/indent_size.")
 (defvar-local doom-large-file-p nil)
 (put 'doom-large-file-p 'permanent-local t)
 
-(defvar doom-large-file-size 1
-  "The threshold above which Doom enables emergency optimizations.
+(defvar doom-large-file-size-alist '(("." . 1.0))
+  "An alist mapping regexps (like `auto-mode-alist') to filesize thresholds.
 
-This threshold is in MB. See `doom--optimize-for-large-files-a' for
-implementation details.")
+If a file is opened and discovered to be larger than the threshold, Doom
+performs emergency optimizations to prevent Emacs from hanging, crashing or
+becoming unusably slow.
+
+These thresholds are in MB, and is used by `doom--optimize-for-large-files-a'.")
 
 (defvar doom-large-file-excluded-modes
   '(so-long-mode special-mode archive-mode tar-mode jka-compr
@@ -31,7 +34,7 @@ implementation details.")
 (defadvice! doom--optimize-for-large-files-a (orig-fn &rest args)
   "Set `doom-large-file-p' if the file is too large.
 
-Uses `doom-large-file-size' to determine when a file is too large. When
+Uses `doom-large-file-size-alist' to determine when a file is too large. When
 `doom-large-file-p' is set, other plugins can detect this and reduce their
 runtime costs (or disable themselves) to ensure the buffer is as fast as
 possible."
@@ -39,9 +42,11 @@ possible."
   (if (setq doom-large-file-p
             (and buffer-file-name
                  (not doom-large-file-p)
-                 (file-readable-p buffer-file-name)
+                 (file-exists-p buffer-file-name)
                  (> (nth 7 (file-attributes buffer-file-name))
-                    (* 1024 1024 doom-large-file-size))))
+                    (* 1024 1024
+                       (assoc-default buffer-file-name doom-large-file-size-alist
+                                      #'string-match-p)))))
       (prog1 (apply orig-fn args)
         (if (memq major-mode doom-large-file-excluded-modes)
             (setq doom-large-file-p nil)
@@ -51,7 +56,8 @@ possible."
 
 ;; Resolve symlinks when opening files, so that any operations are conducted
 ;; from the file's true directory (like `find-file').
-(setq find-file-visit-truename t)
+(setq find-file-visit-truename t
+      vc-follow-symlinks t)
 
 ;; Disable the warning "X and Y are the same file". It's fine to ignore this
 ;; warning as it will redirect you to the existing buffer anyway.
@@ -140,6 +146,7 @@ possible."
 
 (push '("/LICENSE\\'" . text-mode) auto-mode-alist)
 (push '("\\.log\\'" . text-mode) auto-mode-alist)
+(push '("\\.env\\'" . sh-mode) auto-mode-alist)
 
 
 ;;
@@ -193,12 +200,7 @@ possible."
   (setq recentf-save-file (concat doom-cache-dir "recentf")
         recentf-auto-cleanup 'never
         recentf-max-menu-items 0
-        recentf-max-saved-items 200
-        recentf-exclude
-        (list "\\.\\(?:gz\\|gif\\|svg\\|png\\|jpe?g\\)$" "^/tmp/" "^/ssh:"
-              "\\.?ido\\.last$" "\\.revive$" "/TAGS$" "^/var/folders/.+$"
-              ;; ignore private DOOM temp files
-              (concat "^" (recentf-apply-filename-handlers doom-local-dir))))
+        recentf-max-saved-items 200)
 
   (add-hook! '(doom-switch-window-hook write-file-functions)
     (defun doom--recentf-touch-buffer-h ()
@@ -250,6 +252,11 @@ possible."
     :after-while #'save-place-find-file-hook
     (if buffer-file-name (ignore-errors (recenter))))
 
+  (defadvice! doom--inhibit-saveplace-in-long-files-a (orig-fn &rest args)
+    :around #'save-place-to-alist
+    (unless doom-large-file-p
+      (apply orig-fn args)))
+
   (defadvice! doom--dont-prettify-saveplace-cache-a (orig-fn)
     "`save-place-alist-to-file' uses `pp' to prettify the contents of its cache.
 `pp' can be expensive for longer lists, and there's no reason to prettify cache
@@ -265,6 +272,7 @@ files, so we replace calls to `pp' with the much faster `prin1'."
 (use-package! server
   :when (display-graphic-p)
   :after-call pre-command-hook after-find-file focus-out-hook
+  :defer 1
   :init
   (when-let (name (getenv "EMACS_SERVER_NAME"))
     (setq server-name name))
@@ -358,6 +366,10 @@ files, so we replace calls to `pp' with the much faster `prin1'."
     :around #'dtrt-indent-mode
     (let ((dtrt-indent-run-after-smie dtrt-indent-run-after-smie))
       (cl-letf* ((old-smie-config-guess (symbol-function 'smie-config-guess))
+                 (old-smie-config--guess (symbol-function 'symbol-config--guess))
+                 ((symbol-function 'symbol-config--guess)
+                  (lambda (beg end)
+                    (funcall old-smie-config--guess beg (min end 10000))))
                  ((symbol-function 'smie-config-guess)
                   (lambda ()
                     (condition-case e (funcall old-smie-config-guess)
@@ -372,12 +384,11 @@ files, so we replace calls to `pp' with the much faster `prin1'."
   ;; a better *help* buffer
   :commands helpful--read-symbol
   :init
-  (define-key!
-    [remap describe-function] #'helpful-callable
-    [remap describe-command]  #'helpful-command
-    [remap describe-variable] #'helpful-variable
-    [remap describe-key]      #'helpful-key
-    [remap describe-symbol]   #'doom/describe-symbol)
+  (global-set-key [remap describe-function] #'helpful-callable)
+  (global-set-key [remap describe-command]  #'helpful-command)
+  (global-set-key [remap describe-variable] #'helpful-variable)
+  (global-set-key [remap describe-key]      #'helpful-key)
+  (global-set-key [remap describe-symbol]   #'doom/describe-symbol)
 
   (defun doom-use-helpful-a (orig-fn &rest args)
     "Force ORIG-FN to use helpful instead of the old describe-* commands."
@@ -413,7 +424,7 @@ files, so we replace calls to `pp' with the much faster `prin1'."
   (require 'smartparens-config)
 
   ;; Overlays are too distracting and not terribly helpful. show-parens does
-  ;; this for us already, so...
+  ;; this for us already (and is faster), so...
   (setq sp-highlight-pair-overlay nil
         sp-highlight-wrap-overlay nil
         sp-highlight-wrap-tag-overlay nil)
@@ -437,7 +448,7 @@ files, so we replace calls to `pp' with the much faster `prin1'."
 
   ;; Silence some harmless but annoying echo-area spam
   (dolist (key '(:unmatched-expression :no-matching-tag))
-    (setf (cdr (assq key sp-message-alist)) nil))
+    (setf (alist-get key sp-message-alist) nil))
 
   (add-hook! 'minibuffer-setup-hook
     (defun doom-init-smartparens-in-minibuffer-maybe-h ()
@@ -481,6 +492,10 @@ files, so we replace calls to `pp' with the much faster `prin1'."
   (delq! 'buffer-read-only so-long-variable-overrides 'assq)
   ;; ...but at least reduce the level of syntax highlighting
   (add-to-list 'so-long-variable-overrides '(font-lock-maximum-decoration . 1))
+  ;; ...and insist that save-place not operate in large/long files
+  (add-to-list 'so-long-variable-overrides '(save-place-alist . nil))
+  ;; Text files could possibly be too long too
+  (add-to-list 'so-long-target-modes 'text-mode)
   ;; But disable everything else that may be unnecessary/expensive for large
   ;; or wide buffers.
   (appendq! so-long-minor-modes
@@ -494,7 +509,14 @@ files, so we replace calls to `pp' with the much faster `prin1'."
               auto-composition-mode
               undo-tree-mode
               highlight-indent-guides-mode
-              hl-fill-column-mode)))
+              hl-fill-column-mode))
+  ;; HACK Fix #2183: `so-long-detected-long-line-p' tries to parse comment
+  ;;      syntax, but in some buffers comment state isn't initialized, leading
+  ;;      to a wrong-type-argument: stringp error.
+  (defun doom-buffer-has-long-lines-p ()
+    (let ((so-long-skip-leading-comments (bound-and-true-p comment-use-syntax)))
+      (so-long-detected-long-line-p)))
+  (setq so-long-predicate #'doom-buffer-has-long-lines-p))
 
 
 (use-package! undo-tree
@@ -541,7 +563,7 @@ files, so we replace calls to `pp' with the much faster `prin1'."
   :config
   (appendq! ws-butler-global-exempt-modes
             '(special-mode comint-mode term-mode eshell-mode))
-  (ws-butler-global-mode))
+  (ws-butler-global-mode +1))
 
 (provide 'core-editor)
 ;;; core-editor.el ends here

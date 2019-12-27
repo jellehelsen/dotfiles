@@ -130,20 +130,22 @@ This can be passed nil as its second argument to unset handlers for MODES. e.g.
 
 (defun +lookup--jump-to (prop identifier &optional display-fn arg)
   (let* ((origin (point-marker))
-         (handlers (plist-get (list :definition '+lookup-definition-functions
-                                    :references '+lookup-references-functions
-                                    :documentation '+lookup-documentation-functions
-                                    :file '+lookup-file-functions)
-                              prop))
+         (handlers
+          (plist-get (list :definition '+lookup-definition-functions
+                           :references '+lookup-references-functions
+                           :documentation '+lookup-documentation-functions
+                           :file '+lookup-file-functions)
+                     prop))
          (result
           (if arg
-              (if-let*
-                  ((handler (intern-soft
-                             (completing-read "Select lookup handler: "
-                                              (delete-dups
-                                               (remq t (append (symbol-value handlers)
-                                                               (default-value handlers))))
-                                              nil t))))
+              (if-let
+                  (handler
+                   (intern-soft
+                    (completing-read "Select lookup handler: "
+                                     (delete-dups
+                                      (remq t (append (symbol-value handlers)
+                                                      (default-value handlers))))
+                                     nil t)))
                   (+lookup--run-handlers handler identifier origin)
                 (user-error "No lookup handler selected"))
             (run-hook-wrapped handlers #'+lookup--run-handlers identifier origin))))
@@ -320,3 +322,49 @@ Otherwise, falls back on `find-file-at-point'."
                               (run-hooks 'projectile-find-file-hook))))
                          (#'doom-project-browse))))
              (find-file-at-point path))))))
+
+
+;;
+;;; Dictionary
+
+;;;###autoload
+(defun +lookup/word-definition (identifier &optional arg)
+  "Look up the definition of the word at point (or selection)."
+  (interactive
+   (list (+lookup-symbol-or-region)
+         current-prefix-arg))
+  (unless (featurep! +dictionary)
+    (user-error "The +dictionary feature hasn't be enabled on :tools lookup module"))
+  (cond ((and IS-MAC (require 'osx-dictionary nil t))
+         (osx-dictionary--view-result identifier))
+        (+lookup-dictionary-enable-online
+         (define-word identifier nil arg))
+        ;; TODO Implement offline dictionary backend
+        ((user-error "No offline dictionary defined yet"))))
+
+;;;###autoload
+(defun +lookup/word-synonyms (identifier &optional arg)
+  "Look up and insert a synonym for the word at point (or selection)."
+  (interactive
+   (list (+lookup-symbol-or-region)
+         current-prefix-arg))
+  (unless (featurep! +dictionary)
+    (user-error "The +dictionary feature hasn't be enabled on :tools lookup module"))
+  (unless +lookup-dictionary-enable-online
+    ;; TODO Implement offline synonyms backend
+    (user-error "No offline dictionary implemented yet"))
+  (require 'request)
+  (require 'powerthesaurus)
+  (request
+   (powerthesaurus-compose-url identifier)
+   :parser (lambda () (libxml-parse-html-region (point) (point-max)))
+   :headers '(("User-Agent" . "Chrome/74.0.3729.169"))
+   :success (cl-function
+             (lambda (&key data &allow-other-keys)
+               ;; in order to allow users to quit powerthesaurus prompt
+               ;; with C-g, we need to wrap callback with this
+               (with-local-quit
+                 (funcall (powerthesaurus-choose-callback
+                           (region-beginning) (region-end))
+                          (powerthesaurus-pick-synonym data)
+                          identifier))))))

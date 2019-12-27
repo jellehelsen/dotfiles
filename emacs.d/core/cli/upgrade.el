@@ -13,12 +13,15 @@ following shell commands:
     bin/doom refresh
     bin/doom update"
   :bare t
-  (when (doom-cli-upgrade doom-auto-accept force-p)
-    (require 'core-packages)
-    (doom-initialize)
-    (doom-initialize-packages)
-    (when (doom-cli-packages-update)
-      (doom-cli-reload-package-autoloads 'force))))
+  (if (delq
+       nil (list
+            (doom-cli-upgrade doom-auto-accept force-p)
+            (doom-cli-execute "refresh")
+            (when (doom-cli-packages-update)
+              (doom-cli-reload-package-autoloads 'force)
+              t)))
+      (print! (success "Done! Restart Emacs for changes to take effect."))
+    (print! "Nothing to do. Doom is up-to-date!")))
 
 
 ;;
@@ -33,7 +36,7 @@ following shell commands:
   (cl-destructuring-bind (success . stdout)
       (doom-call-process "git" "status" "--porcelain" "-uno")
     (if (= 0 success)
-        (string-match-p "[^ \t\n]" (buffer-string))
+        (split-string stdout "\n" t)
       (error "Failed to check working tree in %s" dir))))
 
 
@@ -52,21 +55,22 @@ following shell commands:
                   "Couldn't detect what branch you're on. Is Doom detached?")))
 
       ;; We assume that a dirty .emacs.d is intentional and abort
-      (when (doom--working-tree-dirty-p default-directory)
+      (when-let (dirty (doom--working-tree-dirty-p default-directory))
         (if (not force-p)
-            (user-error! "%s\n\n%s"
+            (user-error! "%s\n\n%s\n\n %s"
                          (format "Refusing to upgrade because %S has been modified." (path doom-emacs-dir))
-                         "Either stash/undo your changes or run 'doom upgrade -f' to discard local changes.")
+                         "Either stash/undo your changes or run 'doom upgrade -f' to discard local changes."
+                         (string-join dirty "\n"))
           (print! (info "You have local modifications in Doom's source. Discarding them..."))
           (doom-call-process "git" "reset" "--hard" (format "origin/%s" branch))
           (doom-call-process "git" "clean" "-ffd")))
 
       (doom-call-process "git" "remote" "remove" doom-repo-remote)
       (unwind-protect
-          (progn
+          (let (result)
             (or (zerop (car (doom-call-process "git" "remote" "add" doom-repo-remote doom-repo-url)))
                 (error "Failed to add %s to remotes" doom-repo-remote))
-            (or (zerop (car (doom-call-process "git" "fetch" "--tags" doom-repo-remote branch)))
+            (or (zerop (car (setq result (doom-call-process "git" "fetch" "--tags" doom-repo-remote branch))))
                 (error "Failed to fetch from upstream"))
 
             (let ((this-rev (vc-git--rev-parse "HEAD"))
@@ -99,13 +103,11 @@ following shell commands:
                   (print! (start "Upgrading Doom Emacs..."))
                   (print-group!
                    (doom-clean-byte-compiled-files)
-                   (unless (and (zerop (car (doom-call-process "git" "reset" "--hard" target-remote)))
-                                (equal (vc-git--rev-parse "HEAD") new-rev))
+                   (if (and (zerop (car (doom-call-process "git" "reset" "--hard" target-remote)))
+                            (equal (vc-git--rev-parse "HEAD") new-rev))
+                       (print! (info "%s") (cdr result))
                      (error "Failed to check out %s" (substring new-rev 0 10)))
                    (print! (success "Finished upgrading Doom Emacs")))
-                  (doom-cli-execute "refresh" (if auto-accept-p '("-y")))
-                  t)
-
-                (print! (success "Done! Restart Emacs for changes to take effect."))))))
+                  t)))))
         (ignore-errors
           (doom-call-process "git" "remote" "remove" doom-repo-remote))))))

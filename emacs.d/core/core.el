@@ -25,6 +25,12 @@
 ;; You get a minor speed up by nooping this.
 (setq file-name-handler-alist nil)
 
+;; Restore `file-name-handler-alist', because it is needed for handling
+;; encrypted or compressed files, among other things.
+(defun doom-reset-file-handler-alist-h ()
+  (setq file-name-handler-alist doom--initial-file-name-handler-alist))
+(add-hook 'emacs-startup-hook #'doom-reset-file-handler-alist-h)
+
 ;; Load the bare necessities
 (require 'core-lib)
 
@@ -48,10 +54,6 @@ DEBUG envvar will enable this at startup.")
 
 (defvar doom-interactive-mode (not noninteractive)
   "If non-nil, Emacs is in interactive mode.")
-
-(defvar doom-gc-cons-threshold 16777216 ; 16mb
-  "The default value to use for `gc-cons-threshold'. If you experience freezing,
-decrease this. If you experience stuttering, increase this.")
 
 ;;; Directories/files
 (defconst doom-emacs-dir
@@ -210,7 +212,6 @@ users).")
       tramp-auto-save-directory    (concat doom-cache-dir "tramp-auto-save/")
       tramp-backup-directory-alist backup-directory-alist
       tramp-persistency-file-name  (concat doom-cache-dir "tramp-persistency.el")
-      tramp-histfile-override      (concat doom-cache-dir "tramp-histfile.el")
       url-cache-directory          (concat doom-cache-dir "url/")
       url-configuration-directory  (concat doom-etc-dir "url/")
       gamegrid-user-score-file-directory (concat doom-etc-dir "games/"))
@@ -227,7 +228,8 @@ users).")
 ;; Disable bidirectional text rendering for a modest performance boost. Of
 ;; course, this renders Emacs unable to detect/display right-to-left languages
 ;; (sorry!), but for us left-to-right language speakers/writers, it's a boon.
-(setq-default bidi-display-reordering 'left-to-right)
+(setq-default bidi-display-reordering 'left-to-right
+              bidi-paragraph-direction 'left-to-right)
 
 ;; Reduce rendering/line scan work for Emacs by not rendering cursors or regions
 ;; in non-focused windows.
@@ -246,8 +248,8 @@ users).")
 ;; Don't ping things that look like domain names.
 (setq ffap-machine-p-known 'reject)
 
-;; Performance on Windows is considerably worse than elsewhere. We'll need
-;; everything we can get.
+;; Performance on Windows is considerably worse than elsewhere, especially if
+;; WSL is involved. We'll need everything we can get.
 (when IS-WINDOWS
   ;; Reduce the workload when doing file IO
   (setq w32-get-true-file-attributes nil)
@@ -257,39 +259,29 @@ users).")
   ;; been determined.
   (setq inhibit-compacting-font-caches t))
 
-;; Remove command line options that aren't relevant to our current OS; that
-;; means less to process at startup.
+;; Remove command line options that aren't relevant to our current OS; means
+;; slightly less to process at startup.
 (unless IS-MAC   (setq command-line-ns-option-alist nil))
 (unless IS-LINUX (setq command-line-x-option-alist nil))
 
-;; Restore `file-name-handler-alist' because it is necessary for handling
-;; encrypted or compressed files, among other things.
-(defun doom-restore-file-name-handler-alist-h ()
-  (setq file-name-handler-alist doom--initial-file-name-handler-alist))
-(add-hook 'emacs-startup-hook #'doom-restore-file-name-handler-alist-h)
+;; Adopt a sneaky garbage collection strategy of waiting until idle time to
+;; collect; staving off the collector while the user is working.
+(when doom-interactive-mode
+  (add-transient-hook! 'pre-command-hook (gcmh-mode +1))
+  (with-eval-after-load 'gcmh
+    (setq gcmh-idle-delay 10
+          gcmh-verbose doom-debug-mode)
+    (add-hook 'focus-out-hook #'gcmh-idle-garbage-collect)))
 
-;; To speed up minibuffer commands (like helm and ivy), we defer garbage
-;; collection while the minibuffer is active.
-(defun doom-defer-garbage-collection-h ()
-  "Increase `gc-cons-threshold' to stave off garbage collection."
-  (setq gc-cons-threshold most-positive-fixnum))
-
-(defun doom-restore-garbage-collection-h ()
-  "Restore `gc-cons-threshold' to a reasonable value so the GC can do its job."
-  ;; Defer it so that commands launched immediately after will enjoy the
-  ;; benefits.
-  (run-at-time
-   1 nil (lambda () (setq gc-cons-threshold doom-gc-cons-threshold))))
-
-(add-hook 'minibuffer-setup-hook #'doom-defer-garbage-collection-h)
-(add-hook 'minibuffer-exit-hook #'doom-restore-garbage-collection-h)
-
-;; Not restoring these to their defaults will cause stuttering/freezes.
-(add-hook 'emacs-startup-hook #'doom-restore-garbage-collection-h)
-
-;; When Emacs loses focus seems like a great time to do some garbage collection
-;; all sneaky breeky like, so we can return to a fresh(er) Emacs.
-(add-hook 'focus-out-hook #'garbage-collect)
+;; HACK `tty-run-terminal-initialization' is *tremendously* slow for some
+;;      reason. Disabling it completely could have many side-effects, so we
+;;      defer it until later.
+(unless (display-graphic-p)
+  (advice-add #'tty-run-terminal-initialization :override #'ignore)
+  (add-hook! 'window-setup-hook
+    (defun doom-init-tty-h ()
+      (advice-remove #'tty-run-terminal-initialization #'ignore)
+      (tty-run-terminal-initialization (selected-frame) nil t))))
 
 
 ;;
@@ -396,9 +388,7 @@ If this is a daemon session, load them all immediately instead."
 ;;; Bootstrap helpers
 
 (defun doom-try-run-hook (hook)
-  "Run HOOK (a hook function), but handle errors better, to make debugging
-issues easier.
-
+  "Run HOOK (a hook function) with better error handling.
 Meant to be used with `run-hook-wrapped'."
   (doom-log "Running doom hook: %s" hook)
   (condition-case e
@@ -421,27 +411,29 @@ If RETURN-P, return the message as a string instead of displaying it."
                (setq doom-init-time
                      (float-time (time-subtract (current-time) before-init-time))))))
 
-(defun doom-load-autoloads-file (file)
-  "Tries to load FILE (an autoloads file). Return t on success, throws an error
-in interactive sessions, nil otherwise (but logs a warning)."
+(defun doom-load-autoloads-file (file &optional noerror)
+  "Tries to load FILE (an autoloads file).
+Return t on success, nil otherwise (but logs a warning)."
   (condition-case e
-      (let (command-switch-alist)
-        (load (substring file 0 -3) 'noerror 'nomessage))
+      (load (substring file 0 -3) noerror 'nomessage)
     ((debug error)
      (message "Autoload file error: %s -> %s" (file-name-nondirectory file) e)
      nil)))
 
 (defun doom-load-envvars-file (file &optional noerror)
-  "Read and set envvars from FILE."
+  "Read and set envvars from FILE.
+If NOERROR is non-nil, don't throw an error if the file doesn't exist or is
+unreadable. Returns the names of envvars that were changed."
   (if (not (file-readable-p file))
       (unless noerror
         (signal 'file-error (list "Couldn't read envvar file" file)))
-    (let (environment)
+    (let (envvars environment)
       (with-temp-buffer
         (save-excursion
           (insert "\n")
           (insert-file-contents file))
-        (while (re-search-forward "\n *\\([^#][^= \n]*\\)=" nil t)
+        (while (re-search-forward "\n *\\([^#= \n]*\\)=" nil t)
+          (push (match-string 1) envvars)
           (push (buffer-substring
                  (match-beginning 1)
                  (1- (or (save-excursion
@@ -450,24 +442,27 @@ in interactive sessions, nil otherwise (but logs a warning)."
                          (point-max))))
                 environment)))
       (when environment
-        (setq-default
-         process-environment (nreverse environment)
-         exec-path (append (parse-colon-path (getenv "PATH"))
-                           (list exec-directory))
-         shell-file-name (or (getenv "SHELL")
-                             shell-file-name))
-        process-environment))))
+        (setq process-environment
+              (append (nreverse environment) process-environment)
+              exec-path
+              (if (member "PATH" envvars)
+                  (append (parse-colon-path (getenv "PATH"))
+                          (list exec-directory))
+                exec-path)
+              shell-file-name
+              (if (member "SHELL" envvars)
+                  (setq shell-file-name
+                        (or (getenv "SHELL") shell-file-name))
+                shell-file-name))
+        envvars))))
 
-(defun doom-initialize (&optional force-p)
+(defun doom-initialize (&optional force-p noerror)
   "Bootstrap Doom, if it hasn't already (or if FORCE-P is non-nil).
 
-The bootstrap process involves making sure 1) the essential directories exist,
-2) the core packages are installed, 3) `doom-autoload-file' and
-`doom-package-autoload-file' exist and have been loaded, and 4) Doom's core
-files are loaded.
-
-If the cache exists, much of this function isn't run, which substantially
-reduces startup time.
+The bootstrap process ensures that the essential directories exist, all core
+packages are installed, `doom-autoload-file' and `doom-package-autoload-file'
+exist and are loaded, and that `core-packages' is auto-loaded when `package' or
+`straight' are.
 
 The overall load order of Doom is as follows:
 
@@ -496,7 +491,9 @@ to least)."
                   load-path doom--initial-load-path
                   process-environment doom--initial-process-environment)
 
-    ;; Load shell environment, optionally generated from 'doom env'
+    ;; Load shell environment, optionally generated from 'doom env'. No need to
+    ;; do so if we're in terminal Emacs, because Emacs will correctly inherit
+    ;; your shell environment there.
     (when (and (or (display-graphic-p)
                    (daemonp))
                (file-exists-p doom-env-file))
@@ -506,12 +503,12 @@ to least)."
     (let (;; `doom-autoload-file' tells Emacs where to load all its functions
           ;; from. This includes everything in core/autoload/*.el and autoload
           ;; files in enabled modules.
-          (core-autoloads-p (doom-load-autoloads-file doom-autoload-file))
+          (core-autoloads-p (doom-load-autoloads-file doom-autoload-file noerror))
           ;; Loads `doom-package-autoload-file', which loads a concatenated
           ;; package autoloads file which caches `load-path', `auto-mode-alist',
           ;; `Info-directory-list', and `doom-disabled-packages'. A big
           ;; reduction in startup time.
-          (pkg-autoloads-p (doom-load-autoloads-file doom-package-autoload-file)))
+          (pkg-autoloads-p (doom-load-autoloads-file doom-package-autoload-file noerror)))
 
       (if (and core-autoloads-p pkg-autoloads-p (not force-p))
           ;; In case we want to use package.el or straight via M-x
@@ -521,6 +518,12 @@ to least)."
             (with-eval-after-load 'straight
               (require 'core-packages)
               (doom-initialize-packages)))
+
+        ;; Eagerly load these libraries because we may be in a session that hasn't been
+        ;; fully initialized (e.g. where autoloads files haven't been generated or
+        ;; `load-path' populated).
+        (mapc (doom-rpartial #'load nil (not doom-debug-mode) 'nosuffix)
+              (file-expand-wildcards (concat doom-core-dir "autoload/*.el")))
 
         ;; Create all our core directories to quell file errors
         (dolist (dir (list doom-local-dir
@@ -535,8 +538,7 @@ to least)."
         (doom-initialize-packages force-p))
 
       (unless (or (and core-autoloads-p pkg-autoloads-p)
-                  force-p
-                  (not doom-interactive-mode))
+                  noerror)
         (unless core-autoloads-p
           (warn "Your Doom core autoloads file is missing"))
         (unless pkg-autoloads-p

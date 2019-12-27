@@ -1,10 +1,5 @@
 ;;; tools/magit/config.el -*- lexical-binding: t; -*-
 
-(defvar +magit-default-clone-url "https://github.com/%s/%s"
-  "The default location for `+magit/clone' to clone relative URLs from.
-It is passed a user and repository name.")
-
-
 ;;
 ;;; Packages
 
@@ -32,13 +27,13 @@ It is passed a user and repository name.")
     (projectile-invalidate-cache nil))
 
   ;; The default location for git-credential-cache is in
-  ;; ~/.config/git/credential. However, if ~/.git-credential-cache/ exists, then
+  ;; ~/.cache/git/credential. However, if ~/.git-credential-cache/ exists, then
   ;; it is used instead. Magit seems to be hardcoded to use the latter, so here
   ;; we override it to have more correct behavior.
   (unless (file-exists-p "~/.git-credential-cache/")
     (setq magit-credential-cache-daemon-socket
-          (doom-glob (or (getenv "XDG_CONFIG_HOME")
-                         "~/.config/")
+          (doom-glob (or (getenv "XDG_CACHE_HOME")
+                         "~/.cache/")
                      "git/credential/socket")))
 
   ;; Magit uses `magit-display-buffer-traditional' to display windows, by
@@ -114,6 +109,16 @@ ensure it is built when we actually use Forge."
         (after! forge-topic
           (dolist (hook forge-bug-reference-hooks)
             (add-hook hook #'forge-bug-reference-setup)))))))
+
+
+(use-package! github-review
+  :after magit
+  :config
+  (transient-append-suffix 'magit-merge "i"
+    '("y" "Review pull request" +magit/start-github-review))
+  (after! forge
+    (transient-append-suffix 'forge-dispatch "c u"
+      '("c r" "Review pull request" +magit/start-github-review))))
 
 
 (use-package! magit-todos

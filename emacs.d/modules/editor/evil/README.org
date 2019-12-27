@@ -1,7 +1,7 @@
 #+TITLE:   feature/evil
 #+DATE:    February 2, 2017
 #+SINCE:   v2.0
-#+STARTUP: inlineimages
+#+STARTUP: inlineimages nofold
 
 * Table of Contents :TOC_3:noexport:
 - [[#description][Description]]
@@ -42,9 +42,9 @@ This holy module brings the vim experience to Emacs.
 + [[https://github.com/bling/evil-visualstar][evil-visualstar]]
 + [[https://github.com/ninrod/exato][exato]]
 + [[https://github.com/emacs-evil/evil-collection][evil-collection]]*
++ [[https://www.github.com/rgrinberg/evil-quick-diff][evil-quick-diff]]
 
 ** Hacks
-+ When a window is split, the new window will be focused.
 + The o/O keys will respect and continue commented lines (can be disabled by
   setting ~+evil-want-o/O-to-continue-comments~ to ~nil~).
 + In visual mode, =*= and =#= will search for the current selection instead of

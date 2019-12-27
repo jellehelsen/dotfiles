@@ -19,7 +19,7 @@ relative to `+doom-dashboard-banner-dir'. If nil, always use the ASCII banner.")
 (defvar +doom-dashboard-banner-dir (concat (dir!) "/banners/")
   "Where to look for `+doom-dashboard-banner-file'.")
 
-(defvar +doom-dashboard-banner-padding '(4 . 4)
+(defvar +doom-dashboard-banner-padding '(0 . 4)
   "Number of newlines to pad the banner with, above and below, respectively.")
 
 (defvar +doom-dashboard-inhibit-refresh nil
@@ -69,7 +69,7 @@ Possible values:
      :action doom/open-private-config)
     ("Search Documentation"
      :icon (all-the-icons-octicon "book" :face 'font-lock-keyword-face)
-     :action doom/help-search))
+     :action doom/help-search-headings))
   "An alist of menu buttons used by `doom-dashboard-widget-shortmenu'. Each
 element is a cons cell (LABEL . PLIST). LABEL is a string to display after the
 icon and before the key string.
@@ -125,6 +125,10 @@ PLIST can have the following properties:
     ;; `persp-mode' integration: update `default-directory' when switching perspectives
     (add-hook 'persp-created-functions #'+doom-dashboard--persp-record-project-h)
     (add-hook 'persp-activated-functions #'+doom-dashboard--persp-detect-project-h)
+    ;; HACK Fix #2219 where, in GUI daemon frames, the dashboard loses center
+    ;;      alignment after switching (or killing) workspaces.
+    (when (daemonp)
+      (add-hook 'persp-activated-functions #'+doom-dashboard-reload-maybe-h))
     (add-hook 'persp-before-switch-functions #'+doom-dashboard--persp-record-project-h)))
 
 (add-hook 'doom-init-ui-hook #'+doom-dashboard-init-h)
@@ -202,7 +206,7 @@ PLIST can have the following properties:
         (goto-char (point-min))
         (forward-button 1))))
 
-(defun +doom-dashboard-reload-maybe-h ()
+(defun +doom-dashboard-reload-maybe-h (&rest _)
   "Reload the dashboard or its state.
 
 If this isn't a dashboard buffer, move along, but record its `default-directory'
@@ -245,10 +249,10 @@ whose dimensions may not be fully initialized by the time this is run."
                              (save-excursion (skip-chars-forward "\n")
                                              (point)))
               (insert (make-string
-                       (max 0 (- (/ (window-height (get-buffer-window)) 2)
-                                 (round (/ (+ (count-lines (point-min) (point-max))
-                                              (car +doom-dashboard-banner-padding))
-                                           2))))
+                       (+ (max 0 (- (/ (window-height (get-buffer-window)) 2)
+                                    (round (/ (count-lines (point-min) (point-max))
+                                              2))))
+                          (car +doom-dashboard-banner-padding))
                        ?\n)))))))))
 
 (defun +doom-dashboard--persp-detect-project-h (&rest _)

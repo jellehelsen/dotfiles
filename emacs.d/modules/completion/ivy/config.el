@@ -7,16 +7,6 @@ When nil, don't preview anything.
 When non-nil, preview non-virtual buffers.
 When 'everything, also preview virtual buffers")
 
-(defvar +ivy-project-search-engines '(rg ag)
-  "What search tools for `+ivy/project-search' (and `+ivy-file-search' when no
-ENGINE is specified) to try, and in what order.
-
-To disable a particular tool, remove it from this list. To prioritize a tool
-over others, move it to the front of the list. Later duplicates in this list are
-silently ignored.
-
-If you want to already use git-grep or grep, set this to nil.")
-
 (defvar +ivy-buffer-unreal-face 'font-lock-comment-face
   "The face for unreal buffers in `ivy-switch-to-buffer'.")
 
@@ -28,13 +18,16 @@ results buffer.")
   (if (featurep! +prescient)
       #'+ivy-prescient-non-fuzzy
     #'ivy--regex-plus)
-  "Function to use for non-fuzzy search commands.")
+  "Function to use for non-fuzzy search commands.
+This uses the standard search algorithm ivy uses (or a variant of it).")
 
 (defvar +ivy-alternative-search-fn
   (cond ((featurep! +prescient) #'ivy-prescient-re-builder)
         ((featurep! +fuzzy)     #'ivy--regex-fuzzy)
+        ;; Ignore order for non-fuzzy searches by default
         (#'ivy--regex-ignore-order))
-  "Function to use for fuzzy search commands.")
+  "Function to use for fuzzy search commands.
+This uses a search algorithm other than ivy's default.")
 
 
 ;;
@@ -44,14 +37,14 @@ results buffer.")
   :after-call pre-command-hook
   :init
   (setq ivy-re-builders-alist
-        `(,@(cl-loop for cmd in '(counsel-ag
-                                  counsel-rg
-                                  counsel-grep
-                                  swiper
-                                  swiper-isearch)
-                     collect (cons cmd +ivy-standard-search-fn))
-          ;; Ignore order for non-fuzzy searches by default
-          (t . ,+ivy-alternative-search-fn)))
+        `((counsel-rg     . +ivy-standard-search)
+          (swiper         . +ivy-standard-search)
+          (swiper-isearch . +ivy-standard-search)
+          (t . +ivy-alternative-search))
+        ivy-more-chars-alist
+        '((counsel-rg . 1)
+          (counsel-search . 2)
+          (t . 3)))
 
   (define-key!
     [remap switch-to-buffer]              #'+ivy/switch-buffer
@@ -75,7 +68,7 @@ results buffer.")
         ;; ...but if that ever changes, show their full path
         ivy-virtual-abbreviate 'full
         ;; don't quit minibuffer on delete-error
-        ivy-on-del-error-function nil
+        ivy-on-del-error-function #'ignore
         ;; enable ability to select prompt (alternative to `ivy-immediate-done')
         ivy-use-selectable-prompt t)
 
@@ -128,6 +121,8 @@ evil-ex-specific constructs, so we disable it solely in evil-ex."
 (use-package! ivy-rich
   :after ivy
   :config
+  (setq ivy-rich-parse-remote-buffer nil)
+
   (when (featurep! +icons)
     (cl-pushnew '(+ivy-rich-buffer-icon)
                 (cadr (plist-get ivy-rich-display-transformers-list
@@ -197,6 +192,7 @@ evil-ex-specific constructs, so we disable it solely in evil-ex."
     [remap evil-ex-registers]        #'counsel-evil-registers
     [remap evil-show-marks]          #'counsel-mark-ring
     [remap yank-pop]                 #'counsel-yank-pop
+    [remap load-theme]               #'counsel-load-theme
     [remap locate]                   #'counsel-locate
     [remap unicode-chars-list-chars] #'counsel-unicode-char
     [remap compile]                    #'+ivy/compile
@@ -207,6 +203,49 @@ evil-ex-specific constructs, so we disable it solely in evil-ex."
   ;; Don't use ^ as initial input. Set this here because `counsel' defines more
   ;; of its own, on top of the defaults.
   (setq ivy-initial-inputs-alist nil)
+
+  ;; Integrate with `helpful'
+  (setq counsel-describe-function-function #'helpful-callable
+        counsel-describe-variable-function #'helpful-variable)
+
+  ;; Record in jumplist when opening files via counsel-{ag,rg,pt,git-grep}
+  (add-hook 'counsel-grep-post-action-hook #'better-jumper-set-jump)
+  (ivy-add-actions
+   'counsel-ag ; also applies to `counsel-rg'
+   '(("O" +ivy-git-grep-other-window-action "open in other window")))
+
+  ;; Make `counsel-compile' projectile-aware (if you prefer it over
+  ;; `+ivy/compile' and `+ivy/project-compile')
+  (add-to-list 'counsel-compile-root-functions #'projectile-project-root)
+  (after! savehist
+    ;; Persist `counsel-compile' history
+    (add-to-list 'savehist-additional-variables 'counsel-compile-history))
+
+  ;; `counsel-locate'
+  (when IS-MAC
+    ;; Use spotlight on mac by default since it doesn't need any additional setup
+    (setq counsel-locate-cmd #'counsel-locate-cmd-mdfind))
+
+  ;; `swiper'
+  ;; Don't mess with font-locking on the dashboard; it causes breakages
+  (add-to-list 'swiper-font-lock-exclude #'+doom-dashboard-mode)
+
+  ;; `counsel-find-file'
+  (setq counsel-find-file-ignore-regexp "\\(?:^[#.]\\)\\|\\(?:[#~]$\\)\\|\\(?:^Icon?\\)")
+  (ivy-add-actions
+   'counsel-find-file
+   '(("p" (lambda (path) (with-ivy-window (insert (file-relative-name path default-directory))))
+      "insert relative path")
+     ("P" (lambda (path) (with-ivy-window (insert path)))
+      "insert absolute path")
+     ("l" (lambda (path) (with-ivy-window (insert (format "[[./%s]]" (file-relative-name path default-directory)))))
+      "insert relative org-link")
+     ("L" (lambda (path) (with-ivy-window (insert (format "[[%s]]" path))))
+      "Insert absolute org-link")))
+
+  ;; `counsel-search'
+  (setf (nth 1 (alist-get 'ddg counsel-search-engines-alist))
+        "https://duckduckgo.com/?q=")
 
   ;; REVIEW Move this somewhere else and perhaps generalize this so both
   ;;        ivy/helm users can enjoy it.
@@ -231,64 +270,7 @@ evil-ex-specific constructs, so we disable it solely in evil-ex."
              (push (buffer-substring
                     (+ offset (line-beginning-position)) (line-end-position)) files)
              (forward-line 1))
-           (nreverse files))))))
-
-  ;; Integrate with `helpful'
-  (setq counsel-describe-function-function #'helpful-callable
-        counsel-describe-variable-function #'helpful-variable)
-
-  ;; Make `counsel-compile' projectile-aware (if you prefer it over
-  ;; `+ivy/compile' and `+ivy/project-compile')
-  (add-to-list 'counsel-compile-root-functions #'projectile-project-root)
-  (after! savehist
-    ;; Persist `counsel-compile' history
-    (add-to-list 'savehist-additional-variables 'counsel-compile-history))
-
-  ;; Use spotlight on mac for `counsel-locate' by default
-  (when IS-MAC
-    (setq counsel-locate-cmd #'counsel-locate-cmd-mdfind))
-
-  ;; Don't mess with font-locking on the dashboard; it causes breakages
-  (add-to-list 'swiper-font-lock-exclude #'+doom-dashboard-mode)
-
-  ;; Record in jumplist when opening files via counsel-{ag,rg,pt,git-grep}
-  (add-hook 'counsel-grep-post-action-hook #'better-jumper-set-jump)
-
-  ;; Factories
-  (defun +ivy-action-reloading (cmd)
-    (lambda (x)
-      (funcall cmd x)
-      (ivy--reset-state ivy-last)))
-
-  (defun +ivy-action-given-file (cmd prompt)
-    (lambda (source)
-      (let* ((enable-recursive-minibuffers t)
-             (target (read-file-name (format "%s %s to:" prompt source))))
-        (funcall cmd source target 1))))
-
-  ;; Configure `counsel-find-file'
-  (setq counsel-find-file-ignore-regexp "\\(?:^[#.]\\)\\|\\(?:[#~]$\\)\\|\\(?:^Icon?\\)")
-  (ivy-add-actions
-   'counsel-find-file
-   `(("b" counsel-find-file-cd-bookmark-action "cd bookmark")
-     ("s" counsel-find-file-as-root "open as root")
-     ("m" counsel-find-file-mkdir-action "mkdir")
-     ("c" ,(+ivy-action-given-file #'copy-file "Copy file") "copy file")
-     ("d" ,(+ivy-action-reloading #'+ivy-confirm-delete-file) "delete")
-     ("r" (lambda (path) (rename-file path (read-string "New name: "))) "rename")
-     ("R" ,(+ivy-action-reloading (+ivy-action-given-file #'rename-file "Move")) "move")
-     ("f" find-file-other-window "other window")
-     ("F" find-file-other-frame "other frame")
-     ("p" (lambda (path) (with-ivy-window (insert (file-relative-name path default-directory)))) "insert relative path")
-     ("P" (lambda (path) (with-ivy-window (insert path))) "insert absolute path")
-     ("l" (lambda (path) "Insert org-link with relative path"
-            (with-ivy-window (insert (format "[[./%s]]" (file-relative-name path default-directory))))) "insert org-link (rel. path)")
-     ("L" (lambda (path) "Insert org-link with absolute path"
-            (with-ivy-window (insert (format "[[%s]]" path)))) "insert org-link (abs. path)")))
-
-  (ivy-add-actions
-   'counsel-ag ; also applies to `counsel-rg'
-   '(("O" +ivy-git-grep-other-window-action "open in other window"))))
+           (nreverse files)))))))
 
 
 (use-package! counsel-projectile
@@ -332,8 +314,10 @@ evil-ex-specific constructs, so we disable it solely in evil-ex."
   (setf (alist-get t ivy-posframe-display-functions-alist)
         #'+ivy-display-at-frame-center-near-bottom-fn)
 
-  ;; posframe doesn't work well with async sources
-  (dolist (fn '(swiper counsel-ag counsel-grep counsel-git-grep))
+  ;; posframe doesn't work well with async sources (the posframe will
+  ;; occasionally stop responding/redrawing), and causes violent resizing of the
+  ;; posframe.
+  (dolist (fn '(swiper counsel-rg counsel-grep counsel-git-grep))
     (setf (alist-get fn ivy-posframe-display-functions-alist)
           #'ivy-display-function-fallback)))
 

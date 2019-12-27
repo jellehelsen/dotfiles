@@ -69,3 +69,7 @@
   :config
   (set-company-backend! 'go-mode 'company-go)
   (setq company-go-show-annotation t))
+
+(use-package! flycheck-golangci-lint
+  :when (featurep! :tools flycheck)
+  :hook (go-mode . flycheck-golangci-lint-setup))

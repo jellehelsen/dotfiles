@@ -3,6 +3,10 @@
 (after! projectile
   (pushnew! projectile-project-root-files "project.clj" "build.boot" "deps.edn"))
 
+;; Large clojure buffers tend to be slower than large buffers of other modes, so
+;; it should have a lower threshold too.
+(add-to-list 'doom-large-file-size-alist '("\\.\\(?:clj[sc]?\\|dtm\\|edn\\)\\'" . 0.5))
+
 
 ;;
 ;;; Packages
@@ -22,7 +26,7 @@
     (set-eval-handler! '(clojure-mode clojurescript-mode) #'cider-eval-region))
   :config
   (add-hook 'cider-mode-hook #'eldoc-mode)
-  (set-lookup-handlers! 'cider-mode
+  (set-lookup-handlers! '(cider-mode cider-repl-mode)
     :definition #'+clojure-cider-lookup-definition
     :documentation #'cider-doc)
   (set-popup-rules!
@@ -90,9 +94,10 @@
             (:prefix ("h" . "help")
               "n" #'cider-find-ns
               "a" #'cider-apropos
+              "c" #'cider-clojuredocs
               "d" #'cider-doc
-              "g" #'cider-grimoire-web
-              "j" #'cider-javadoc)
+              "j" #'cider-javadoc
+              "w" #'cider-clojuredocs-web)
             (:prefix ("i" . "inspect")
               "e" #'cider-enlighten-mode
               "i" #'cider-inspect

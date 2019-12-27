@@ -1,23 +1,5 @@
 ;;; lang/org/autoload/org.el -*- lexical-binding: t; -*-
 
-;; HACK A necessary hack because org requires a compilation step after being
-;; cloned, and during that compilation a org-version.el is generated with these
-;; two functions, which return the output of a 'git describe ...' call in the
-;; repo's root. Of course, this command won't work in a sparse clone, and more
-;; than that, initiating these compilation step is a hassle, so...
-;;;###autoload (defun +org--release-a () "9.3")
-;;;###autoload (fset 'org-release #'+org--release-a)
-;;;###autoload (fset 'org-git-version #'ignore)
-
-;; Org itself may override the above if it's loaded too early by packages that
-;; depend on it, so we have to advise it once again:
-;;;###autoload (advice-add #'org-release :override #'+org--release-a)
-;;;###autoload (advice-add #'org-git-version :override #'ignore)
-;;;###autoload (add-to-list 'load-path (dir!))
-
-;;;###autoload (provide 'org-version)
-
-
 ;;
 ;;; Helpers
 
@@ -80,14 +62,10 @@
              ('above (save-excursion (org-shiftmetadown))
                      (+org/table-previous-row))))
 
-          ((memq type '(headline inlinetask))
-           (let ((level (if (eq (org-element-type context) 'headline)
-                            (org-element-property :level context)
-                          1)))
+          ((let ((level (or (org-current-level) 1)))
              (pcase direction
                (`below
-                (let ((at-eol (>= (point) (1- (line-end-position))))
-                      org-insert-heading-respect-content)
+                (let (org-insert-heading-respect-content)
                   (goto-char (line-end-position))
                   (org-end-of-subtree)
                   (insert "\n" (make-string level ?*) " ")))
@@ -100,9 +78,7 @@
                (org-todo (cond ((eq todo-type 'done)
                                 (car (+org-get-todo-keywords-for todo-keyword)))
                                (todo-keyword)
-                               ('todo))))))
-
-          ((user-error "Not a valid list, heading or table")))
+                               ('todo)))))))
 
     (when (org-invisible-p)
       (org-show-hidden-entry))
@@ -291,6 +267,24 @@ If on a:
         ((org-at-heading-p)
          (ignore-errors (org-promote)))
         ((call-interactively #'self-insert-command))))
+
+;;;###autoload
+(defun +org/toggle-clock (arg)
+  "Toggles clock on the last clocked item.
+
+Clock out if an active clock is running. Clock in otherwise.
+
+If in an org file, clock in on the item at point. Otherwise clock into the last
+task you clocked into.
+
+See `org-clock-out', `org-clock-in' and `org-clock-in-last' for details on how
+the prefix ARG changes this command's behavior."
+  (interactive "P")
+  (if (org-clocking-p)
+      (if arg
+          (org-clock-cancel)
+        (org-clock-out))
+    (org-clock-in-last arg)))
 
 
 ;;; Folds

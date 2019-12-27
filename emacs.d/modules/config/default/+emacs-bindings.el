@@ -48,6 +48,32 @@
         :desc "Open scratch buffer"         "x"   #'doom/open-scratch-buffer
         :desc "Open project scratch buffer" "X"   #'doom/switch-to-scratch-buffer)
 
+      ;;; <leader> r --- remote
+      (:when (featurep! :tools upload)
+        (:prefix-map ("r" . "remote")
+          :desc "Upload local"               "u" #'ssh-deploy-upload-handler
+          :desc "Upload local (force)"       "U" #'ssh-deploy-upload-handler-forced
+          :desc "Download remote"            "d" #'ssh-deploy-download-handler
+          :desc "Diff local & remote"        "D" #'ssh-deploy-diff-handler
+          :desc "Browse remote files"        "." #'ssh-deploy-browse-remote-handler
+          :desc "Detect remote changes"      ">" #'ssh-deploy-remote-changes-handler))
+
+      ;;; <leader> s --- search
+      (:prefix-map ("s" . "search")
+        :desc "Search buffer"                "b" #'swiper
+        :desc "Search current directory"     "d" #'+default/search-cwd
+        :desc "Search other directory"       "D" #'+default/search-other-cwd
+        :desc "Locate file"                  "f" #'locate
+        :desc "Jump to symbol"               "i" #'imenu
+        :desc "Jump to visible link"         "l" #'ace-link
+        :desc "Jump to link"                 "L" #'ffap-menu
+        :desc "Jump list"                    "j" #'evil-show-jumps
+        :desc "Jump to mark"                 "m" #'evil-show-marks
+        :desc "Search project"               "p" #'+default/search-project
+        :desc "Search other project"         "P" #'+default/search-other-project
+        :desc "Search buffer"                "s" #'swiper-isearch
+        :desc "Search buffer for thing at point" "S" #'swiper-isearch-thing-at-point)
+
       ;;; <leader> g --- lookup
       (:when (featurep! :tools lookup)
         (:prefix-map ("g" . "lookup")
@@ -76,7 +102,9 @@
         :desc "Capture"                 "c"     #'org-capture
         :desc "Goto capture"            "C"     #'org-capture-goto-target
         :desc "Link store"              "l"     #'org-store-link
-        :desc "Sync org caldav"         "S"     #'org-caldav-sync)
+        :desc "Sync org caldav"         "S"     #'org-caldav-sync
+        (:when (featurep! :lang org +pomodoro)
+          :desc "Pomodoro timer"          "t" #'org-pomodoro))
 
       ;;; <leader> p --- project
       (:prefix ("p" . "project")
@@ -121,6 +149,8 @@
       ;;; <leader> v --- versioning
       (:prefix-map ("v" . "versioning")
         :desc "Git revert file"             "R"   #'vc-revert
+        :desc "Kill link to remote"         "y"   #'+vc/browse-at-remote-kill-file-or-region
+        :desc "Kill link to homepage"       "Y"   #'+vc/browse-at-remote-kill-homepage
         (:when (featurep! :ui vc-gutter)
           :desc "Git revert hunk"           "r"   #'git-gutter:revert-hunk
           :desc "Git stage hunk"            "s"   #'git-gutter:stage-hunk
@@ -133,7 +163,7 @@
           :desc "Magit status"              "g"   #'magit-status
           :desc "Magit file delete"         "x"   #'magit-file-delete
           :desc "Magit blame"               "B"   #'magit-blame-addition
-          :desc "Magit clone"               "C"   #'+magit/clone
+          :desc "Magit clone"               "C"   #'magit-clone
           :desc "Magit fetch"               "F"   #'magit-fetch
           :desc "Magit buffer log"          "L"   #'magit-log
           :desc "Git stage file"            "S"   #'magit-stage-file
@@ -145,7 +175,8 @@
             :desc "Find issue"                "i"   #'forge-visit-issue
             :desc "Find pull request"         "p"   #'forge-visit-pullreq)
           (:prefix ("o" . "open in browser")
-            :desc "Browse region or line"     "."   #'+vc/git-browse-region-or-line
+            :desc "Browse file or region"     "."   #'+vc/browse-at-remote-file-or-region
+            :desc "Browse homepage"           "h"   #'+vc/browse-at-remote-homepage
             :desc "Browse remote"             "r"   #'forge-browse-remote
             :desc "Browse commit"             "c"   #'forge-browse-commit
             :desc "Browse an issue"           "i"   #'forge-browse-issue
@@ -162,7 +193,7 @@
             :desc "List notifications"        "n"   #'forge-list-notifications)
           (:prefix ("c" . "create")
             :desc "Initialize repo"           "r"   #'magit-init
-            :desc "Clone repo"                "R"   #'+magit/clone
+            :desc "Clone repo"                "R"   #'magit-clone
             :desc "Commit"                    "c"   #'magit-commit-create
             :desc "Fixup"                     "f"   #'magit-commit-fixup
             :desc "Issue"                     "i"   #'forge-create-issue
@@ -269,12 +300,15 @@
         "M-SPC"     #'objed-activate)
 
       ;;; buffer management
-      "C-x b"       #'persp-switch-to-buffer
-      (:when (featurep! :completion ivy)
-        "C-x 4 b"   #'+ivy/switch-workspace-buffer-other-window)
+      "C-x b"       #'switch-to-buffer
+      "C-x 4 b"     #'switch-to-buffer-other-window
+      (:when (featurep! :ui workspaces)
+        "C-x b"       #'persp-switch-to-buffer
+        "C-x B"       #'switch-to-buffer
+        "C-x 4 B"     #'switch-to-buffer-other-window
+        (:when (featurep! :completion ivy)
+          "C-x 4 b"   #'+ivy/switch-workspace-buffer-other-window))
       "C-x C-b"     #'ibuffer-list-buffers
-      "C-x B"       #'switch-to-buffer
-      "C-x 4 B"     #'switch-to-buffer-other-window
       "C-x K"       #'doom/kill-this-buffer-in-all-windows
 
       ;;; company-mode

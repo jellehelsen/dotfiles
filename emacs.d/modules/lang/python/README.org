@@ -31,7 +31,7 @@ Adds Python support to Doom Emacs.
 ** Plugins
 + [[https://github.com/pythonic-emacs/anaconda-mode][anaconda-mode]]*
 + [[https://github.com/Wilfred/pyimport][pyimport]]*
-+ [[https://github.com/emacs-pe/pyimpsort.el][pyimpsort]]*
++ [[https://github.com/paetzke/py-isort.el][py-isort]]*
 + [[https://melpa.org/#/nose][nose]]*
 + [[https://github.com/wbolster/emacs-python-pytest][python-pytest]]*
 + [[https://github.com/Wilfred/pip-requirements.el][pip-requirements]]*
@@ -67,6 +67,9 @@ This module has no direct prerequisites. Here are some of its soft dependencies.
 + ~pyimport~ requires Python's module ~pyflakes~:
   + ~pip install pyflakes~
 
++ ~py-isort~ requires [[https://github.com/timothycrosley/isort][isort]] to be installed:
+  + ~pip install isort~
+
 + Python virtual environments install instructions at:
   + [[https://github.com/pyenv/pyenv][pyenv]]
   + [[https://conda.io/en/latest/][Conda]]
@@ -89,7 +92,7 @@ Alternatively you can use the [[https://pypi.org/project/python-language-server/
 
 * Features
 This module supports LSP. It requires installation of [[https://pypi.org/project/python-language-server/][Python Language
-Server]] or [[https://github.com/Microsoft/python-language-server][Microsoft Lnaguaje Server]], see [[Language Server Protocol Support][LSP Support]].
+Server]] or [[https://github.com/Microsoft/python-language-server][Microsoft Language Server]], see [[Language Server Protocol Support][LSP Support]].
 
 To enable support for auto-formatting with black enable ~:editor format-all~ in
 ~init.el~ file.
@@ -116,11 +119,11 @@ To enable support for auto-formatting with black enable ~:editor format-all~ in
 | ~<localleader> t m~ | ~python-pytest-function-dwim~    |
 | ~<localleader> t r~ | ~python-pytest-repeat~           |
 | ~<localleader> t p~ | ~python-pytest-popup~            |
-| ~<localleader> f d~ | ~anaconda-mode-find-definitions~ |
-| ~<localleader> f h~ | ~anaconda-mode-show-doc~         |
-| ~<localleader> f a~ | ~anaconda-mode-find-assignments~ |
-| ~<localleader> f f~ | ~anaconda-mode-find-file~        |
-| ~<localleader> f u~ | ~anaconda-mode-find-references~  |
+| ~<localleader> g d~ | ~anaconda-mode-find-definitions~ |
+| ~<localleader> g h~ | ~anaconda-mode-show-doc~         |
+| ~<localleader> g a~ | ~anaconda-mode-find-assignments~ |
+| ~<localleader> g f~ | ~anaconda-mode-find-file~        |
+| ~<localleader> g u~ | ~anaconda-mode-find-references~  |
 
 * Configuration
 This module has the following variables to set extra arguments to [[https://ipython.org/][ipython]] and

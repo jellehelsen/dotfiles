@@ -3,18 +3,13 @@
 (use-package! dired
   :commands dired-jump
   :init
-  (setq ;; Always copy/delete recursively
+  (setq dired-auto-revert-buffer t  ; don't prompt to revert; just do it
+        dired-dwim-target t  ; suggest a target for moving/copying intelligently
+        dired-hide-details-hide-symlink-targets nil
+        ;; Always copy/delete recursively
         dired-recursive-copies  'always
         dired-recursive-deletes 'top
-        ;; Instantly revert Dired buffers on re-visiting them, with no message.
-        ;; (A message is shown if insta-revert is either disabled or determined
-        ;; dynamically by setting this variable to a function.)
-        dired-auto-revert-buffer t
-        ;; Auto refresh dired, but be quiet about it
-        dired-hide-details-hide-symlink-targets nil
-        ;; make dired suggest a target for moving/copying intelligently
-        dired-dwim-target t
-        ;; files
+        ;; Where to store image caches
         image-dired-dir (concat doom-cache-dir "image-dired/")
         image-dired-db-file (concat image-dired-dir "db.el")
         image-dired-gallery-dir (concat image-dired-dir "gallery/")
@@ -161,10 +156,36 @@ we have to clean it up ourselves."
             ("\\.\\(?:mp4\\|mkv\\|avi\\|flv\\|rm\\|rmvb\\|ogv\\)\\(?:\\.part\\)?\\'" ,cmd)
             ("\\.\\(?:mp3\\|flac\\)\\'" ,cmd)
             ("\\.html?\\'" ,cmd)
-            ("\\.md\\'" ,cmd)))))
+            ("\\.md\\'" ,cmd))))
+  (map! :map dired-mode-map
+        :localleader
+        "h" #'dired-omit-mode))
 
 
 (use-package! fd-dired
   :when (executable-find doom-projectile-fd-binary)
   :defer t
-  :init (advice-add #'find-dired :override #'fd-dired))
+  :init
+  (global-set-key [remap find-dired] #'fd-dired)
+  (set-popup-rule! "^\\*F\\(?:d\\|ind\\)\\*$" :ignore t))
+
+
+;;;###package dired-git-info
+(map! :after dired
+      :map (dired-mode-map ranger-mode-map)
+      :ng ")" #'dired-git-info-mode)
+(after! wdired
+  ;; Temporarily disable `dired-git-info-mode' when entering wdired, due to
+  ;; reported incompatibilities.
+  (defvar +dired--git-info-p nil)
+  (defadvice! +dired--disable-git-info-a (&rest _)
+    :before #'wdired-change-to-wdired-mode
+    (setq +dired--git-info-p (bound-and-true-p dired-git-info-mode))
+    (when +dired--git-info-p
+      (dired-git-info-mode -1)))
+  (defadvice! +dired--reactivate-git-info-a (&rest _)
+    :after '(wdired-exit
+             wdired-abort-changes
+             wdired-finish-edit)
+    (when +dired--git-info-p
+      (dired-git-info-mode +1))))

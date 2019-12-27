@@ -3,7 +3,8 @@
 ;; HACK Magit complains loudly when it can't determine its own version, which is
 ;;      the case when magit is built through straight. The warning is harmless,
 ;;      however, so we just need it to shut up.
-;;;###autoload (advice-add #'magit-version :override #'ignore)
+;;;###autoload
+(advice-add #'magit-version :override #'ignore)
 
 ;;;###autoload
 (defun +magit-display-buffer-fn (buffer)
@@ -93,6 +94,14 @@ control in buffers."
               (run-with-timer 5 nil #'+magit--kill-buffer buf)
             (kill-process process)
             (kill-buffer buf)))))))
+
+;;;###autoload
+(defun +magit/start-github-review (arg)
+  (interactive "P")
+  (call-interactively
+    (if (or arg (not (featurep 'forge)))
+        #'github-review-start
+      #'github-review-forge-pr-at-point)))
 
 (defvar +magit-clone-history nil
   "History for `+magit/clone' prompt.")

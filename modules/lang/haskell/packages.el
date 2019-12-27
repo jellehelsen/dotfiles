@@ -3,10 +3,11 @@
 
 (package! haskell-mode)
 
-(cond ((featurep! +dante)
-       (package! dante)
-       (package! attrap))
-      ((featurep! +intero)
-       (package! intero))
-      ((featurep! +lsp)
-       (package! lsp-haskell)))
+(when (featurep! +dante)
+  (package! dante)
+  (package! attrap))
+(when (featurep! +lsp)
+  (package! lsp-haskell))
+;; DEPRECATED
+(when (featurep! +intero)
+  (package! intero))

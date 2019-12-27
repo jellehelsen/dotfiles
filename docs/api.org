@@ -5,11 +5,12 @@ This appendix serves as a reference on how to use Doom Emacs' standard library.
 It is integrated into Helpful, in Doom.
 
 * Table of Contents :TOC_3:
-- [[#examples-for-dooms-core-library][Examples for Doom's core library]]
+- [[#examples-for-dooms-library][Examples for Doom's library]]
   - [[#core-lib][core-lib]]
     - [[#add-hook][add-hook!]]
     - [[#add-transient-hook][add-transient-hook!]]
     - [[#after][after!]]
+    - [[#appendq][appendq!]]
     - [[#custom-set-faces][custom-set-faces!]]
     - [[#custom-theme-set-faces][custom-theme-set-faces!]]
     - [[#defer-feature][defer-feature!]]
@@ -19,10 +20,12 @@ It is integrated into Helpful, in Doom.
     - [[#file-exists-p][file-exists-p!]]
     - [[#lambda][lambda!]]
     - [[#lambda-1][lambda!!]]
+    - [[#letenv][letenv!]]
     - [[#load][load!]]
     - [[#map][map!]]
     - [[#package][package!]]
     - [[#pushnew][pushnew!]]
+    - [[#prependq][prependq!]]
     - [[#quiet][quiet!]]
     - [[#remove-hook][remove-hook!]]
     - [[#setq-hook][setq-hook!]]
@@ -33,7 +36,7 @@ It is integrated into Helpful, in Doom.
   - [[#persist-emacs-initial-frame-position-dimensions-andor-full-screen-state-across-sessions][Persist Emacs' initial frame position, dimensions and/or full-screen state across sessions]]
   - [[#update-cursor-shape-under-terminal-emacs][Update cursor shape under terminal Emacs]]
 
-* Examples for Doom's core library
+* Examples for Doom's library
 ** core-lib
 *** add-hook!
 #+BEGIN_SRC elisp :eval no
@@ -90,6 +93,26 @@ It is integrated into Helpful, in Doom.
 (after! rustic ...)
 (after! python ...)
 #+END_SRC
+*** appendq!
+#+BEGIN_SRC elisp
+(let ((x '(a b c)))
+  (appendq! x '(c d e))
+  x)
+#+END_SRC
+
+#+RESULTS:
+: (a b c c d e)
+
+#+BEGIN_SRC elisp
+(let ((x '(a b c))
+      (y '(c d e))
+      (z '(f g)))
+  (appendq! x y z '(h))
+  x)
+#+END_SRC
+
+#+RESULTS:
+: (a b c c d e f g h)
 
 *** custom-set-faces!
 #+BEGIN_SRC elisp :eval no
@@ -214,8 +237,47 @@ It is integrated into Helpful, in Doom.
 #+RESULTS:
 : /home/hlissner/.emacs.d/LICENSE
 
-*** TODO lambda!
-*** TODO lambda!!
+*** lambda!
+#+BEGIN_SRC elisp :eval no
+(map! "C-j" (lambda! (newline) (indent-according-to-mode)))
+
+;; The `λ!' short-form alias exists. If you have the snippets module enabled and
+;; Doom's default snippets, the 'lam' snippet will expand into 'λ!'. Otherwise,
+;; you can use `lambda!'.
+(map! "C-j" (λ! (newline) (indent-according-to-mode)))
+#+END_SRC
+*** lambda!!
+When ~newline~ is passed a numerical prefix argument (=C-u 5 M-x newline=), it
+inserts N newlines. We can use ~lambda!!~ to easily create a keybinds that bakes
+in the prefix arg into the command call:
+
+#+BEGIN_SRC elisp :eval no
+(map! "C-j" (lambda!! #'newline 5))
+
+;; The `λ!!' short-form alias exists. If you have the snippets module enabled
+;; and Doom's default snippets, a 'lam' snippet is available to expand into
+;; 'λ!'. Otherwise, you can use `lambda!!'.
+(map! "C-j" (λ!! #'newline 5))
+#+END_SRC
+
+Or to create aliases for functions that behave differently:
+
+#+BEGIN_SRC elisp :eval no
+(fset 'insert-5-newlines (lambda!! #'newline 5))
+
+;; The equivalent of C-u M-x org-global-cycle, which resets the org document to
+;; its startup visibility settings.
+(fset 'org-reset-global-visibility (lambda!! #'org-global-cycle '(4))
+#+END_SRC
+*** letenv!
+#+BEGIN_SRC elisp
+(letenv! (("SHELL" "/bin/sh"))
+  (shell-command-to-string "echo $SHELL"))
+#+END_SRC
+
+#+RESULTS:
+: "/bin/sh\n"
+
 *** load!
 #+BEGIN_SRC elisp :eval no
 ;;; Lets say we're in ~/.doom.d/config.el
@@ -269,9 +331,9 @@ These are side-by-side comparisons, showing how to bind keys with and without
 (map! :map lua-mode-map "SPC m b" nil)
 
 ;; bind multiple keys
-(global-set-key "C-x x" #'do-something)
-(global-set-key "C-x y" #'do-something-else)
-(global-set-key "C-x z" #'do-another-thing)
+(global-set-key (kbd "C-x x") #'do-something)
+(global-set-key (kbd "C-x y") #'do-something-else)
+(global-set-key (kbd "C-x z") #'do-another-thing)
 (map! "C-x x" #'do-something
       "C-x y" #'do-something-else
       "C-x z" #'do-another-thing)
@@ -357,7 +419,37 @@ These are side-by-side comparisons, showing how to bind keys with and without
 (package! evil :ignore (not (equal system-name "my-desktop")))
 #+END_SRC
 
-*** TODO pushnew!
+*** pushnew!
+#+BEGIN_SRC elisp
+(let ((list '(a b c)))
+  (pushnew! list 'c 'd 'e)
+  list)
+#+END_SRC
+
+#+RESULTS:
+: (e d a b c)
+
+*** prependq!
+#+BEGIN_SRC elisp
+(let ((x '(a b c)))
+  (prependq! x '(c d e))
+  x)
+#+END_SRC
+
+#+RESULTS:
+: (c d e a b c)
+
+#+BEGIN_SRC elisp
+(let ((x '(a b c))
+      (y '(c d e))
+      (z '(f g)))
+  (prependq! x y z '(h))
+  x)
+#+END_SRC
+
+#+RESULTS:
+: (c d e f g h a b c)
+
 *** quiet!
 #+BEGIN_SRC elisp :eval no
 ;; Enters recentf-mode without extra output

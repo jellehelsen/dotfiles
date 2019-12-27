@@ -1,7 +1,7 @@
 ;;; tools/eval/autoload/eval.el -*- lexical-binding: t; -*-
 
 ;;;###autoload
-(defun +eval-display-results-in-popup (output &optional source-buffer)
+(defun +eval-display-results-in-popup (output &optional _source-buffer)
   "Display OUTPUT in a popup buffer."
   (if (with-temp-buffer
         (insert output)
@@ -18,7 +18,9 @@
               (+word-wrap-mode +1)
             (visual-line-mode +1)))
         (when-let (win (display-buffer output-buffer))
-          (fit-window-to-buffer win))
+          (fit-window-to-buffer
+           win (/ (frame-height) 2)
+           nil (/ (frame-width) 2)))
         (select-window origin)
         output-buffer)
     (message "%s" output)))

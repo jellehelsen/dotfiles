@@ -186,7 +186,8 @@ If ENABLED-ONLY, return nil if the containing module isn't enabled."
                                   (cdr doom--current-module))
                    doom--current-module)
             doom--current-module)
-        (doom-module-from-path (file!)))
+        (ignore-errors
+          (doom-module-from-path (file!))))
     (let* ((file-name-handler-alist nil)
            (path (file-truename (or path (file!)))))
       (save-match-data
@@ -332,13 +333,14 @@ This value is cached. If REFRESH-P, then don't use the cached value."
 (defmacro doom! (&rest modules)
   "Bootstraps DOOM Emacs and its modules.
 
+If the first item in MODULES doesn't satisfy `keywordp', MODULES is evaluated,
+otherwise, MODULES is a multiple-property list (a plist where each key can have
+multiple, linear values).
+
 The bootstrap process involves making sure the essential directories exist, core
 packages are installed, `doom-autoload-file' is loaded, `doom-packages-file'
 cache exists (and is loaded) and, finally, loads your private init.el (which
 should contain your `doom!' block).
-
-If the cache exists, much of this function isn't run, which substantially
-reduces startup time.
 
 The overall load order of Doom is as follows:
 
@@ -358,9 +360,10 @@ The overall load order of Doom is as follows:
 Module load order is determined by your `doom!' block. See `doom-modules-dirs'
 for a list of all recognized module trees. Order defines precedence (from most
 to least)."
-  `(let ((modules ',modules))
-     (unless (keywordp (car modules))
-       (setq modules (eval modules t)))
+  `(let ((modules
+          ,@(if (keywordp (car modules))
+               (list (list 'quote modules))
+             modules)))
      (unless doom-modules
        (setq doom-modules
              (make-hash-table :test 'equal
@@ -587,14 +590,14 @@ This is a wrapper around `eval-after-load' that:
 
 ;; DEPRECATED
 (defmacro def-package! (&rest args)
-  (make-obsolete 'def-package! 'use-package! "2.0.9")
-  (message "`def-package!' is renamed and is now deprecated; use `use-package!' instead")
+  (message "`def-package!' was renamed to `use-package!'; use that instead.")
   `(use-package! ,@args))
+(make-obsolete 'def-package! 'use-package! "2.0.9")
 
 (defmacro def-package-hook! (&rest args)
-  (make-obsolete 'def-package-hook! 'use-package-hook! "2.0.9")
-  (message "`def-package-hook!' is renamed and is now deprecated; use `use-package-hook!' instead")
+  (message "`def-package-hook!' was renamed to `use-package-hook!'; use that instead.")
   `(use-package-hook! ,@args))
+(make-obsolete 'def-package-hook! 'use-package-hook! "2.0.9")
 
 (provide 'core-modules)
 ;;; core-modules.el ends here

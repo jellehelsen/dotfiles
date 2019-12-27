@@ -12,7 +12,8 @@
     (width . 70)
     (height . 25)
     (transient . t)
-    ,(if IS-LINUX '(display . ":0")))
+    ,(if IS-LINUX '(display . ":0"))
+    ,(if IS-MAC '(menu-bar-lines . 1)))
   "TODO")
 
 ;;;###autoload
@@ -41,7 +42,6 @@ you're done. This can be called from an external shell script."
          (frame (if (+org-capture-frame-p)
                     (selected-frame)
                   (make-frame +org-capture-frame-parameters))))
-    (select-frame-set-input-focus frame)  ; fix MacOS not focusing new frames
     (with-selected-frame frame
       (require 'org-capture)
       (condition-case ex
@@ -134,7 +134,7 @@ project."
       (+org--capture-ensure-heading (cdr headings) (1+ initial-level)))))
 
 (defun +org--capture-central-file (file project)
-  (let ((file (expand-file-name +org-capture-projects-file org-directory)))
+  (let ((file (expand-file-name file org-directory)))
     (set-buffer (org-capture-target-buffer file))
     (org-capture-put-target-region-and-position)
     (widen)

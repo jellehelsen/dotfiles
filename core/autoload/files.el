@@ -178,6 +178,7 @@ single file or nested compound statement of `and' and `or' statements."
              file))
     (nth 7 (file-attributes file))))
 
+(defvar w32-get-true-file-attributes)
 ;;;###autoload
 (defun doom-directory-size (dir)
   "Returns the size of FILE (in DIR) in kilobytes."
@@ -340,3 +341,15 @@ file if it exists, without confirmation."
   "Open the current file as root."
   (interactive)
   (find-alternate-file (doom--sudo-file buffer-file-name)))
+
+;;;###autoload
+(defun doom/sudo-save-buffer ()
+  "Save this file as root."
+  (interactive)
+  (let ((origin (current-buffer))
+        (buffer (doom--sudo-file buffer-file-name)))
+    (unwind-protect
+        (with-current-buffer buffer
+          (save-buffer))
+      (unless (eq origin buffer)
+        (kill-buffer buffer)))))

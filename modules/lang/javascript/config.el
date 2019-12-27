@@ -94,7 +94,16 @@
     (if (= n 1) (rjsx-maybe-reparse))))
 
 
-(after! typescript-mode
+(use-package! typescript-mode
+  :defer t
+  :init
+  ;; REVIEW Fix #2252. This is overwritten if the :lang web module is enabled.
+  ;;        We associate TSX files with `web-mode' by default instead because
+  ;;        `typescript-mode' does not officially support JSX/TSX. See
+  ;;        https://github.com/emacs-typescript/typescript.el/issues/4
+  (unless (featurep! :lang web)
+    (add-to-list 'auto-mode-alist '("\\.tsx\\'" . typescript-mode)))
+  :config
   (add-hook 'typescript-mode-hook #'rainbow-delimiters-mode)
   (setq-hook! 'typescript-mode-hook
     comment-line-break-function #'js2-line-break)
@@ -188,7 +197,7 @@ to tide."
         :map tide-mode-map
         "R"   #'tide-restart-server
         "f"   #'tide-format
-        "rrs"  #'tide-rename-symbol
+        "rrs" #'tide-rename-symbol
         "roi" #'tide-organize-imports))
 
 
@@ -206,7 +215,8 @@ to tide."
   (when (featurep! :editor evil +everywhere)
     (let ((js2-refactor-mode-map (evil-get-auxiliary-keymap js2-refactor-mode-map 'normal t t)))
       (js2r-add-keybindings-with-prefix (format "%s r" doom-localleader-key))))
-  (map! :map js2-mode-map
+  (map! :after js2-mode
+        :map js2-mode-map
         :localleader
         (:prefix ("r" . "refactor")
           (:prefix ("a" . "add/arguments"))
@@ -235,6 +245,9 @@ to tide."
 
 ;;;###package skewer-mode
 (map! :localleader
+      (:after js2-mode
+        :map js2-mode-map
+        :prefix ("s" . "skewer"))
       :prefix "s"
       (:after skewer-mode
         :map skewer-mode-map
@@ -252,21 +265,19 @@ to tide."
       (:after skewer-html
         :map skewer-html-mode-map
         "e" #'skewer-html-eval-tag))
-(map! :map js2-mode-map
-      :localleader
-      (:prefix ("s" . "skewer")))
 
 
 ;;;###package npm-mode
 (use-package! npm-mode
   :hook ((js-mode typescript-mode) . npm-mode)
   :config
-  (map! :localleader
-        :map npm-mode-keymap
-        "n" npm-mode-command-keymap)
-  (map! :map js2-mode-map
-        :localleader
-        (:prefix ("n" . "npm"))))
+  (map! (:localleader
+          :map npm-mode-keymap
+          "n" npm-mode-command-keymap)
+        (:after js2-mode
+          :map js2-mode-map
+          :localleader
+          (:prefix ("n" . "npm")))))
 
 
 ;;

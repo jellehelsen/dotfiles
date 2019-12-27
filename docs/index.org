@@ -106,7 +106,7 @@ loaded last, before =:config= modules.
 + [[file:../modules/app/calendar/README.org][calendar]] - TODO
 + [[file:../modules/app/irc/README.org][irc]] - how neckbeards socialize
 + rss =+org= - an RSS client in Emacs
-+ twitter - A twitter client for Emacs
++ [[file:../modules/app/twitter/README.org][twitter]] - A twitter client for Emacs
 + [[file:../modules/app/write/README.org][write]] =+wordnut +langtool= - Transforms emacs into an IDE for writers, and for
   writing fiction, notes, papers and so on.
 
@@ -139,7 +139,7 @@ Modules that affect and augment your ability to manipulate or insert text.
 + god - run Emacs commands without modifier keys
 + [[file:../modules/editor/lispy/README.org][lispy]] - TODO
 + multiple-cursors - TODO
-+ objed - TODO
++ [[file:../modules/editor/objed/README.org][objed]] - TODO
 + [[file:../modules/editor/parinfer/README.org][parinfer]] - TODO
 + rotate-text - TODO
 + [[file:../modules/editor/snippets/README.org][snippets]] - Snippet expansion for lazy typists
@@ -159,13 +159,13 @@ Modules that reconfigure or augment packages or features built into Emacs.
 + wanderlust =+gmail= - TODO
 
 ** :input
-+ chinese - TODO
-+ japanese - TODO
++ [[file:../modules/input/chinese/README.org][chinese]] - TODO
++ [[file:../modules/input/japanese/README.org][japanese]] - TODO
 
 ** :lang
 Modules that bring support for a language or group of languages to Emacs.
 
-+ agda - TODO
++ [[file:../modules/lang/agda/README.org][agda]] - TODO
 + assembly - TODO
 + [[file:../modules/lang/cc/README.org][cc]] =+lsp= - TODO
 + clojure - TODO
@@ -182,22 +182,22 @@ Modules that bring support for a language or group of languages to Emacs.
 + [[file:../modules/lang/faust/README.org][faust]] - TODO
 + [[file:../modules/lang/fsharp/README.org][fsharp]] - TODO
 + [[file:../modules/lang/go/README.org][go]] =+lsp= - TODO
-+ [[file:../modules/lang/haskell/README.org][haskell]] =+intero +dante +lsp= - TODO
++ [[file:../modules/lang/haskell/README.org][haskell]] =+dante +intero +lsp= - TODO
 + hy - TODO
 + [[file:../modules/lang/idris/README.org][idris]] - TODO
 + java =+meghanada +lsp= - TODO
-+ [[file:../modules/lang/javascript/README.org][javascript]] =+lsp= - TODO
++ [[file:../modules/lang/javascript/README.org][javascript]] =+lsp= - JavaScript, TypeScript, and CoffeeScript support
 + julia - TODO
-+ kotlin - TODO
++ kotlin =+lsp+= - TODO
 + [[file:../modules/lang/latex/README.org][latex]] - TODO
 + lean - TODO
-+ ledger - TODO
++ [[file:../modules/lang/ledger/README.org][ledger]] - TODO
 + lua =+moonscript= - TODO
 + [[file:../modules/lang/markdown/README.org][markdown]] =+grip= - TODO
 + [[file:../modules/lang/nim/README.org][nim]] - TODO
 + nix - TODO
 + [[file:../modules/lang/ocaml/README.org][ocaml]] =+lsp= - TODO
-+ [[file:../modules/lang/org/README.org][org]] =+dragndrop +gnuplot +hugo +ipython +pandoc +pomodoro +present= - TODO
++ [[file:../modules/lang/org/README.org][org]] =+brain +dragndrop +gnuplot +hugo +ipython +journal +jupyter +pandoc +pomodoro +present= - TODO
 + [[file:../modules/lang/perl/README.org][perl]] - TODO
 + [[file:../modules/lang/php/README.org][php]] =+lsp= - TODO
 + plantuml - TODO
@@ -235,9 +235,10 @@ Small modules that give Emacs access to external tools & services.
 + [[file:../modules/tools/ein/README.org][ein]] - TODO
 + [[file:../modules/tools/eval/README.org][eval]] =+overlay= - REPL & code evaluation support for a variety of languages
 + flycheck - Live error/warning highlights
-+ flyspell - Spell checking
++ flyspell =+everywhere= - Spell checking
 + gist - TODO
-+ [[file:../modules/tools/lookup/README.org][lookup]] =+docsets= - Universal jump-to & documentation lookup backend
++ [[file:../modules/tools/lookup/README.org][lookup]] =+dictionary +docsets= - Universal jump-to & documentation lookup
+  backend
 + [[file:../modules/tools/lsp/README.org][lsp]] - TODO
 + macos - TODO
 + magit - TODO
@@ -246,10 +247,9 @@ Small modules that give Emacs access to external tools & services.
 + pdf - TODO
 + prodigy - TODO
 + rgb - TODO
-+ terraform - TODO
++ [[file:../modules/tools/terraform/README.org][terraform]]
 + tmux - TODO
 + upload - TODO
-+ [[file:../modules/tools/wakatime/README.org][wakatime]] - TODO
 
 ** :ui
 Aesthetic modules that affect the Emacs interface or user experience.
@@ -260,7 +260,7 @@ Aesthetic modules that affect the Emacs interface or user experience.
 + [[file:../modules/ui/doom-quit/README.org][doom-quit]] - TODO
 + fill-column - TODO
 + [[file:../modules/ui/hl-todo/README.org][hl-todo]] - TODO
-+ hydra - TODO
++ [[file:../modules/ui/hydra/README.org][hydra]] - TODO
 + indent-guides - TODO
 + [[file:../modules/ui/modeline/README.org][modeline]] - TODO
 + [[file:../modules/ui/nav-flash/README.org][nav-flash]] - TODO
@@ -275,3 +275,4 @@ Aesthetic modules that affect the Emacs interface or user experience.
 + vi-tilde-fringe - TODO
 + [[file:../modules/ui/window-select/README.org][window-select]] =+switch-window +numbers= - TODO
 + [[file:../modules/ui/workspaces/README.org][workspaces]] - Isolated workspaces
++ [[file:../modules/ui/zen/README.org][zen]] - Distraction-free coding (or writing)

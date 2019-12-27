@@ -2,8 +2,9 @@
 ;;; core/packages.el
 
 ;; core.el
-(package! dotenv-mode)
 (package! auto-minor-mode)
+(package! async)
+(package! gcmh)
 
 ;; core-ui.el
 (package! all-the-icons)

@@ -111,7 +111,7 @@ path too.")
           (?B . warning)
           (?C . success))
         org-startup-indented t
-        org-tags-column -80
+        org-tags-column 0
         org-use-sub-superscripts '{})
 
   (setq org-refile-targets
@@ -140,9 +140,10 @@ background (and foreground) match the current theme."
   ;; HACK Face specs fed directly to `org-todo-keyword-faces' don't respect
   ;;      underlying faces like the `org-todo' face does, so we define our own
   ;;      intermediary faces that extend from org-todo.
-  (custom-declare-face '+org-todo-active '((t (:inherit (bold font-lock-constant-face org-todo)))) "")
-  (custom-declare-face '+org-todo-project '((t (:inherit (bold font-lock-doc-face org-todo)))) "")
-  (custom-declare-face '+org-todo-onhold '((t (:inherit (bold warning org-todo)))) "")
+  (with-no-warnings
+    (custom-declare-face '+org-todo-active '((t (:inherit (bold font-lock-constant-face org-todo)))) "")
+    (custom-declare-face '+org-todo-project '((t (:inherit (bold font-lock-doc-face org-todo)))) "")
+    (custom-declare-face '+org-todo-onhold '((t (:inherit (bold warning org-todo)))) ""))
   (setq org-todo-keywords
         '((sequence
            "TODO(t)"  ; A task that needs doing & is ready to do
@@ -187,9 +188,10 @@ background (and foreground) match the current theme."
         ;; You don't need my permission (just be careful, mkay?)
         org-confirm-babel-evaluate nil
         org-link-elisp-confirm-function nil
-        org-link-shell-confirm-function t   ; except you, too dangerous
         ;; Show src buffer in popup, and don't monopolize the frame
-        org-src-window-setup 'other-window)
+        org-src-window-setup 'other-window
+        ;; Our :lang common-lisp module uses sly, so...
+        org-babel-lisp-eval-fn #'sly-eval)
 
   ;; I prefer C-c C-c over C-c ' (more consistent)
   (define-key org-src-mode-map (kbd "C-c C-c") #'org-edit-src-exit)
@@ -207,29 +209,22 @@ background (and foreground) match the current theme."
 
   ;; Fix 'require(...).print is not a function' error from `ob-js' when
   ;; executing JS src blocks
-  (setq org-babel-js-function-wrapper "console.log(require('util').inspect(function(){\n%s\n}()));")
-
-  ;; Fix #2010: ob-async needs to initialize Doom Emacs at least minimally for
-  ;; its async babel sessions to run correctly. This cannot be a named function
-  ;; because it is interpolated directly into a closure to be evaluated on the
-  ;; async session.
-  (defadvice! +org-init-doom-during-async-executation-a (orig-fn &rest args)
-    :around #'ob-async-org-babel-execute-src-block
-    (let ((ob-async-pre-execute-src-block-hook
-           ;; Ensure our hook is always first
-           (cons `(lambda () (load ,(concat doom-emacs-dir "init.el")))
-                 ob-async-pre-execute-src-block-hook)))
-      (apply orig-fn args))))
+  (setq org-babel-js-function-wrapper "console.log(require('util').inspect(function(){\n%s\n}()));"))
 
 
 (defun +org-init-babel-lazy-loader-h ()
   "Load babel libraries lazily when babel blocks are executed."
+  (defun +org--babel-lazy-load (lang)
+    (cl-check-type lang symbol)
+    (or (run-hook-with-args-until-success '+org-babel-load-functions lang)
+        (require (intern (format "ob-%s" lang)) nil t)
+        (require lang nil t)))
+
   (defadvice! +org--src-lazy-load-library-a (lang)
     "Lazy load a babel package to ensure syntax highlighting."
     :before #'org-src--get-lang-mode
     (or (cdr (assoc lang org-src-lang-modes))
-        (fboundp (intern-soft (format "%s-mode" lang)))
-        (require (intern-soft (format "ob-%s" lang)) nil t)))
+        (+org--babel-lazy-load lang)))
 
   (defadvice! +org--babel-lazy-load-library-a (info)
     "Load babel libraries lazily when babel blocks are executed."
@@ -241,14 +236,25 @@ background (and foreground) match the current theme."
                      lang)))
       (when (and lang
                  (not (cdr (assq lang org-babel-load-languages)))
-                 (or (run-hook-with-args-until-success '+org-babel-load-functions lang)
-                     (require (intern (format "ob-%s" lang)) nil t)))
+                 (+org--babel-lazy-load lang))
         (when (assq :async (nth 2 info))
           ;; ob-async has its own agenda for lazy loading packages (in the
           ;; child process), so we only need to make sure it's loaded.
           (require 'ob-async nil t))
         (add-to-list 'org-babel-load-languages (cons lang t)))
-      t)))
+      t))
+
+  (defadvice! +org--noop-org-babel-do-load-languages-a (&rest _)
+    :override #'org-babel-do-load-languages
+    (message
+     (concat "`org-babel-do-load-languages' is redundant with Doom's lazy loading mechanism for babel "
+             "packages. There is no need to use it, so it has been disabled")))
+
+  (when (featurep! :lang scala)
+    (add-hook! '+org-babel-load-functions
+      (defun +org-babel-load-ammonite-h (lang)
+        (and (eq lang 'amm)
+             (require 'ob-ammonite nil t))))))
 
 
 (defun +org-init-capture-defaults-h ()
@@ -386,11 +392,7 @@ Some commands of interest:
                  'error)))
 
   (after! projectile
-    (add-to-list 'projectile-globally-ignored-directories org-attach-id-dir))
-
-  (after! recentf
-    (add-to-list 'recentf-exclude
-                 (lambda (file) (file-in-directory-p file org-attach-id-dir)))))
+    (add-to-list 'projectile-globally-ignored-directories org-attach-id-dir)))
 
 
 (defun +org-init-centralized-exports-h ()
@@ -534,17 +536,16 @@ conditions where a window's buffer hasn't changed at the time this hook is run."
     "Remove link syntax and fix variable height text (e.g. org headings) in the
 eldoc string."
     :around #'org-format-outline-path
-    (let ((result (funcall orig-fn path width prefix separator))
-          (separator (or separator "/")))
-      (string-join
-       (cl-loop for part
-                in (cdr (split-string (substring-no-properties result) separator))
-                for n from 0
-                for face = (nth (% n org-n-level-faces) org-level-faces)
-                collect
-                (org-add-props (replace-regexp-in-string org-link-any-re "\\4" part)
-                    nil 'face `(:foreground ,(face-foreground face nil t) :weight bold)))
-       separator)))
+    (funcall orig-fn
+             (cl-loop for part in path
+                      ;; Remove full link syntax
+                      for part = (replace-regexp-in-string org-link-any-re "\\4" part)
+                      for n from 0
+                      for face = (nth (% n org-n-level-faces) org-level-faces)
+                      collect
+                      (org-add-props part
+                          nil 'face `(:foreground ,(face-foreground face nil t) :weight bold)))
+             width prefix separator))
 
   (defun +org--restart-mode-h ()
     "Restart `org-mode', but only once."
@@ -558,10 +559,11 @@ eldoc string."
       "Prevent temporarily-opened agenda buffers from being associated with the
 current workspace (and clean them up)."
       (when (and org-agenda-new-buffers (bound-and-true-p persp-mode))
-        (let (persp-autokill-buffer-on-remove)
-          (persp-remove-buffer org-agenda-new-buffers
-                               (get-current-persp)
-                               nil))
+        (unless org-agenda-sticky
+          (let (persp-autokill-buffer-on-remove)
+            (persp-remove-buffer org-agenda-new-buffers
+                                 (get-current-persp)
+                                 nil)))
         (dolist (buffer org-agenda-new-buffers)
           (with-current-buffer buffer
             ;; HACK Org agenda opens temporary agenda incomplete org-mode
@@ -640,8 +642,6 @@ between the two."
         "h" #'org-toggle-heading
         "i" #'org-toggle-item
         "I" #'org-toggle-inline-images
-        "l" #'org-insert-link
-        "L" #'+org/remove-link
         "n" #'org-store-link
         "o" #'org-set-property
         "p" #'org-priority
@@ -680,24 +680,35 @@ between the two."
           (:when (featurep! :completion ivy)
             "g" #'counsel-org-goto
             "G" #'counsel-org-goto-all)
+          (:when (featurep! :completion helm)
+            "g" #'helm-org-in-buffer-headings
+            "G" #'helm-org-agenda-files-headings)
           "c" #'org-clock-goto
           "C" (λ! (org-clock-goto 'select))
           "i" #'org-id-goto
           "r" #'org-refile-goto-last-stored
+          "v" #'+org/goto-visible
           "x" #'org-capture-goto-last-stored)
+        (:prefix ("l" . "links")
+          "c" #'org-cliplink
+          "l" #'org-insert-link
+          "L" #'org-insert-all-links
+          "s" #'org-store-link
+          "S" #'org-insert-last-stored-link
+          "i" #'org-id-store-link
+          "d" #'+org/remove-link)
         (:prefix ("r" . "refile")
           "." #'+org/refile-to-current-file
           "c" #'+org/refile-to-running-clock
           "l" #'+org/refile-to-last-location
           "o" #'+org/refile-to-other-window
           "O" #'+org/refile-to-other-buffers
+          "v" #'+org/refile-to-visible
           "r" #'org-refile)) ; to all `org-refile-targets'
 
   (map! :after org-agenda
         :map org-agenda-mode-map
-        ;; Always clean up after itself
-        [remap org-agenda-quit] #'org-agenda-exit
-        [remap org-agenda-Quit] #'org-agenda-exit
+        :m "C-SPC" #'org-agenda-show-and-scroll-up
         :localleader
         "d" #'org-agenda-deadline
         (:prefix ("c" . "clock")
@@ -984,8 +995,11 @@ compelling reason, so..."
              #'+org-init-smartparens-h)
 
   ;;; Custom org modules
+  (if (featurep! +brain)     (load! "contrib/brain"))
   (if (featurep! +dragndrop) (load! "contrib/dragndrop"))
   (if (featurep! +ipython)   (load! "contrib/ipython"))
+  (if (featurep! +journal)   (load! "contrib/journal"))
+  (if (featurep! +jupyter)   (load! "contrib/jupyter"))
   (if (featurep! +pomodoro)  (load! "contrib/pomodoro"))
   (if (featurep! +present)   (load! "contrib/present"))
 

@@ -32,6 +32,7 @@
   - [[#how-do-i-change-the-leaderlocalleader-keys][How do I change the leader/localleader keys?]]
   - [[#how-do-i-change-the-style-of-line-numbers-or-disable-them-altogether][How do I change the style of line-numbers (or disable them altogether)?]]
   - [[#how-do-i-change-the-behavior-and-appearance-of-popup-windows][How do I change the behavior and appearance of popup windows?]]
+  - [[#how-do-i-change-the-appearance-a-face-or-faces][How do I change the appearance a face (or faces)?]]
   - [[#can-doom-be-customized-without-restarting-emacs][Can Doom be customized without restarting Emacs?]]
   - [[#can-vimevil-be-removed-for-a-more-vanilla-emacs-experience][Can Vim/Evil be removed for a more vanilla Emacs experience?]]
   - [[#should-i-use-make-or-bindoom][Should I use ~make~ or ~bin/doom~?]]
@@ -55,6 +56,10 @@
   - [[#changes-to-my-config-arent-taking-effect][Changes to my config aren't taking effect]]
   - [[#the-frame-goes-black-on-macos-while-in-full-screen-mode][The frame goes black on MacOS, while in full-screen mode]]
   - [[#doom-crashes-when][Doom crashes when...]]
+  - [[#cant-load-my-theme-unable-to-find-theme-file-for-x-errors][Can't load my theme; ~unable to find theme file for X~ errors]]
+  - [[#tramp-connections-hang-forever-when-connecting][TRAMP connections hang forever when connecting]]
+  - [[#an-upstream-package-was-broken-and-i-cant-update-it][An upstream package was broken and I can't update it]]
+  - [[#why-do-i-see-ugly-indentation-highlights-for-tabs][Why do I see ugly indentation highlights for tabs?]]
 - [[#contributing][Contributing]]
 
 * General
@@ -68,7 +73,7 @@ config for it, you're doomed from the get go.
 ** Does Doom work on Windows?
 Windows support is weak and will generally lag behind Linux/MacOS support, so
 your mileage will vary. However, many have reported success installing Doom
-Emacs on Windows (using WSL, WSL2 or scope/chocolatey). You'll find install
+Emacs on Windows (using WSL, WSL2 or scoop/chocolatey). You'll find install
 instructions for Windows in the [[file:getting_started.org::On Windows][Getting Starting guide]].
 
 If you're a Windows user, help us improve our documentation on Windows support!
@@ -115,12 +120,12 @@ To paraphrase (and expand upon) a [[https://www.reddit.com/r/emacs/comments/6pa0
   you into Doom.
 + *Doom manages its packages outside of Emacs.* Spacemacs installs (and checks
   for packages) on startup or on demand. Doom leaves package management to be
-  done externally, through the ~bin/doom~ script. This allows package management
-  can be scripted on the command line and enables a number of startup
+  done externally, through the ~bin/doom~ script. This allows for package
+  management to be scripted on the command line and enables a number of startup
   optimizations we wouldn't have otherwise.
 
 ** Why such a complicated package management system?
-Doom had ++four++ *five* goals for its package management system:
+Doom had +four+ *five* goals for its package management system:
 
 1. *Scriptability:* package management should be shell-scriptable, so updating
    can be automated.
@@ -467,7 +472,7 @@ to as your ~$DOOMDIR~.
 
 Your private config is typically comprised of an =init.el=, =config.el= and
 =packages.el= file. Put all your config in =config.el=, install packages by
-adding ~package!~ declarations to =packagse.el=, and enable/disable modules in
+adding ~package!~ declarations to =packages.el=, and enable/disable modules in
 you ~doom!~ block, which should have been created in your =init.el= when you
 first ran ~doom install~.
 
@@ -539,7 +544,7 @@ section of the [[file:getting_started.org][Getting Started]] guide.
 With the ~package!~ macro's ~:disable~ property:
 
 #+BEGIN_SRC elisp
-;;; in DOOMDIR/packages.el
+;;; add to DOOMDIR/packages.el
 (package! irony :disable t)
 #+END_SRC
 
@@ -584,36 +589,39 @@ explanation and examples.
 
 ** How do I change the theme?
 There are two ways to load a theme. Both assume the theme is installed and
-available. They are:
+available. You can either set ~doom-theme~ or manually load a theme with the
+~load-theme~ function.
 
 #+BEGIN_SRC emacs-lisp
-;;; in ~/.doom.d/config.el
+;;; add to ~/.doom.d/config.el
 (setq doom-theme 'doom-tomorrow-night)
 ;; or
 (load-theme 'doom-tomorrow-night t)
 #+END_SRC
 
+#+begin_quote
 At the moment, the only difference between the two is that ~doom-theme~ is
 loaded when Emacs has finished initializing at startup and ~load-theme~ loads
 the theme immediately. Which you choose depends on your needs, but I recommend
 setting ~doom-theme~ because, if I later discover a better way to load themes, I
 can easily change how Doom uses ~doom-theme~, but I can't (easily) control how
 you use the ~load-theme~ function.
+#+end_quote
 
 *** Installing a third party theme
 To install a theme from a third party plugin, say, [[https://github.com/bbatsov/solarized-emacs][solarized]], you need only
 install it, then load it:
 
 #+BEGIN_SRC emacs-lisp
-;; in ~/.doom.d/packages.el
+;;; add to ~/.doom.d/packages.el
 (package! solarized)
 
-;; in ~/.doom.d/config.el
+;;; add to ~/.doom.d/config.el
 (setq doom-theme 'solarized-dark)
 #+END_SRC
 
-Don't forget to run ~doom refresh~ afterwards to ensure the package is
-installed.
+Don't forget to run ~doom refresh~ after adding that ~package!~ statement to
+ensure the package is installed.
 
 ** How do I change the fonts?
 Doom exposes five (optional) variables for controlling fonts in Doom, they are:
@@ -629,7 +637,7 @@ or [[https://wiki.archlinux.org/index.php/X_Logical_Font_Description][xlfd font 
 
 e.g.
 #+BEGIN_SRC emacs-lisp
-;; ~/.doom.d/config.el
+;;; Add to ~/.doom.d/config.el
 (setq doom-font (font-spec :family "Input Mono Narrow" :size 12 :weight 'semi-light)
       doom-variable-pitch-font (font-spec :family "Fira Sans") ; inherits `doom-font''s :size
       doom-unicode-font (font-spec :family "Input Mono Narrow" :size 12)
@@ -697,7 +705,7 @@ These variables control what key to use for leader and localleader keys:
 
 e.g.
 #+BEGIN_SRC emacs-lisp
-;; in ~/.doom.d/config.el
+;;; add to ~/.doom.d/config.el
 (setq doom-leader-key ","
       doom-localleader-key "\\")
 #+END_SRC
@@ -705,13 +713,9 @@ e.g.
 ** How do I change the style of line-numbers (or disable them altogether)?
 Doom uses the ~display-line-numbers~ package, which is built into Emacs 26+.
 
-#+begin_quote
-This package has been backported for Emacs 25 users, but is powered by =nlinum=
-there (which will be removed when we drop 25 support).
-#+end_quote
-
 *** Disabling line numbers entirely
 #+BEGIN_SRC elisp
+;;; add to ~/.doom.d/config.el
 (setq display-line-numbers-type nil)
 ;; or
 (remove-hook! '(prog-mode-hook text-mode-hook conf-mode-hook)
@@ -720,16 +724,25 @@ there (which will be removed when we drop 25 support).
 
 *** Switching to relative line numbers (permanently)
 To change the style of line numbers, change the value of the
-~display-line-numbers-type~ variable. It accepts =t= (normal line numbers),
-='relative= (relative line numbers), ='visual= (relative line numbers in screen
-space) and =nil= (no line numbers).
+~display-line-numbers-type~ variable. It accepts the following values:
 
-You'll find more precise documentation on the variable through =SPC h v
-display-line-numbers-type= or =C-h v display-line-numbers-type=.
+#+begin_example
+t            normal line numbers
+'relative    relative line numbers
+'visual      relative line numbers in screen space
+nil          no line numbers
+#+end_example
 
-#+begin_quote
-The ~'visual~ option is unavailable in Emacs 25.
-#+end_quote
+For example:
+
+#+BEGIN_SRC elisp
+;;; add to ~/.doom.d/config.el
+(setq display-line-numbers-type 'relative)
+#+END_SRC
+
+You'll find more precise documentation on the variable through =<help> v
+display-line-numbers-type= (=<help>= is =SPC h= for evil users, =C-h=
+otherwise).
 
 *** Switching the style of line numbers (temporarily)
 Use ~M-x doom/toggle-line-numbers~ (bound to =SPC t l= by default) to cycle
@@ -747,6 +760,18 @@ rules.
 
 You'll find more comprehensive documentation on ~set-popup-rule!~ in its
 docstring (available through =SPC h f= -- or =C-h f= for non-evil users).
+** How do I change the appearance a face (or faces)?
+Doom provides the ~custom-set-faces!~ and ~custom-theme-set-faces!~ macros as a
+convenience.
+
+#+begin_quote
+*Do not use ~M-x customize~ or any of the built-in Emacs customize-* API.* Doom
+does not support it and never will; those settings could break at any time.
+#+end_quote
+
+See =<help> f custom-set-faces\!= (or =M-x helpful-function custom-set-faces\!=)
+for documentation and examples on how to use it. =<help>= is =SPC h= for evil
+users and =C-h= for non-evil users.
 
 ** Can Doom be customized without restarting Emacs?
 Short answer: You can, but you shouldn't.
@@ -757,17 +782,15 @@ tools for experienced Emacs users to skirt around it (most of the time):
 - Evaluate your changes on-the-fly with ~+eval/region~ (bound to the =gr=
   operator for evil users) or ~eval-last-sexp~ (bound to =C-x C-e=). Changes
   take effect immediately.
-- On-the-fly evaluation won't work for all changes. For instance, changing your
-  ~doom!~ block (i.e. the list of modules for Doom to enable) will always
-  require a restart (and ~bin/doom refresh~).
+- On-the-fly evaluation won't work for all changes. e.g. Changing your ~doom!~
+  block (i.e. the list of modules for Doom to enable).
 
-  Doom provides ~M-x doom/reload~ for your convenience, which will run ~doom
-  refresh~, restart the Doom initialization process, and re-evaluate your
-  personal config, but this won't clear pre-existing state. That may or may not
-  be a problem, this hasn't be thoroughly tested and Doom cannot anticipate
-  complications arising from your private config.
-
-  If you intend to use ~doom/reload~, you must design your config to be
+  But rather than running ~doom refresh~ and restarting Emacs, Doom provides
+  ~M-x doom/reload~ for your convenience (bound to =SPC h r r= and =C-h r r=).
+  This runs ~doom refresh~, restarts the Doom initialization process and
+  re-evaluates your personal config. However, this won't clear pre-existing
+  state; Doom won't unload modules/packages that have already been loaded and it
+  can't anticipate complications arising from a private config that isn't
   idempotent.
 - Many ~bin/doom~ commands are available as elisp commands with the ~doom//*~
   prefix. e.g. ~doom//refresh~, ~doom//update~, etc. Feel free to use them, but
@@ -898,10 +921,10 @@ putting in the time to learn them.
 Otherwise, it is trivial to install expand-region and binds keys to it yourself:
 
 #+BEGIN_SRC elisp
-;; in ~/.doom.d/packages.el
+;;; add to ~/.doom.d/packages.el
 (package! expand-region)
 
-;; in ~/.doom.d/config.el
+;;; add to ~/.doom.d/config.el
 (map! :nv "C-=" #'er/contract-region
       :nv "C-+" #'er/expand-region)
 #+END_SRC
@@ -927,10 +950,10 @@ That said, if you still want ~exec-path-from-shell~, it is trivial to install
 yourself:
 
 #+BEGIN_SRC emacs-lisp
-;; in ~/.doom.d/packages.el
+;;; add to ~/.doom.d/packages.el
 (package! exec-path-from-shell)
 
-;; in ~/.doom.d/config.el
+;;; add to ~/.doom.d/config.el
 (require 'exec-path-from-shell)
 (when (display-graphic-p)
   (exec-path-from-shell-initialize))
@@ -1068,7 +1091,6 @@ known fix for this. To work around it, you must either:
    support it),
 
 3. Install Emacs via the =emacs-mac= homebrew formula.
-
 ** Doom crashes when...
 Here are a few common causes for random crashes:
 
@@ -1090,5 +1112,74 @@ Here are a few common causes for random crashes:
   #+END_SRC
 
   Or disable the =:ui doom-dashboard= & =:tools magit= modules (see [[https://github.com/hlissner/doom-emacs/issues/1170][#1170]]).
+
+** Can't load my theme; ~unable to find theme file for X~ errors
+This means Emacs can't find the X-theme.el file for the theme you want to load.
+Emacs will search for this file in ~custom-theme-load-path~ and
+~custom-theme-directory~. There are a couple reasons why it can't be found:
+
+1. It is generally expected that third party themes will [[https://github.com/hlissner/emacs-doom-themes/blob/master/doom-themes.el#L400-L405][add themselves]] to
+   ~custom-theme-load-path~, but you will occasionally encounter a theme that
+   does not. This should be reported upstream.
+
+   In the meantime, you can get around this by eagerly loading the package:
+
+   #+BEGIN_SRC elisp
+   (require 'third-party-theme)
+   (setq doom-theme 'third-party)
+   #+END_SRC
+2. You've appended ~-theme~ to the end of your theme's name.
+
+   #+BEGIN_SRC elisp
+   (setq doom-theme 'third-party-theme)
+   #+END_SRC
+
+   When you load a theme Emacs searches for ~X-theme.el~. If you set
+   ~doom-theme~ to ~'third-party-theme~, it will search for
+   ~third-party-theme-theme.el~. This is rarely intentional. Omit the ~-theme~
+   suffix.
+3. Did you run ~doom refresh~ after adding your third party theme plugin's
+   ~package!~ declaration to =~/.doom.d/packages.el=?
+** TRAMP connections hang forever when connecting
+You'll find solutions [[https://www.emacswiki.org/emacs/TrampMode#toc7][on the emacswiki]].
+** An upstream package was broken and I can't update it
+Sometimes, if you've installed a [[https://github.com/hlissner/doom-emacs/issues/2213][broken package]] which was subsequently fixed
+upstream, you can't run ~doom update~ to get the latest fixes due to evaluation
+errors.
+
+In those cases, you need to delete the broken local copy before you can install
+the new one, which is achieved thus:
+
+1. Comment out the broken module/package.
+2. Run ~doom refresh -p~.
+3. Uncomment the module/package.
+4. Run ~doom refresh~.
+
+** Why do I see ugly indentation highlights for tabs?
+[[https://github.com/hlissner/doom-emacs/blob/develop/core/core-ui.el#L132-L150][Doom highlights non-standard indentation]]. i.e. Indentation that doesn't match
+the indent style you've set for that file. Doom uses space indentation for most
+languages by default (excluding languages where tabs are the norm, like Go).
+
+There are a couple ways to address this:
+
+1. Change ~indent-tabs-mode~ (nil = spaces, t = tabs).
+
+   #+BEGIN_SRC elisp
+   ;; use tab indentation everywhere
+   (setq-default indent-tabs-mode t)
+
+   ;; or only in certain modes
+   (setq-hook! 'sh-mode-hook indent-tabs-mode t) ; shell scripts
+   (setq-hook! '(c-mode-hook c++-mode-hook) indent-tabs-mode t)  ; C/C++
+   #+END_SRC
+
+2. Use [[https://editorconfig.org/][editorconfig]] to configure code style on a per-project basis. If you
+   enable Doom's =:tools editorconfig= module, Doom will recognize
+   =.editorconfigrc= files.
+
+3. Or trust in dtrt-indent; a plugin Doom uses to analyze and detect
+   indentation when you open a file (that isn't in a project with an
+   editorconfig file). This isn't foolproof, and won't work for files that have
+   no content in them, but it can help in one-off scenarios.
 
 * TODO Contributing

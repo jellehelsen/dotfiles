@@ -93,6 +93,7 @@ Accepts the same arguments as `message'."
 ARGS is a list of the last N arguments to pass to FUN. The result is a new
 function which does the same as FUN, except that the last N arguments are fixed
 at the values with which this function was called."
+  (declare (pure t) (side-effect-free t))
   (lambda (&rest pre-args)
     (apply fn (append pre-args args))))
 
@@ -101,14 +102,18 @@ at the values with which this function was called."
 ;;; Sugars
 
 (defmacro λ! (&rest body)
-  "Expands to (lambda () (interactive) ,@body)."
-  (declare (doc-string 1))
+  "Expands to (lambda () (interactive) ,@body).
+A factory for quickly producing interaction commands, particularly for keybinds
+or aliases."
+  (declare (doc-string 1) (pure t) (side-effect-free t))
   `(lambda () (interactive) ,@body))
 (defalias 'lambda! 'λ!)
 
 (defun λ!! (command &optional arg)
-  "Expands to a command that interactively calls COMMAND with prefix ARG."
-  (declare (doc-string 1))
+  "Expands to a command that interactively calls COMMAND with prefix ARG.
+A factory for quickly producing interactive, prefixed commands for keybinds or
+aliases."
+  (declare (doc-string 1) (pure t) (side-effect-free t))
   (lambda () (interactive)
      (let ((current-prefix-arg arg))
        (call-interactively command))))
@@ -163,6 +168,13 @@ If FETCHER is a function, ELT is used as the key in LIST (an alist)."
                     `(funcall ,fetcher ,elt ,list)
                   elt)
                ,list)))
+
+(defmacro letenv! (envvars &rest body)
+  "Lexically bind ENVVARS in BODY, like `let' but for `process-environment'."
+  `(let ((process-environment (copy-sequence process-environment)))
+     (dolist (var ',envvars)
+       (setenv (car var) (cadr var)))
+     ,@body))
 
 (defmacro add-load-path! (&rest dirs)
   "Add DIRS to `load-path', relative to the current file.
@@ -408,10 +420,9 @@ DOCSTRING and BODY are as in `defun'.
             where-alist))
     `(progn
        (defun ,symbol ,arglist ,docstring ,@body)
-       ,(when where-alist
-          `(dolist (targets (list ,@(nreverse where-alist)))
-             (dolist (target (cdr targets))
-               (advice-add target (car targets) #',symbol)))))))
+       (dolist (targets (list ,@(nreverse where-alist)))
+         (dolist (target (cdr targets))
+           (advice-add target (car targets) #',symbol))))))
 
 (provide 'core-lib)
 ;;; core-lib.el ends here

@@ -50,6 +50,7 @@
 (setq org-directory "~/Dropbox/Notes")
 (require 'ox-md)
 (require 'ox-hugo)
+(require 'ox-asciidoc)
 ;(org-babel-do-load-languages
 ;    'org-babel-load-languages
 ;    '((emacs-lisp . t)
@@ -62,7 +63,7 @@
 #+END_SRC
 
 #+RESULTS: Testing
-: ox-hugo
+: ox-asciidoc
 
 #+BEGIN_SRC emacs-lisp
 (setq base-ref ".")
@@ -290,3 +291,11 @@
 #+BEGIN_SRC emacs-lisp
 (advice-add 'python-mode :before 'elpy-enable)
 #+END_SRC
+* Stuff I'm testing
+#+BEGIN_SRC emacs-lisp
+(use-package! ox-moderncv
+  :init (require 'ox-moderncv))
+#+END_SRC
+
+#+RESULTS:
+: ox-moderncv

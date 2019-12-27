@@ -6,3 +6,9 @@ Host dawndove
   HostName 10.101.8.19
   User core
   ProxyCommand ssh -W %h:%p -q nvt@192.168.186.10
+
+Host inmanta
+  HostName localhost
+  Port 2200
+  User centos
+  ProxyCommand ssh -W %h:%p -q jelle@chat.hcode.be

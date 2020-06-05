@@ -2,12 +2,20 @@
 ;;;###if (featurep! +lsp)
 
 (use-package! lsp-java
-  :after-call java-mode
-  :init
+  :after lsp-clients
+  :preface
+  (setq lsp-java-workspace-dir (concat doom-etc-dir "java-workspace"))
   (add-hook 'java-mode-local-vars-hook #'lsp!)
-  (setq lsp-java-server-install-dir (concat doom-etc-dir "eclipse.jdt.ls/server/")
-        lsp-java-workspace-dir (concat doom-etc-dir "java-workspace"))
+  (map! :when (featurep! :tools debugger +lsp)
+        :after cc-mode ; where `java-mode' is defined
+        :map java-mode-map
+        :localleader
+        (:prefix ("t" . "Test")
+         :desc "Run test class or method"   "t" #'+java/run-test
+         :desc "Run all tests in class"     "a" #'dap-java-run-test-class
+         :desc "Debug test class or method" "d" #'+java/debug-test
+         :desc "Debug all tests in class"   "D" #'dap-java-debug-test-class))
   :config
-  ;; TODO keybinds
-  ;; TODO treemacs integration (?)
-  )
+  (when (featurep! :tools debugger +lsp)
+    (setq lsp-jt-root (concat lsp-java-server-install-dir "java-test/server/")
+          dap-java-test-runner (concat lsp-java-server-install-dir "test-runner/junit-platform-console-standalone.jar"))))

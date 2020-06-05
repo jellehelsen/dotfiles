@@ -15,22 +15,18 @@ Emacs.")
       "fd")
   "name of `fd-find' executable binary")
 
-(defvar doom-projectile-cache-timer-file (concat doom-cache-dir "projectile.timers")
-  "Where to save project file cache timers.")
-
 
 ;;
 ;;; Packages
 
 (use-package! projectile
-  :after-call after-find-file dired-before-readin-hook minibuffer-setup-hook
   :commands (projectile-project-root
              projectile-project-name
              projectile-project-p
              projectile-locate-dominating-file)
   :init
   (setq projectile-cache-file (concat doom-cache-dir "projectile.cache")
-        projectile-enable-caching doom-interactive-mode
+        projectile-enable-caching doom-interactive-p
         projectile-globally-ignored-files '(".DS_Store" "Icon" "TAGS")
         projectile-globally-ignored-file-suffixes '(".elc" ".pyc" ".o")
         projectile-kill-buffers-filter 'kill-only-files
@@ -45,23 +41,24 @@ Emacs.")
 
   ;; Projectile runs four functions to determine the root (in this order):
   ;;
-  ;; + `projectile-root-local' -> consults the `projectile-project-root'
-  ;;   variable for an explicit path.
-  ;; + `projectile-root-bottom-up' -> consults
-  ;;   `projectile-project-root-files-bottom-up'; searches from / to your
-  ;;   current directory for certain files (including .project and .git)
-  ;; + `projectile-root-top-down' -> consults `projectile-project-root-files';
-  ;;   searches from the current directory down to / for certain project
-  ;;   markers, like package.json, setup.py, or Cargo.toml
-  ;; + `projectile-root-top-down-recurring' -> consults
-  ;;   `projectile-project-root-files-top-down-recurring'; searches from the
-  ;;   current directory down to / for a directory that has .svn or Makefile but
-  ;;   doesn't have a parent with one of those files.
+  ;; + `projectile-root-local' -> checks the `projectile-project-root' variable
+  ;;    for an explicit path.
+  ;; + `projectile-root-bottom-up' -> searches from / to your current directory
+  ;;   for the paths listed in `projectile-project-root-files-bottom-up'. This
+  ;;   includes .git and .project
+  ;; + `projectile-root-top-down' -> searches from the current directory down to
+  ;;   / the paths listed in `projectile-root-files', like package.json,
+  ;;   setup.py, or Cargo.toml
+  ;; + `projectile-root-top-down-recurring' -> searches from the current
+  ;;   directory down to / for a directory that has one of
+  ;;   `projectile-project-root-files-top-down-recurring' but doesn't have a
+  ;;   parent directory with the same file.
   ;;
   ;; In the interest of performance, we reduce the number of project root marker
   ;; files/directories projectile searches for when resolving the project root.
   (setq projectile-project-root-files-bottom-up
-        (append '(".project"     ; doom project marker
+        (append '(".projectile"  ; projectile's root marker
+                  ".project"     ; doom project marker
                   ".git")        ; Git VCS root dir
                 (when (executable-find "hg")
                   '(".hg"))      ; Mercurial VCS root dir
@@ -74,6 +71,14 @@ Emacs.")
         projectile-project-root-files-top-down-recurring '("Makefile"))
 
   (push (abbreviate-file-name doom-local-dir) projectile-globally-ignored-directories)
+
+  ;; Override projectile's dirconfig file '.projectile' with doom's project marker '.project'.
+  (defadvice! doom--projectile-dirconfig-file-a ()
+    :override #'projectile-dirconfig-file
+    (cond
+     ;; Prefers '.projectile' to maintain compatibility with existing projects.
+     ((file-exists-p! (or ".projectile" ".project") (projectile-project-root)))
+     ((expand-file-name ".project" (projectile-project-root)))))
 
   ;; Disable commands that won't work, as is, and that Doom already provides a
   ;; better alternative for.
@@ -97,7 +102,7 @@ b) represent blacklisted directories that are too big, change too often or are
    private. (see `doom-projectile-cache-blacklist'),
 c) are not valid projectile projects."
       (when (and (bound-and-true-p projectile-projects-cache)
-                 doom-interactive-mode)
+                 doom-interactive-p)
         (cl-loop with blacklist = (mapcar #'file-truename doom-projectile-cache-blacklist)
                  for proot in (hash-table-keys projectile-projects-cache)
                  if (or (not (stringp proot))
@@ -131,8 +136,9 @@ c) are not valid projectile projects."
    ;; .gitignore. This is recommended in the projectile docs.
    ((executable-find doom-projectile-fd-binary)
     (setq projectile-generic-command
-          (format "%s . --color=never --type f -0 -H -E .git"
-                  doom-projectile-fd-binary)
+          (concat (format "%s . -0 -H -E .git --color=never --type file --type symlink --follow"
+                          doom-projectile-fd-binary)
+                  (if IS-WINDOWS " --path-separator=//"))
           projectile-git-command projectile-generic-command
           projectile-git-submodule-command nil
           ;; ensure Windows users get fd's benefits
@@ -141,9 +147,11 @@ c) are not valid projectile projects."
    ;; Otherwise, resort to ripgrep, which is also faster than find
    ((executable-find "rg")
     (setq projectile-generic-command
-          (concat "rg -0 --files --color=never --hidden"
+          (concat "rg -0 --files --follow --color=never --hidden"
                   (cl-loop for dir in projectile-globally-ignored-directories
-                           concat (format " --glob '!%s'" dir)))
+                           concat " --glob "
+                           concat (shell-quote-argument (concat "!" dir)))
+                  (if IS-WINDOWS " --path-separator //"))
           projectile-git-command projectile-generic-command
           projectile-git-submodule-command nil
           ;; ensure Windows users get rg's benefits
@@ -191,15 +199,14 @@ state are passed in.")
                                      on-load
                                      on-enter
                                      on-exit)
-  "Define a project minor-mode named NAME (a symbol) and declare where and how
-it is activated. Project modes allow you to configure 'sub-modes' for
-major-modes that are specific to a folder, project structure, framework or
-whatever arbitrary context you define. These project modes can have their own
-settings, keymaps, hooks, snippets, etc.
+  "Define a project minor mode named NAME and where/how it is activated.
+
+Project modes allow you to configure 'sub-modes' for major-modes that are
+specific to a folder, project structure, framework or whatever arbitrary context
+you define. These project modes can have their own settings, keymaps, hooks,
+snippets, etc.
 
 This creates NAME-hook and NAME-map as well.
-
-A project can be enabled through .dir-locals.el too, by setting `doom-project'.
 
 PLIST may contain any of these properties, which are all checked to see if NAME
 should be activated. If they are *all* true, NAME is activated.

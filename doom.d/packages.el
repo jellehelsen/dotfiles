@@ -30,3 +30,5 @@
    :files ("*.el")))
 (package! ox-asciidoc)
 (package! blacken)
+(package! origami)
+(package! ag)

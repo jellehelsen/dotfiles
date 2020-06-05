@@ -2,8 +2,11 @@
 ;; Copy me to ~/.doom.d/init.el or ~/.config/doom/init.el, then edit me!
 
 (add-to-list 'exec-path "/usr/local/bin/")
-(def-package-hook! doom-themes
+(setq exec-path-from-shell-check-startup-files nil)
+(setq exec-path-from-shell-variables '("PATH" "GOPATH"))
+(use-package-hook! doom-themes
   :pre-config
+  (setq exec-path-from-shell-check-startup-files nil)
   (setq exec-path-from-shell-variables '("PATH" "GOPATH"))
   (exec-path-from-shell-initialize)
   nil)
@@ -155,12 +158,12 @@
        ;; should be loaded late.
        :app
        ;; (email +gmail)    ; emacs as an email client
-       irc               ; how neckbeards socialize
-       (rss +org)        ; emacs as an RSS reader
+       ;; irc               ; how neckbeards socialize
+       ;; (rss +org)        ; emacs as an RSS reader
        ;;twitter           ; twitter client https://twitter.com/vnought
-       (write            ; emacs as a word processor (latex + org + markdown)
-       +wordnut         ; wordnet (wn) search
-       +langtool)       ; a proofreader (grammar/style check) for Emacs
+       ;; (write            ; emacs as a word processor (latex + org + markdown)
+       ;; +wordnut         ; wordnet (wn) search
+       ;; +langtool)       ; a proofreader (grammar/style check) for Emacs
 
        :email
        mu4e

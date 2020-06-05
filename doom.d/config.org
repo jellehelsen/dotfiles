@@ -290,7 +290,12 @@
 * Python
 #+BEGIN_SRC emacs-lisp
 (advice-add 'python-mode :before 'elpy-enable)
+(setq elpy-rpc-virtualenv-path 'current)
 #+END_SRC
+
+#+RESULTS:
+: current
+
 * Stuff I'm testing
 #+BEGIN_SRC emacs-lisp
 (use-package! ox-moderncv

@@ -2,6 +2,10 @@ Host jumphost
   HostName 195.130.158.150
   User devoteam
 
+Host dawnautomate
+  HostName 192.168.186.10
+  User nvt
+
 Host dawndove
   HostName 10.101.8.19
   User core
@@ -9,6 +13,25 @@ Host dawndove
 
 Host inmanta
   HostName localhost
-  Port 2200
+  Port 2223
   User centos
   ProxyCommand ssh -W %h:%p -q jelle@chat.hcode.be
+
+Host sshuttle
+  HostName 195.130.158.150
+  Port 2222
+  User devoteam
+  ProxyJump dawndove
+
+Host shipwrek
+  HostName 10.101.12.56
+  User core
+  ProxyCommand ssh -W %h:%p -q dawndove
+
+Host castaway
+  HostName 10.101.12.57
+  User core
+  ProxyCommand ssh -W %h:%p -q dawndove
+
+Host osdvp-git.eng.lab.telenet-ops.be
+  ProxyJump shipwrek

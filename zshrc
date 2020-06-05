@@ -16,7 +16,7 @@ case "$(uname)" in
     ;;
 
   Darwin)
-    plugins=(git git-flow iterm2 osx brew history-substring-search vi-mode bundler ssh-agent pow tmux tmuxinator bwana docker docker-compose go nvm virtualenvwrapper)
+    plugins=(git git-flow iterm2 osx brew history-substring-search vi-mode bundler ssh-agent pow tmux tmuxinator bwana docker docker-compose go nvm virtualenvwrapper pyenv)
     #source /usr/local/bin/virtualenvwrapper.sh
     export ZSH_TMUX_AUTOSTART=false
     ;;
@@ -44,7 +44,6 @@ case "$(uname)" in
     export NVM_DIR="$HOME/.nvm"
     [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
     [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
-    export PATH="/home/jelle/.pyenv/bin:$PATH"
     eval "$(pyenv init -)"
     eval "$(pyenv virtualenv-init -)"
     eval "$(rbenv init -)"
@@ -52,9 +51,10 @@ case "$(uname)" in
     ;;
 
   Darwin)
-    # export NVM_DIR="$HOME/.nvm"
-    # source /usr/local/opt/nvm/nvm.sh
-    export PATH=$PATH:$HOME/Library/Python/2.7/bin:$HOME/go/bin
+    export NVM_DIR="$HOME/.nvm"
+    source /usr/local/opt/nvm/nvm.sh
+    source "/usr/local/Caskroom/google-cloud-sdk/latest/google-cloud-sdk/path.zsh.inc"
+    source "/usr/local/Caskroom/google-cloud-sdk/latest/google-cloud-sdk/completion.zsh.inc"
     # eval "$(rbenv init -)"
     # . /usr/local/lib/python2.7/site-packages/powerline/bindings/zsh/powerline.zsh
     ;;
@@ -64,3 +64,6 @@ case "$(uname)" in
   *)
     echo "$(uname) Didn't match anything"
 esac
+
+# Created by `userpath` on 2020-01-10 16:57:13
+export PATH="$PATH:/Users/jelle/.local/bin"

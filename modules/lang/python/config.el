@@ -16,13 +16,17 @@ called.")
 ;; Packages
 
 (use-package! python
-  :defer t
+  :mode ("[./]flake8\\'" . conf-mode)
+  :mode ("/Pipfile\\'" . conf-mode)
   :init
   (setq python-environment-directory doom-cache-dir
         python-indent-guess-indent-offset-verbose nil)
 
   (when (featurep! +lsp)
-    (add-hook 'python-mode-local-vars-hook #'lsp!))
+    (add-hook 'python-mode-local-vars-hook #'lsp!)
+    ;; Use "mspyls" in eglot if in PATH
+    (when (executable-find "Microsoft.Python.LanguageServer")
+      (set-eglot-client! 'python-mode '("Microsoft.Python.LanguageServer"))))
   :config
   (set-repl-handler! 'python-mode #'+python/open-repl :persist t)
   (set-docsets! 'python-mode "Python 3" "NumPy" "SciPy")
@@ -93,11 +97,12 @@ called.")
   (setq anaconda-mode-installation-directory (concat doom-etc-dir "anaconda/")
         anaconda-mode-eldoc-as-single-line t)
 
-  (add-hook! 'python-mode-local-vars-hook
+  (add-hook! 'python-mode-local-vars-hook :append
     (defun +python-init-anaconda-mode-maybe-h ()
       "Enable `anaconda-mode' if `lsp-mode' is absent and
 `python-shell-interpreter' is present."
       (unless (or (bound-and-true-p lsp-mode)
+                  (bound-and-true-p eglot--managed-mode)
                   (bound-and-true-p lsp--buffer-deferred)
                   (not (executable-find python-shell-interpreter)))
         (anaconda-mode +1))))
@@ -280,15 +285,18 @@ called.")
                'append))
 
 
-(use-package! lsp-python-ms
-  :when (featurep! +lsp)
-  :after (python lsp-clients)
-  :init
-  (setq lsp-python-ms-dir (concat doom-etc-dir "mspyls/"))
+(use-package! poetry
+  :when (featurep! +poetry)
+  :after python)
 
+
+(use-package! lsp-python-ms
+  :when (and (featurep! +lsp) (not (featurep! :tools lsp +eglot)))
+  :after lsp-clients
+  :preface
   (after! python
     (setq lsp-python-ms-python-executable-cmd python-shell-interpreter))
-
+  :init
   ;; HACK If you don't have python installed, then opening python buffers with
   ;;      this on causes a "wrong number of arguments: nil 0" error, because of
   ;;      careless usage of `cl-destructuring-bind'. This silences that error,
@@ -296,16 +304,7 @@ called.")
   ;;      python installed!
   (defadvice! +python--silence-errors-a (orig-fn &rest args)
     :around #'lsp-python-ms--extra-init-params
-    (ignore-errors (apply orig-fn args)))
-
-  ;; HACK lsp-python-ms shouldn't install itself if it isn't present. This
-  ;;      circumvents LSP falling back to pyls when lsp-python-ms is absent.
-  ;;      Installing the server should be a deliberate act; either 'M-x
-  ;;      lsp-python-ms-setup' or setting `lsp-python-ms-executable' to an
-  ;;      existing install will do.
-  (defadvice! +python--dont-auto-install-server-a ()
-    :override #'lsp-python-ms--command-string
-    lsp-python-ms-executable))
+    (ignore-errors (apply orig-fn args))))
 
 
 (use-package! cython-mode
@@ -321,5 +320,5 @@ called.")
 
 (use-package! flycheck-cython
   :when (featurep! +cython)
-  :when (featurep! :tools flycheck)
+  :when (featurep! :checkers syntax)
   :after cython-mode)

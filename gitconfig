@@ -35,3 +35,5 @@
 	required = true
 [http]
 	sslVerify = false
+[hub]
+	protocol = ssh

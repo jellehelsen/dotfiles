@@ -25,9 +25,7 @@ Plug 'scrooloose/syntastic'
 Plug 'scrooloose/nerdcommenter'
 Plug 'scrooloose/nerdtree'
 Plug 'godlygeek/tabular'
-Plug 'Shougo/neocomplete'
-Plug 'Shougo/neosnippet'
-Plug 'Shougo/neosnippet-snippets'
+Plug 'SirVer/ultisnips'
 Plug 'honza/vim-snippets'
 Plug 'elzr/vim-json'
 Plug 'pangloss/vim-javascript'
@@ -447,32 +445,10 @@ endfunction
 " Misc {{{
 let g:NERDShutUp=1
 let b:match_ignorecase = 1
+let g:UltiSnipsExpandTrigger="<tab>"
+let g:UltiSnipsJumpForwardTrigger="<tab>"
+let g:UltiSnipsJumpBackwardTrigger="<S-Tab>"
 " }}}
-
-"" NeoComplete {{{
-" Snippets "
-" Plugin key-mappings.
-imap <C-k>     <Plug>(neosnippet_expand_or_jump)
-smap <C-k>     <Plug>(neosnippet_expand_or_jump)
-xmap <C-k>     <Plug>(neosnippet_expand_target)
-
-" SuperTab like snippets behavior.
-imap <expr><TAB> neosnippet#expandable_or_jumpable() ?
-      \ "\<Plug>(neosnippet_expand_or_jump)"
-      \: pumvisible() ? "\<C-n>" : "\<TAB>"
-smap <expr><TAB> neosnippet#expandable_or_jumpable() ?
-      \ "\<Plug>(neosnippet_expand_or_jump)"
-      \: "\<TAB>"
-
-" For snippet_complete marker.
-if has('conceal')
-  set conceallevel=2 concealcursor=i
-endif
-
-let g:neosnippet#snippets_directory='~/.vim/plugged/vim-snippets/snippets'
-let g:neosnippet#enable_snipmate_compatibility = 1
-
-""}}}
 
 " Ctags {{{
 set tags=./tags;/,~/.vimtags

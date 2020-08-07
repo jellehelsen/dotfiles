@@ -15,7 +15,6 @@ if has('nvim')
 else
   Plug 'powerline/powerline'
 endif
-Plug 'Shougo/vimproc', {'do': 'make'}
 Plug 'altercation/vim-colors-solarized'
 Plug 'tpope/vim-surround'
 Plug 'spf13/vim-autoclose'
@@ -35,6 +34,7 @@ Plug 'LokiChaos/vim-tintin'
 Plug 'tpope/vim-projectionist'
 Plug 'mileszs/ack.vim'
 Plug 'benmills/vimux'
+Plug 'andrewstuart/vim-kubernetes'
 
 " HTML
 "Plug 'amirh/HTML-AutoCloseTag'

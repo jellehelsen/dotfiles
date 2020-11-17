@@ -39,7 +39,8 @@ run before `doom-init-modules-hook'. Relevant to `doom-module-init-file'.")
               (vterm            (:term vterm))
               (password-store   (:tools pass))
               (flycheck         (:checkers syntax))
-              (flyspell         (:checkers spell)))
+              (flyspell         (:checkers spell))
+              (macos            (:os macos)))
     (:emacs   (electric-indent  (:emacs electric))
               (hideshow         (:editor fold))
               (eshell           (:term eshell))
@@ -47,9 +48,11 @@ run before `doom-init-modules-hook'. Relevant to `doom-module-init-file'.")
     (:ui      (doom-modeline    (:ui modeline))
               (fci              (:ui fill-column))
               (evil-goggles     (:ui ophints))
-              (tabbar           (:ui tabs)))
+              (tabbar           (:ui tabs))
+              (pretty-code      (:ui ligatures)))
     (:app     (email            (:email mu4e))
-              (notmuch          (:email notmuch))))
+              (notmuch          (:email notmuch)))
+    (:lang    (perl             (:lang raku))))
   "A tree alist that maps deprecated modules to their replacement(s).
 
 Each entry is a three-level tree. For example:
@@ -200,7 +203,7 @@ This doesn't require modules to be enabled. For enabled modules us
            for default-directory in doom-modules-dirs
            for path = (concat category "/" module "/" file)
            if (file-exists-p path)
-           return (expand-file-name path)))
+           return (file-truename path)))
 
 (defun doom-module-from-path (&optional path enabled-only)
   "Returns a cons cell (CATEGORY . MODULE) derived from PATH (a file path).
@@ -238,15 +241,17 @@ those directories. The first returned path is always `doom-private-dir'."
   (append (list doom-private-dir)
           (if module-dirs
               (mapcar (lambda (m) (doom-module-locate-path (car m) (cdr m)))
-                      (doom-files-in (if (listp module-dirs)
-                                         module-dirs
-                                       doom-modules-dirs)
-                                     :map #'doom-module-from-path
-                                     :type 'dirs
-                                     :mindepth 1
-                                     :depth 1))
-            (cl-loop for plist being the hash-values of doom-modules
-                     collect (plist-get plist :path)))
+                      (delete-dups
+                       (doom-files-in (if (listp module-dirs)
+                                          module-dirs
+                                        doom-modules-dirs)
+                                      :map #'doom-module-from-path
+                                      :type 'dirs
+                                      :mindepth 1
+                                      :depth 1)))
+            (delq
+             nil (cl-loop for plist being the hash-values of doom-modules
+                          collect (plist-get plist :path)) ))
           nil))
 
 (defun doom-module-mplist-map (fn mplist)
@@ -328,7 +333,9 @@ This value is cached. If REFRESH-P, then don't use the cached value."
 ;; packages with package.el, by copying over old `use-package' declarations with
 ;; an :ensure t property. Doom doesn't use package.el, so this will throw an
 ;; error that will confuse beginners, so we disable `:ensure'.
-(setq use-package-ensure-function #'ignore)
+(setq use-package-ensure-function
+      (lambda (name &rest _)
+        (message "Ignoring ':ensure t' in '%s' config" name)))
 ;; ...On the other hand, if the user has loaded `package', then we should assume
 ;; they know what they're doing and restore the old behavior:
 (add-transient-hook! 'package-initialize
@@ -437,7 +444,7 @@ otherwise, MODULES is a multiple-property list (a plist where each key can have
 multiple, linear values).
 
 The bootstrap process involves making sure the essential directories exist, core
-packages are installed, `doom-autoload-file' is loaded, `doom-packages-file'
+packages are installed, `doom-autoloads-file' is loaded, `doom-packages-file'
 cache exists (and is loaded) and, finally, loads your private init.el (which
 should contain your `doom!' block).
 
@@ -462,7 +469,7 @@ to least)."
   `(unless doom-interactive-p
      (doom-module-mplist-map
       (lambda (category module &rest plist)
-        (if (plist-get plist :path)
+        (if (plist-member plist :path)
             (apply #'doom-module-set category module plist)
           (message "WARNING Couldn't find the %s %s module" category module)))
       ,@(if (keywordp (car modules))

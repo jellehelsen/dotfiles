@@ -16,6 +16,20 @@
     (realgud:trepanpl  :modes (perl-mode perl6-mode))
     (realgud:zshdb     :modes (sh-mode))))
 
+(defvar +debugger--dap-alist
+  `(((:lang cc +lsp)         :after ccls        :require (dap-lldb dap-gdb-lldb))
+    ((:lang elixir +lsp)     :after elixir-mode :require dap-elixir)
+    ((:lang go +lsp)         :after go-mode     :require dap-go)
+    ((:lang java +lsp)       :after java-mode   :require lsp-java)
+    ((:lang php +lsp)        :after php-mode    :require dap-php)
+    ((:lang python +lsp)     :after python      :require dap-python)
+    ((:lang ruby +lsp)       :after ruby-mode   :require dap-ruby)
+    ((:lang rust +lsp)       :after rustic-mode :require dap-lldb)
+    ((:lang javascript +lsp)
+     :after (js2-mode typescript-mode)
+     :require (dap-node dap-chrome dap-firefox ,@(if IS-WINDOWS '(dap-edge)))))
+  "TODO")
+
 
 ;;
 ;;; Packages
@@ -91,36 +105,49 @@
 (use-package! dap-mode
   :when (and (featurep! +lsp) (not (featurep! :tools lsp +eglot)))
   :hook (dap-mode . dap-tooltip-mode)
-  :after lsp-mode
-  :demand t
-  :preface
+  :init
   (setq dap-breakpoints-file (concat doom-etc-dir "dap-breakpoints")
         dap-utils-extension-path (concat doom-etc-dir "dap-extension/"))
+  (after! lsp-mode (require 'dap-mode))
   :config
-  (dolist (module '(((:lang . cc) ccls dap-lldb dap-gdb-lldb)
-                    ((:lang . elixir) elixir-mode dap-elixir)
-                    ((:lang . go) go-mode dap-go)
-                    ((:lang . java) lsp-java dap-java)
-                    ((:lang . php) php-mode dap-php)
-                    ((:lang . python) python dap-python)
-                    ((:lang . ruby) ruby-mode dap-ruby)
-                    ((:lang . rust) rust-mode dap-lldb)))
-    (when (doom-module-p (caar module) (cdar module) '+lsp)
-      (with-eval-after-load (nth 1 module)
-        (mapc #'require (cddr module)))))
+  (pcase-dolist (`((,category . ,modules) :after ,after :require ,libs)
+                 +debugger--dap-alist)
+    (when (doom-module-p category (car modules) (cadr modules))
+      (dolist (lib (doom-enlist after))
+        (with-eval-after-load lib
+          (mapc #'require (doom-enlist libs))))))
 
-  (when (featurep! :lang javascript +lsp)
-    (after! (:or js2-mode typescript-mode)
-      (require 'dap-node)
-      (require 'dap-chrome)
-      (require 'dap-firefox)
-      (when IS-WINDOWS
-        (require 'dap-edge))))
+  (dap-mode 1)
 
-  (dap-mode 1))
+  (define-minor-mode +dap-running-session-mode
+    "A mode for adding keybindings to running sessions"
+    nil nil (make-sparse-keymap)
+    (when (bound-and-true-p evil-mode)
+    (evil-normalize-keymaps))  ; if you use evil, this is necessary to update the keymaps
+    ;; The following code adds to the dap-terminated-hook so that this minor
+    ;; mode will be deactivated when the debugger finishes
+    (when +dap-running-session-mode
+      (let ((session-at-creation (dap--cur-active-session-or-die)))
+        (add-hook 'dap-terminated-hook
+                  (lambda (session)
+                    (when (eq session session-at-creation)
+                      (+dap-running-session-mode -1)))))))
+
+  ;; Activate this minor mode when dap is initialized
+  (add-hook 'dap-session-created-hook #'+dap-running-session-mode)
+  ;; Activate this minor mode when hitting a breakpoint in another file
+  (add-hook 'dap-stopped-hook #'+dap-running-session-mode)
+  ;; Activate this minor mode when stepping into code in another file
+  (add-hook 'dap-stack-frame-changed-hook (lambda (session)
+                                            (when (dap--session-running session)
+                                              (+dap-running-session-mode 1))))
+
+  (map! :localleader
+        :map +dap-running-session-mode-map
+        "d" #'dap-hydra))
 
 
-(use-package! dap-ui-mode
+(use-package! dap-ui
   :when (featurep! +lsp)
   :hook (dap-mode . dap-ui-mode)
   :hook (dap-ui-mode . dap-ui-controls-mode))

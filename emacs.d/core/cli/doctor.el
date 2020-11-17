@@ -59,6 +59,16 @@ in."
               "typically installed. If you're seeing a vanilla Emacs splash screen, this "
               "may explain why. If you use Chemacs, you may ignore this warning."))
 
+  (when EMACS27+
+    (print! (start "Checking for great Emacs features..."))
+    (unless (and (functionp 'json-serialize)
+                 (string-match-p "\\_<JSON\\_>" system-configuration-features))
+      (warn! "Emacs was not built with native JSON support")
+      (explain! "Users will see a substantial performance gain by building Emacs with "
+                "jansson support (i.e. a native JSON library), particularly LSP users. "
+                "You must install a prebuilt Emacs binary with this included, or compile "
+                "Emacs with the --with-json option.")))
+
   (print! (start "Checking for private config conflicts..."))
   (let ((xdg-dir (concat (or (getenv "XDG_CONFIG_HOME")
                              "~/.config")
@@ -99,7 +109,7 @@ in."
           (when-let (size (ignore-errors (doom-file-size file doom-cache-dir)))
             (when (> size 1048576) ; larger than 1mb
               (warn! "%s is too large (%.02fmb). This may cause freezes or odd startup delays"
-                     file (/ size 1024))
+                     file (/ size 1024 1024.0))
               (explain! "Consider deleting it from your system (manually)"))))
 
         (unless (executable-find "rg")

@@ -1,4 +1,6 @@
 ;; -*- no-byte-compile: t; -*-
 ;;; ui/fill-column/packages.el
 
-(package! hl-fill-column :pin "43cb3c35a92c912b7205b8a36f1ad0ec0a5b4a22")
+;; `hl-fill-column' is only used on Emacs versions before 27
+(unless (fboundp 'display-fill-column-indicator-mode)
+  (package! hl-fill-column :pin "5782a91ba0182c4e562fa0db6379ff9dd472856b"))

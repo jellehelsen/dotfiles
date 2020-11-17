@@ -15,7 +15,7 @@
                    ivy-switch-buffer-map))
                 ((featurep! :completion helm)
                  '(helm-map
-                   helm-ag-map
+                   helm-rg-map
                    helm-read-file-map))))
   "A list of all the keymaps used for the minibuffer.")
 
@@ -162,16 +162,11 @@
                      "/*!" "*/"
                      :post-handlers '(("||\n[i]" "RET") ("[d-1]< | " "SPC"))))
 
-    ;; Expand C-style doc comment blocks. Must be done manually because some of
-    ;; these languages use specialized (and deferred) parsers, whose state we
-    ;; can't access while smartparens is doing its thing.
-    (defun +default-expand-asterix-doc-comment-block (&rest _ignored)
-      (let ((indent (current-indentation)))
-        (newline-and-indent)
-        (save-excursion
-          (newline)
-          (insert (make-string indent 32) " */")
-          (delete-char 2))))
+    ;; Expand C-style comment blocks.
+    (defun +default-open-doc-comments-block (&rest _ignored)
+      (save-excursion
+        (newline)
+        (indent-according-to-mode)))
     (sp-local-pair
      '(js2-mode typescript-mode rjsx-mode rust-mode c-mode c++-mode objc-mode
        csharp-mode java-mode php-mode css-mode scss-mode less-css-mode
@@ -179,8 +174,8 @@
      "/*" "*/"
      :actions '(insert)
      :post-handlers '(("| " "SPC")
-                      ("|\n[i]*/[d-2]" "RET")
-                      (+default-expand-asterix-doc-comment-block "*")))
+                      (" | " "*")
+                      ("|[i]\n[i]" "RET")))
 
     (after! smartparens-ml
       (sp-with-modes '(tuareg-mode fsharp-mode)
@@ -427,11 +422,30 @@ Continues comments if executed from a commented line. Consults
         ;; which ctrl+RET will add a new "item" below the current one and
         ;; cmd+RET (Mac) / meta+RET (elsewhere) will add a new, blank line below
         ;; the current one.
-        :gn [C-return]    #'+default/newline-below
-        :gn [C-S-return]  #'+default/newline-above
+
+        ;; C-<mouse-scroll-up>   = text scale increase
+        ;; C-<mouse-scroll-down> = text scale decrease
+        [C-down-mouse-2] (cmd! (text-scale-set 0))
+
+        ;; auto-indent on newline by default
+        :gi [remap newline] #'newline-and-indent
+        ;; insert literal newline
+        :gi "S-RET"         #'+default/newline
+        :gi [S-return]      #'+default/newline
+        :gi "C-j"           #'+default/newline
+
+        ;; Add new item below current (without splitting current line).
+        :gi "C-RET"         #'+default/newline-below
+        :gn [C-return]      #'+default/newline-below
+        ;; Add new item above current (without splitting current line)
+        :gi "C-S-RET"       #'+default/newline-above
+        :gn [C-S-return]    #'+default/newline-above
+
         (:when IS-MAC
-          :gn [s-return]    #'+default/newline-below
-          :gn [S-s-return]  #'+default/newline-above)))
+         :gn "s-RET"        #'+default/newline-below
+         :gn [s-return]     #'+default/newline-below
+         :gn "S-s-RET"      #'+default/newline-above
+         :gn [S-s-return]   #'+default/newline-above)))
 
 
 ;;

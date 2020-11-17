@@ -106,9 +106,15 @@ in some cases."
         (thing
          (thing-at-point thing t))
         ((require 'xref nil t)
-         ;; A little smarter than using `symbol-at-point', though in most cases,
-         ;; xref ends up using `symbol-at-point' anyway.
-         (xref-backend-identifier-at-point (xref-find-backend)))
+         ;; Eglot, nox (a fork of eglot), and elpy implementations for
+         ;; `xref-backend-identifier-at-point' betray the documented purpose of
+         ;; the interface. Eglot/nox return a hardcoded string and elpy prepends
+         ;; the line number to the symbol.
+         (if (memq (xref-find-backend) '(eglot elpy nox))
+             (thing-at-point 'symbol t)
+           ;; A little smarter than using `symbol-at-point', though in most
+           ;; cases, xref ends up using `symbol-at-point' anyway.
+           (xref-backend-identifier-at-point (xref-find-backend))))
         (prompt
          (read-string (if (stringp prompt) prompt "")))))
 

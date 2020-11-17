@@ -11,22 +11,22 @@ following shell commands:
     cd ~/.emacs.d
     git pull --rebase
     bin/doom clean
-    bin/doom sync
-    bin/doom update"
+    bin/doom sync -u"
   :bare t
   (let ((doom-auto-discard force-p))
     (cond
      (packages-only-p
-      (doom-cli-execute "sync" '("-u"))
+      (doom-cli-execute "sync" "-u")
       (print! (success "Finished upgrading Doom Emacs")))
 
      ((doom-cli-upgrade doom-auto-accept doom-auto-discard)
       ;; Reload Doom's CLI & libraries, in case there were any upstream changes.
       ;; Major changes will still break, however
       (print! (info "Reloading Doom Emacs"))
-      (doom-cli-execute-after "doom" "upgrade" "-p" (if force-p "-f")))
+      (throw 'exit (list "doom" "upgrade" "-p" (if force-p "-f"))))
 
-     ((print! "Nothing to do. Doom is up-to-date!")))))
+     ((print! "Doom is up-to-date!")
+      (doom-cli-execute "sync" "-u")))))
 
 
 ;;
@@ -47,7 +47,6 @@ following shell commands:
 
 (defun doom-cli-upgrade (&optional auto-accept-p force-p)
   "Upgrade Doom to the latest version non-destructively."
-  (require 'vc-git)
   (let ((default-directory doom-emacs-dir)
         process-file-side-effects)
     (print! (start "Preparing to upgrade Doom Emacs and its packages..."))
@@ -84,8 +83,8 @@ following shell commands:
             (or (zerop (car (setq result (doom-call-process "git" "fetch" "--tags" doom-repo-remote branch))))
                 (error "Failed to fetch from upstream"))
 
-            (let ((this-rev (vc-git--rev-parse "HEAD"))
-                  (new-rev  (vc-git--rev-parse target-remote)))
+            (let ((this-rev (cdr (doom-call-process "git" "rev-parse" "HEAD")))
+                  (new-rev  (cdr (doom-call-process "git" "rev-parse" target-remote))))
               (cond
                ((and (null this-rev)
                      (null new-rev))
@@ -93,20 +92,22 @@ following shell commands:
 
                ((equal this-rev new-rev)
                 (print! (success "Doom is already up-to-date!"))
-                t)
+                nil)
 
                ((print! (info "A new version of Doom Emacs is available!\n\n  Old revision: %s (%s)\n  New revision: %s (%s)\n"
                               (substring this-rev 0 10)
                               (cdr (doom-call-process "git" "log" "-1" "--format=%cr" "HEAD"))
                               (substring new-rev 0 10)
                               (cdr (doom-call-process "git" "log" "-1" "--format=%cr" target-remote))))
-
-                (when (and (not auto-accept-p)
-                           (y-or-n-p "View the comparison diff in your browser?"))
-                  (print! (info "Opened github in your browser."))
-                  (browse-url (format "https://github.com/hlissner/doom-emacs/compare/%s...%s"
-                                      this-rev
-                                      new-rev)))
+                (let ((diff-url
+                       (format "https://github.com/hlissner/doom-emacs/compare/%s...%s"
+                               this-rev
+                               new-rev)))
+                  (print! "Link to diff: %s" diff-url)
+                  (when (and (not auto-accept-p)
+                             (y-or-n-p "View the comparison diff in your browser?"))
+                    (print! (info "Opened github in your browser."))
+                    (browse-url diff-url)))
 
                 (if (not (or auto-accept-p
                              (y-or-n-p "Proceed with upgrade?")))
@@ -114,9 +115,9 @@ following shell commands:
                   (print! (start "Upgrading Doom Emacs..."))
                   (print-group!
                    (doom-clean-byte-compiled-files)
-                   (unless (and (zerop (car (doom-call-process "git" "reset" "--hard" target-remote)))
-                                (equal (vc-git--rev-parse "HEAD") new-rev))
-                     (error "Failed to check out %s" (substring new-rev 0 10)))
+                   (or (and (zerop (car (doom-call-process "git" "reset" "--hard" target-remote)))
+                            (equal (cdr (doom-call-process "git" "rev-parse" "HEAD")) new-rev))
+                       (error "Failed to check out %s" (substring new-rev 0 10)))
                    (print! (info "%s") (cdr result))
                    t))))))
         (ignore-errors

@@ -4,7 +4,9 @@
   "The keys to use for universal repeating motions.
 
 This is a cons cell whose CAR is the key for repeating a motion forward, and
-whose CDR is for repeating backward. They should both be `kbd'-able strings.")
+whose CDR is for repeating backward. They should both be `kbd'-able strings.
+
+Set this to `nil' to disable universal-repeating on these keys.")
 
 (defvar +evil-want-o/O-to-continue-comments t
   "If non-nil, the o/O keys will continue comment lines if the point is on a
@@ -32,7 +34,6 @@ directives. By default, this only recognizes C directives.")
   :preface
   (setq evil-want-visual-char-semi-exclusive t
         evil-ex-search-vim-style-regexp t
-        evil-ex-substitute-global t
         evil-ex-visual-char-range t  ; column range for ex commands
         evil-mode-line-format 'nil
         ;; more vim-like behavior
@@ -45,12 +46,19 @@ directives. By default, this only recognizes C directives.")
         evil-visual-state-cursor 'hollow
         ;; Only do highlighting in selected window so that Emacs has less work
         ;; to do highlighting them all.
-        evil-ex-interactive-search-highlight 'selected-window)
+        evil-ex-interactive-search-highlight 'selected-window
+        ;; It's infuriating that innocuous "beginning of line" or "end of line"
+        ;; errors will abort macros, so suppress them:
+        evil-kbd-macro-suppress-motion-error t
+        evil-undo-system
+        (cond ((featurep! :emacs undo +tree) 'undo-tree)
+              ((featurep! :emacs undo) 'undo-fu)
+              (EMACS28+ 'undo-redo)))
 
   ;; Slow this down from 0.02 to prevent blocking in large or folded buffers
   ;; like magit while incrementally highlighting matches.
-  (setq-hook! 'magit-mode-hook evil-ex-hl-update-delay 0.2)
-  (setq-hook! 'so-long-minor-mode-hook evil-ex-hl-update-delay 0.25)
+  (setq-hook! '(magit-mode-hook so-long-minor-mode-hook)
+    evil-ex-hl-update-delay 0.25)
 
   :config
   (evil-select-search-module 'evil-search-module 'evil-search)
@@ -66,9 +74,6 @@ directives. By default, this only recognizes C directives.")
   ;; Start help-with-tutorial in emacs state
   (advice-add #'help-with-tutorial :after (lambda (&rest _) (evil-emacs-state +1)))
 
-  ;; Allows you to click buttons without initiating a selection
-  (define-key evil-motion-state-map [down-mouse-1] nil)
-
   ;; Done in a hook to ensure the popup rules load as late as possible
   (add-hook! 'doom-init-modules-hook
     (defun +evil--init-popup-rules-h ()
@@ -82,7 +87,7 @@ directives. By default, this only recognizes C directives.")
   (defvar +evil--default-cursor-color "#ffffff")
   (defvar +evil--emacs-cursor-color "#ff9999")
 
-  (add-hook! 'doom-load-theme-hook
+  (add-hook! 'doom-load-theme-hook :append
     (defun +evil-update-cursor-color-h ()
       (setq +evil--default-cursor-color (face-background 'cursor)
             +evil--emacs-cursor-color (face-foreground 'warning))))
@@ -151,6 +156,17 @@ directives. By default, this only recognizes C directives.")
       (run-at-time 0.1 nil #'helpful-key key-sequence)
       (abort-recursive-edit)))
 
+  ;; Make J (evil-join) remove comment delimiters when joining lines.
+  (advice-add #'evil-join :override #'+evil-join-a)
+
+  ;; Prevent gw (`evil-fill') and gq (`evil-fill-and-move') from squeezing
+  ;; spaces. It doesn't in vim, so it shouldn't in evil.
+  (defadvice! +evil--no-squeeze-on-fill-a (orig-fn &rest args)
+    :around '(evil-fill evil-fill-and-move)
+    (letf! (defun fill-region (from to &optional justify nosqueeze to-eop)
+             (funcall fill-region from to justify t to-eop))
+      (apply orig-fn args)))
+
   ;; Make ESC (from normal mode) the universal escaper. See `doom-escape-hook'.
   (advice-add #'evil-force-normal-state :after #'+evil-escape-a)
 
@@ -208,7 +224,7 @@ directives. By default, this only recognizes C directives.")
 ;;; Packages
 
 (use-package! evil-easymotion
-  :after-call pre-command-hook
+  :after-call doom-first-input-hook
   :commands evilem-create evilem-default-keybindings
   :config
   ;; Use evil-search backend, instead of isearch
@@ -219,7 +235,19 @@ directives. By default, this only recognizes C directives.")
   (evilem-make-motion evilem-motion-search-word-forward #'evil-ex-search-word-forward
                       :bind ((evil-ex-search-highlight-all nil)))
   (evilem-make-motion evilem-motion-search-word-backward #'evil-ex-search-word-backward
-                      :bind ((evil-ex-search-highlight-all nil))))
+                      :bind ((evil-ex-search-highlight-all nil)))
+
+  ;; Rebind scope of w/W/e/E/ge/gE evil-easymotion motions to the visible
+  ;; buffer, rather than just the current line.
+  (put 'visible 'bounds-of-thing-at-point (lambda () (cons (window-start) (window-end))))
+  (evilem-make-motion evilem-motion-forward-word-begin #'evil-forward-word-begin :scope 'visible)
+  (evilem-make-motion evilem-motion-forward-WORD-begin #'evil-forward-WORD-begin :scope 'visible)
+  (evilem-make-motion evilem-motion-forward-word-end #'evil-forward-word-end :scope 'visible)
+  (evilem-make-motion evilem-motion-forward-WORD-end #'evil-forward-WORD-end :scope 'visible)
+  (evilem-make-motion evilem-motion-backward-word-begin #'evil-backward-word-begin :scope 'visible)
+  (evilem-make-motion evilem-motion-backward-WORD-begin #'evil-backward-WORD-begin :scope 'visible)
+  (evilem-make-motion evilem-motion-backward-word-end #'evil-backward-word-end :scope 'visible)
+  (evilem-make-motion evilem-motion-backward-WORD-end #'evil-backward-WORD-end :scope 'visible))
 
 
 (use-package! evil-embrace
@@ -310,7 +338,8 @@ directives. By default, this only recognizes C directives.")
 (use-package! evil-nerd-commenter
   :commands (evilnc-comment-operator
              evilnc-inner-comment
-             evilnc-outer-commenter))
+             evilnc-outer-commenter)
+  :general ([remap comment-line] #'evilnc-comment-or-uncomment-lines))
 
 
 (use-package! evil-snipe
@@ -325,7 +354,7 @@ directives. By default, this only recognizes C directives.")
         evil-snipe-repeat-scope 'visible
         evil-snipe-char-fold t)
   :config
-  (pushnew! evil-snipe-disabled-modes 'Info-mode 'calc-mode)
+  (pushnew! evil-snipe-disabled-modes 'Info-mode 'calc-mode 'treemacs-mode)
   (evil-snipe-mode +1)
   (evil-snipe-override-mode +1))
 
@@ -336,6 +365,16 @@ directives. By default, this only recognizes C directives.")
              evil-Surround-edit
              evil-surround-region)
   :config (global-evil-surround-mode 1))
+
+
+(use-package! evil-textobj-anyblock
+  :defer t
+  :config
+  (setq evil-textobj-anyblock-blocks
+        '(("(" . ")")
+          ("{" . "}")
+          ("\\[" . "\\]")
+          ("<" . ">"))))
 
 
 (use-package! evil-traces
@@ -368,52 +407,18 @@ directives. By default, this only recognizes C directives.")
 ;;
 ;;; Keybinds
 
-(defmacro set-repeater! (command next-func prev-func)
-  "Makes ; and , the universal repeat-keys in evil-mode.
-To change these keys see `+evil-repeat-keys'."
-  `(defadvice! ,(intern (format "+evil--repeat-%s-a" (doom-unquote command))) (&rest _)
-     :after-while #',command
-     (when +evil-repeat-keys
-       (evil-define-key* 'motion 'local
-         (kbd (car +evil-repeat-keys)) #',next-func
-         (kbd (cdr +evil-repeat-keys)) #',prev-func))))
-
-;; n/N
-(set-repeater! evil-ex-search-next evil-ex-search-next evil-ex-search-previous)
-(set-repeater! evil-ex-search-previous evil-ex-search-next evil-ex-search-previous)
-(set-repeater! evil-ex-search-forward evil-ex-search-next evil-ex-search-previous)
-(set-repeater! evil-ex-search-backward evil-ex-search-next evil-ex-search-previous)
-
-;; f/F/t/T/s/S
-(after! evil-snipe
-  (setq evil-snipe-repeat-keys nil
-        evil-snipe-override-evil-repeat-keys nil) ; causes problems with remapped ;
-  (set-repeater! evil-snipe-f evil-snipe-repeat evil-snipe-repeat-reverse)
-  (set-repeater! evil-snipe-F evil-snipe-repeat evil-snipe-repeat-reverse)
-  (set-repeater! evil-snipe-t evil-snipe-repeat evil-snipe-repeat-reverse)
-  (set-repeater! evil-snipe-T evil-snipe-repeat evil-snipe-repeat-reverse)
-  (set-repeater! evil-snipe-s evil-snipe-repeat evil-snipe-repeat-reverse)
-  (set-repeater! evil-snipe-S evil-snipe-repeat evil-snipe-repeat-reverse)
-  (set-repeater! evil-snipe-x evil-snipe-repeat evil-snipe-repeat-reverse)
-  (set-repeater! evil-snipe-X evil-snipe-repeat evil-snipe-repeat-reverse))
-
-;; */#
-(set-repeater! evil-visualstar/begin-search-forward
-               evil-ex-search-next evil-ex-search-previous)
-(set-repeater! evil-visualstar/begin-search-backward
-               evil-ex-search-previous evil-ex-search-next)
-
-
 ;; Keybinds that have no Emacs+evil analogues (i.e. don't exist):
-;;   zq - mark word at point as good word
-;;   zw - mark word at point as bad
 ;;   zu{q,w} - undo last marking
-;; Keybinds that evil define:
-;;   z= - correct flyspell word at point
-;;   ]s - jump to previous spelling error
-;;   [s - jump to next spelling error
 
 (map! :v  "@"     #'+evil:apply-macro
+
+      ;; implement dictionary keybinds
+      ;; evil already defines 'z=' to `ispell-word' = correct word at point
+      (:when (featurep! :checkers spell)
+       :n  "zg"   #'+spell/add-word
+       :n  "zw"   #'+spell/remove-word
+       :m  "[s"   #'+spell/previous-error
+       :m  "]s"   #'+spell/next-error)
 
       ;; ported from vim-unimpaired
       :n  "] SPC" #'+evil/insert-newline-below
@@ -501,7 +506,7 @@ To change these keys see `+evil-repeat-keys'."
       :nv "zn"    #'+evil:narrow-buffer
       :n  "zN"    #'doom/widen-indirectly-narrowed-buffer
       :n  "zx"    #'kill-current-buffer
-      :n  "ZX"    #'bury-buffer
+      :n  "ZX"    #'doom/save-and-kill-buffer
       ;; don't leave visual mode after shifting
       :v  "<"     #'+evil/visual-dedent  ; vnoremap < <gv
       :v  ">"     #'+evil/visual-indent  ; vnoremap > >gv
@@ -531,7 +536,8 @@ To change these keys see `+evil-repeat-keys'."
        "o"       #'doom/window-enlargen
        ;; Delete window
        "d"       #'evil-window-delete
-       "C-C"     #'ace-delete-window)
+       "C-C"     #'ace-delete-window
+       "T"       #'tear-off-window)
 
       ;; text objects
       :textobj "a" #'evil-inner-arg                    #'evil-outer-arg
@@ -542,6 +548,7 @@ To change these keys see `+evil-repeat-keys'."
       :textobj "i" #'evil-indent-plus-i-indent         #'evil-indent-plus-a-indent
       :textobj "j" #'evil-indent-plus-i-indent-up-down #'evil-indent-plus-a-indent-up-down
       :textobj "k" #'evil-indent-plus-i-indent-up      #'evil-indent-plus-a-indent-up
+      :textobj "q" #'+evil:inner-any-quote             #'+evil:outer-any-quote
       :textobj "u" #'+evil:inner-url-txtobj            #'+evil:outer-url-txtobj
       :textobj "x" #'evil-inner-xml-attr               #'evil-outer-xml-attr
 
@@ -552,7 +559,7 @@ To change these keys see `+evil-repeat-keys'."
         "a" (evilem-create #'evil-forward-arg)
         "A" (evilem-create #'evil-backward-arg)
         "s" #'evil-avy-goto-char-2
-        "SPC" (cmd!! #'evil-avy-goto-char-timer t)
+        "SPC" (cmd! (let ((current-prefix-arg t)) (evil-avy-goto-char-timer)))
         "/" #'evil-avy-goto-char-timer))
 
       ;; evil-snipe

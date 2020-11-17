@@ -1,5 +1,12 @@
 ;;; emacs/vc/config.el -*- lexical-binding: t; -*-
 
+(map! :when (fboundp 'bug-reference-mode)
+      :map bug-reference-map
+      "RET" (cmds! (and (bound-and-true-p evil-mode)
+                        (evil-normal-state-p))
+                   #'bug-reference-push-button))
+
+
 (when IS-WINDOWS
   (setenv "GIT_ASKPASS" "git-gui--askpass"))
 
@@ -68,9 +75,8 @@ info in the `header-line-format' is a good indication."
 
 
 (use-package! git-commit
-  :after-call after-find-file
+  :hook (doom-first-file . global-git-commit-mode)
   :config
-  (global-git-commit-mode +1)
   (set-yas-minor-mode! 'git-commit-mode)
 
   ;; Enforce git commit conventions.

@@ -11,12 +11,9 @@
     (csharp-mode     :lang csharp)
     (clojure-mode    :lang clojure)
     (clojurescript-mode :lang clojure)
-    (graphql-mode    :lang data)
-    (toml-mode       :lang data)
-    (json-mode       :lang data)
-    (yaml-mode       :lang data)
+    (json-mode       :lang json)
+    (yaml-mode       :lang yaml)
     (csv-mode        :lang data)
-    (dhall-mode      :lang data)
     (erlang-mode     :lang erlang)
     (elixir-mode     :lang elixir)
     (elm-mode        :lang elm)
@@ -31,6 +28,7 @@
     (js2-mode        :lang javascript)
     (rjsx-mode       :lang javascript)
     (typescript-mode :lang javascript)
+    (typescript-tsx-mode :lang javascript)
     (coffee-mode     :lang javascript)
     (julia-mode      :lang julia)
     (kotlin-mode     :lang kotlin)
@@ -45,8 +43,7 @@
     (nix-mode        :lang nix)
     (taureg-mode     :lang ocaml)
     (org-mode        :lang org)
-    (perl-mode       :lang perl)
-    (raku-mode       :lang perl)
+    (raku-mode       :lang raku)
     (php-mode        :lang php)
     (hack-mode       :lang php)
     (plantuml-mode   :lang plantuml)
@@ -193,7 +190,7 @@ selection of all minor-modes, active or not."
          "troubleshooting.org"
          "tutorials.org"
          "faq.org")
-   2 t initial-input
+   3 t initial-input
    (mapcar (lambda (x)
              (setcar x (concat "Doom Modules > " (car x)))
              x)
@@ -214,7 +211,7 @@ selection of all minor-modes, active or not."
                    "*.org" doom-emacs-dir)
                   #'ignore))
            :query initial-input
-           :args '("-g" "*.org")
+           :args '("-t" "org")
            :in doom-emacs-dir
            :prompt "Search documentation for: "))
 
@@ -634,8 +631,10 @@ config blocks in your private config."
     (user-error "Can't find ripgrep on your system"))
   (if (fboundp 'counsel-rg)
       (let ((counsel-rg-base-command
-             (concat counsel-rg-base-command " "
-                     (mapconcat #'shell-quote-argument dirs " "))))
+             (if (stringp counsel-rg-base-command)
+                 (format counsel-rg-base-command
+                         (concat "%s " (mapconcat #'shell-quote-argument dirs " ")))
+               (append counsel-rg-base-command dirs))))
         (counsel-rg query nil "-Lz" prompt))
     ;; TODO Add helm support?
     (grep-find
@@ -663,6 +662,7 @@ Uses the symbol at point or the current selection, if available."
   (doom--help-search
    (cl-loop for (file . _) in (cl-remove-if-not #'stringp load-history :key #'car)
             for filebase = (file-name-sans-extension file)
-            if (file-exists-p! (format "%s.el" filebase))
+            if (file-exists-p! (or (format "%s.el.gz" filebase)
+                                   (format "%s.el" filebase)))
             collect it)
    query "Search loaded files: "))

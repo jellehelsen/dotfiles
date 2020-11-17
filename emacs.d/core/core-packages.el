@@ -61,9 +61,9 @@ uses a straight or package.el command directly).")
       ;; than pulled, so packages are often out of date with upstream.
       package-archives
       (let ((proto (if gnutls-verify-error "https" "http")))
-        `(("gnu"   . ,(concat proto "://elpa.gnu.org/packages/"))
-          ("melpa" . ,(concat proto "://melpa.org/packages/"))
-          ("org"   . ,(concat proto "://orgmode.org/elpa/")))))
+        (list (cons "gnu"   (concat proto "://elpa.gnu.org/packages/"))
+              (cons "melpa" (concat proto "://melpa.org/packages/"))
+              (cons "org"   (concat proto "://orgmode.org/elpa/")))))
 
 ;; package.el has no business modifying the user's init.el
 (advice-add #'package--ensure-init-file :override #'ignore)
@@ -79,6 +79,10 @@ uses a straight or package.el command directly).")
 
 (setq straight-base-dir doom-local-dir
       straight-repository-branch "develop"
+      ;; Since byte-code is rarely compatible across different versions of
+      ;; Emacs, it's best we build them in separate directories, per emacs
+      ;; version.
+      straight-build-dir (format "build-%s" emacs-version)
       straight-cache-autoloads nil ; we already do this, and better.
       ;; Doom doesn't encourage you to modify packages in place. Disabling this
       ;; makes 'doom sync' instant (once everything set up), which is much nicer
@@ -98,6 +102,10 @@ uses a straight or package.el command directly).")
       autoload-compute-prefixes nil
       ;; We handle it ourselves
       straight-fix-org nil)
+
+(with-eval-after-load 'straight
+  ;; `let-alist' is built into Emacs 26 and onwards
+  (add-to-list 'straight-built-in-pseudo-packages 'let-alist))
 
 (defadvice! doom--read-pinned-packages-a (orig-fn &rest args)
   "Read `:pin's in `doom-packages' on top of straight's lockfiles."
@@ -124,7 +132,8 @@ uses a straight or package.el command directly).")
        ((null pin)
         (funcall call "git" "clone" "--origin" "origin" repo-url repo-dir
                  "--depth" (number-to-string straight-vc-git-default-clone-depth)
-                 "--branch" straight-repository-branch))
+                 "--branch" straight-repository-branch
+                 "--single-branch" "--no-tags"))
        ((integerp straight-vc-git-default-clone-depth)
         (make-directory repo-dir t)
         (let ((default-directory repo-dir))
@@ -132,7 +141,8 @@ uses a straight or package.el command directly).")
           (funcall call "git" "checkout" "-b" straight-repository-branch)
           (funcall call "git" "remote" "add" "origin" repo-url)
           (funcall call "git" "fetch" "origin" pin
-                   "--depth" (number-to-string straight-vc-git-default-clone-depth))
+                   "--depth" (number-to-string straight-vc-git-default-clone-depth)
+                   "--no-tags")
           (funcall call "git" "checkout" "--detach" pin)))))
     (require 'straight (concat repo-dir "/straight.el"))
     (doom-log "Initializing recipes")
@@ -182,10 +192,20 @@ processed."
         (error "Failed to read any packages"))
     (dolist (package doom-packages)
       (cl-destructuring-bind
-          (name &key recipe disable ignore &allow-other-keys) package
+          (name &key recipe disable ignore shadow &allow-other-keys) package
         (unless ignore
           (if disable
               (cl-pushnew name doom-disabled-packages)
+            (when shadow
+              (straight-override-recipe (cons shadow '(:local-repo nil)))
+              (let ((site-load-path (copy-sequence doom--initial-load-path))
+                    lib)
+                (while (setq
+                        lib (locate-library (concat (symbol-name shadow) ".el")
+                                            nil site-load-path))
+                  (let ((lib (directory-file-name (file-name-directory lib))))
+                    (setq site-load-path (delete lib site-load-path)
+                          load-path (delete lib load-path))))))
             (when recipe
               (straight-override-recipe (cons name recipe)))
             (straight-register-package name)))))))
@@ -233,10 +253,6 @@ processed."
             (plist-get plist prop)
           nil-value)
       plist)))
-
-(defun doom-package-build-time (package)
-  "TODO"
-  (car (gethash (symbol-name package) straight--build-cache)))
 
 (defun doom-package-dependencies (package &optional recursive _noerror)
   "Return a list of dependencies for a package."
@@ -293,18 +309,6 @@ installed."
         ((locate-library (symbol-name package))
          'other)))
 
-(defun doom-package-changed-recipe-p (name)
-  "Return t if a package named NAME (a symbol) has a different recipe than it
-was installed with."
-  (cl-check-type name symbol)
-  ;; TODO
-  ;; (when (doom-package-installed-p name)
-  ;;   (when-let* ((doom-recipe (assq name doom-packages))
-  ;;               (install-recipe (doom-package-recipe)))
-  ;;     (not (equal (cdr quelpa-recipe)
-  ;;                 (cdr (plist-get (cdr doom-recipe) :recipe))))))
-  )
-
 
 ;;; Package getters
 (defun doom--read-packages (file &optional noeval noerror)
@@ -341,6 +345,7 @@ was installed with."
 If ALL-P, gather packages unconditionally across all modules, including disabled
 ones."
   (let ((packages-file (concat doom-packages-file ".el"))
+        doom-disabled-packages
         doom-packages)
     (doom--read-packages
      (doom-path doom-core-dir packages-file) all-p 'noerror)
@@ -352,10 +357,12 @@ ones."
                   (doom-files-in doom-modules-dir
                                  :depth 2
                                  :match "/packages\\.el$"))
-          ;; We load the private packages file twice to ensure disabled packages
-          ;; are seen ASAP, and a second time to ensure privately overridden
-          ;; packages are properly overwritten.
-          (doom--read-packages private-packages nil 'noerror)
+          ;; We load the private packages file twice to populate
+          ;; `doom-disabled-packages' disabled packages are seen ASAP, and a
+          ;; second time to ensure privately overridden packages are properly
+          ;; overwritten.
+          (let (doom-packages)
+            (doom--read-packages private-packages nil 'noerror))
           (cl-loop for key being the hash-keys of doom-modules
                    for path = (doom-module-path (car key) (cdr key) packages-file)
                    for doom--current-module = key
@@ -380,21 +387,6 @@ ones."
                            nil 'remove #'equal)
                 (unless unpin pin)))))))
 
-(defun doom-package-unpinned-list ()
-  "Return an alist mapping package names (strings) to pinned commits (strings)."
-  (let (alist)
-    (dolist (package doom-packages alist)
-      (cl-destructuring-bind
-          (_ &key recipe disable ignore pin unpin &allow-other-keys)
-          package
-        (when (and (not ignore)
-                   (not disable)
-                   (or unpin
-                       (and (plist-member recipe :pin)
-                            (null pin))))
-          (cl-pushnew (doom-package-recipe-repo (car package)) alist
-                      :test #'equal))))))
-
 (defun doom-package-recipe-list ()
   "Return straight recipes for non-builtin packages with a local-repo."
   (let (recipes)
@@ -406,22 +398,12 @@ ones."
           (push recipe recipes))))
     (nreverse recipes)))
 
-(defun doom-package-state-list ()
-  "TODO"
-  (let (alist)
-    (dolist (recipe (hash-table-values straight--repo-cache) alist)
-      (cl-destructuring-bind (&key local-repo type &allow-other-keys)
-          recipe
-        (when (and local-repo (not (eq type 'built-in)))
-          (setf (alist-get local-repo alist nil nil #'equal)
-                (straight-vc-get-commit type local-repo)))))))
-
 
 ;;
 ;;; Module package macros
 
 (cl-defmacro package!
-    (name &rest plist &key built-in recipe ignore _type _pin _disable)
+    (name &rest plist &key built-in recipe ignore _type _pin _disable _shadow)
   "Declares a package and how to install it (if applicable).
 
 This macro is declarative and does not load nor install packages. It is used to
@@ -458,6 +440,10 @@ Accepts the following properties:
    inform help commands like `doom/help-packages' that this is a built-in
    package. If set to 'prefer, the package will not be installed if it is
    already provided by Emacs.
+ :shadow PACKAGE
+   Informs Doom that this package is shadowing a built-in PACKAGE; the original
+   package will be removed from `load-path' to mitigate conflicts, and this new
+   package will satisfy any dependencies on PACKAGE in the future.
 
 Returns t if package is successfully registered, and nil if it was disabled
 elsewhere."
@@ -492,8 +478,9 @@ elsewhere."
          (when-let (recipe (plist-get plist :recipe))
            (cl-destructuring-bind
                (&key local-repo _files _flavor
-                     _no-build _no-byte-compile _no-autoloads
-                     _type _repo _host _branch _remote _nonrecursive _fork _depth)
+                     _no-build _build _post-build _no-byte-compile
+                     _no-native-compile _no-autoloads _type _repo _host _branch
+                     _remote _nonrecursive _fork _depth)
                recipe
              ;; Expand :local-repo from current directory
              (when local-repo
@@ -508,9 +495,10 @@ elsewhere."
         (signal 'doom-package-error
                 (cons ,(symbol-name name)
                       (error-message-string e)))))
-     ;; This is the only side-effect of this macro!
+     ;; These are the only side-effects of this macro!
      (setf (alist-get name doom-packages) plist)
-     (unless (plist-get plist :disable)
+     (if (plist-get plist :disable)
+         (add-to-list 'doom-disabled-packages name)
        (with-no-warnings
          (cons name plist)))))
 

@@ -38,3 +38,6 @@
 (package! terraform-mode)
 (package! solidity-mode)
 (package! adoc-mode)
+(package! ejira
+  :recipe (:host github :repo "nyyManni/ejira")
+  )

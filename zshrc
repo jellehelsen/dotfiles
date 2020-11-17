@@ -27,7 +27,7 @@ case "$(uname)" in
   *)
     echo "$(uname) Didn't match anything"
 esac
-
+ssh-add ~/.ssh/id_rsa_old
 source $ZSH/oh-my-zsh.sh
 alias ti=tmuxinator
 function bundled_rubocop(){

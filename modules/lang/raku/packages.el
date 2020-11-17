@@ -1,7 +1,7 @@
 ;; -*- no-byte-compile: t; -*-
-;;; lang/perl/packages.el
+;;; lang/raku/packages.el
 
-(package! raku-mode :pin "d474216840251dc0efe4f4aa4f5c5f66ac26fa74")
+(package! raku-mode :pin "8a6e17f1749c084251d19c3d58b9c1495891db6d")
 
 (when (featurep! :checkers syntax)
   (package! flycheck-raku

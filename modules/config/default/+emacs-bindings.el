@@ -34,8 +34,10 @@
        :desc "Evaluate buffer/region"                "e"   #'+eval/buffer-or-region
        :desc "Evaluate & replace region"             "E"   #'+eval/region-and-replace
        :desc "Format buffer/region"                  "f"   #'+format/region-or-buffer
+       :desc "Find implementations"                  "i"   #'+lookup/implementations
        :desc "Jump to documentation"                 "k"   #'+lookup/documentation
        :desc "Send to repl"                          "s"   #'+eval/send-region-to-repl
+       :desc "Find type definition"                  "t"   #'+lookup/type-definition
        :desc "Delete trailing whitespace"            "w"   #'delete-trailing-whitespace
        :desc "Delete trailing newlines"              "W"   #'doom/delete-trailing-newlines
        :desc "List errors"                           "x"   #'flymake-show-diagnostics-buffer
@@ -43,10 +45,9 @@
         :desc "List errors"                         "x"   #'flycheck-list-errors)
        (:when (and (featurep! :tools lsp) (not (featurep! :tools lsp +eglot)))
         :desc "LSP Code actions"                      "a"   #'lsp-execute-code-action
-        :desc "LSP Organize imports"                  "i"   #'lsp-organize-imports
+        :desc "LSP Organize imports"                  "o"   #'lsp-organize-imports
         :desc "LSP Rename"                            "r"   #'lsp-rename
-        (:after lsp-mode
-         :desc "LSP"                                   "l"   lsp-command-map)
+        :desc "LSP"                                   "l"   #'+default/lsp-command-map
         (:when (featurep! :completion ivy)
          :desc "Jump to symbol in current workspace" "j"   #'lsp-ivy-workspace-symbol
          :desc "Jump to symbol in any workspace"     "J"   #'lsp-ivy-global-workspace-symbol)
@@ -55,10 +56,8 @@
          :desc "Jump to symbol in any workspace"     "J"   #'helm-lsp-global-workspace-symbol))
        (:when (featurep! :tools lsp +eglot)
         :desc "LSP Execute code action"              "a" #'eglot-code-actions
-        :desc "LSP Format buffer/region"             "F" #'eglot-format
         :desc "LSP Rename"                           "r" #'eglot-rename
-        :desc "LSP Find declaration"                 "j" #'eglot-find-declaration
-        :desc "LSP Find implementation"              "J" #'eglot-find-implementation))
+        :desc "LSP Find declaration"                 "j" #'eglot-find-declaration))
 
       ;;; <leader> f --- file
       (:prefix-map ("f" . "file")
@@ -118,13 +117,14 @@
        :desc "Look up in all docsets"       "K" #'+lookup/in-all-docsets
        :desc "Search project"               "p" #'+default/search-project
        :desc "Search other project"         "P" #'+default/search-other-project
-       :desc "Search buffer"                "s" #'swiper-isearch
+       :desc "Search buffer"                "s" #'+default/search-buffer
        :desc "Search buffer for thing at point" "S" #'swiper-isearch-thing-at-point
        :desc "Dictionary"                   "t" #'+lookup/dictionary-definition
        :desc "Thesaurus"                    "T" #'+lookup/synonyms)
 
       ;;; <leader> i --- insert
       (:prefix-map ("i" . "insert")
+       :desc "Emoji"                         "e"   #'emojify-insert-emoji
        :desc "Current file name"             "f"   #'+default/insert-file-path
        :desc "Current file path"             "F"   (cmd!! #'+default/insert-file-path t)
        :desc "Snippet"                       "s"   #'yas-insert-snippet
@@ -140,8 +140,8 @@
         (cond ((featurep! :completion ivy)   #'ivy-bibtex)
               ((featurep! :completion helm)  #'helm-bibtex)))
 
-       :desc "Toggle org-clock"               "c" #'+org/toggle-clock
-       :desc "Cancel org-clock"               "C" #'org-clock-cancel
+       :desc "Toggle last org-clock"          "c" #'+org/toggle-last-clock
+       :desc "Cancel current org-clock"       "C" #'org-clock-cancel
        :desc "Open deft"                      "d" #'deft
        (:when (featurep! :lang org +noter)
         :desc "Org noter"                    "e" #'org-noter)
@@ -161,16 +161,18 @@
        :desc "Org export to clipboard as RTF" "Y" #'+org/export-to-clipboard-as-rich-text
        (:when (featurep! :lang org +journal)
         (:prefix ("j" . "journal")
-         :desc "New Entry"      "j" #'org-journal-new-entry
-         :desc "Search Forever" "s" #'org-journal-search-forever))
+         :desc "New Entry"           "j" #'org-journal-new-entry
+         :desc "New Scheduled Entry" "J" #'org-journal-new-scheduled-entry
+         :desc "Search Forever"      "s" #'org-journal-search-forever))
        (:when (featurep! :lang org +roam)
         (:prefix ("r" . "roam")
-         :desc "Switch to buffer" "b" #'org-roam-switch-to-buffer
-         :desc "Org Roam Capture" "c" #'org-roam-capture
-         :desc "Find file"        "f" #'org-roam-find-file
-         :desc "Show graph"       "g" #'org-roam-graph
-         :desc "Insert"           "i" #'org-roam-insert
-         :desc "Org Roam"         "r" #'org-roam
+         :desc "Switch to buffer"              "b" #'org-roam-switch-to-buffer
+         :desc "Org Roam Capture"              "c" #'org-roam-capture
+         :desc "Find file"                     "f" #'org-roam-find-file
+         :desc "Show graph"                    "g" #'org-roam-graph
+         :desc "Insert"                        "i" #'org-roam-insert
+         :desc "Insert (skipping org-capture)" "I" #'org-roam-insert-immediate
+         :desc "Org Roam"                      "r" #'org-roam
          (:prefix ("d" . "by date")
           :desc "Arbitrary date" "d" #'org-roam-dailies-date
           :desc "Today"          "t" #'org-roam-dailies-today
@@ -204,13 +206,14 @@
        (:when (featurep! :term eshell)
         :desc "Toggle eshell popup"           "e" #'+eshell/toggle
         :desc "Open eshell here"              "E" #'+eshell/here)
-       (:when (featurep! :tools macos)
+       (:when (featurep! :os macos)
         :desc "Reveal in Finder"           "o" #'+macos/reveal-in-finder
         :desc "Reveal project in Finder"   "O" #'+macos/reveal-project-in-finder
         :desc "Send to Transmit"           "u" #'+macos/send-to-transmit
         :desc "Send project to Transmit"   "U" #'+macos/send-project-to-transmit
         :desc "Send to Launchbar"          "l" #'+macos/send-to-launchbar
-        :desc "Send project to Launchbar"  "L" #'+macos/send-project-to-launchbar)
+        :desc "Send project to Launchbar"  "L" #'+macos/send-project-to-launchbar
+        :desc "Open in iTerm"              "i" #'+macos/open-in-iterm)
        (:when (featurep! :tools docker)
         :desc "Docker" "D" #'docker)
        (:when (featurep! :email mu4e)
@@ -264,6 +267,8 @@
       ;;; <leader> t --- toggle
       (:prefix-map ("t" . "toggle")
        :desc "Big mode"                     "b" #'doom-big-font-mode
+       (:when (featurep! :ui fill-column)
+        :desc "Fill Column Indicator"       "c" #'+fill-column/toggle)
        :desc "Flymake"                      "f" #'flymake-mode
        :desc "Frame fullscreen"             "F" #'toggle-frame-fullscreen
        :desc "Indent style"                 "I" #'doom/toggle-indent-style
@@ -276,10 +281,12 @@
        (:when (featurep! :ui minimap)
         :desc "Minimap mode"               "m" #'minimap-mode)
        (:when (featurep! :lang org +present)
-        :desc "org-tree-slide mode"        "p" #'+org-present/start)
+        :desc "org-tree-slide mode"        "p" #'org-tree-slide-mode)
        :desc "Read-only mode"               "r" #'read-only-mode
-       (:when (featurep! :checkers spell)
-        :desc "Flyspell"                   "s" #'flyspell-mode)
+       (:when (and (featurep! :checkers spell) (not (featurep! :checkers spell +flyspell)))
+        :desc "Spell checker"              "s" #'spell-fu-mode)
+       (:when (featurep! :checkers spell +flyspell)
+        :desc "Spell checker"              "s" #'flyspell-mode)
        (:when (featurep! :lang org +pomodoro)
         :desc "Pomodoro timer"             "t" #'org-pomodoro)
        (:when (featurep! :ui zen)
@@ -325,7 +332,7 @@
          :desc "Browse pull requests"      "P"   #'forge-browse-pullreqs)
         (:prefix ("l" . "list")
          (:when (featurep! :tools gist)
-          :desc "List gists"               "g"   #'+gist:list)
+          :desc "List gists"               "g"   #'gist-list)
          :desc "List repositories"         "r"   #'magit-list-repositories
          :desc "List submodules"           "s"   #'magit-list-submodules
          :desc "List issues"               "i"   #'forge-list-issues
@@ -341,31 +348,32 @@
 
       ;;; <leader> w --- workspaces/windows
       (:prefix-map ("w" . "workspaces/windows")
+       (:when (featurep! :ui workspaces)
+        :desc "Display workspaces"           "d" #'+workspace/display
+        :desc "Rename workspace"             "r" #'+workspace/rename
+        :desc "Create workspace"             "c" #'+workspace/new
+        :desc "Delete workspace"             "k" #'+workspace/delete
+        :desc "Save workspace"               "S" #'+workspace/save
+        :desc "Switch to other workspace"    "o" #'+workspace/other
+        :desc "Switch to left workspace"     "p" #'+workspace/switch-left
+        :desc "Switch to right workspace"    "n" #'+workspace/switch-right
+        :desc "Switch to"                    "w" #'+workspace/switch-to
+        :desc "Switch to workspace 1"        "1" #'+workspace/switch-to-0
+        :desc "Switch to workspace 2"        "2" #'+workspace/switch-to-1
+        :desc "Switch to workspace 3"        "3" #'+workspace/switch-to-2
+        :desc "Switch to workspace 4"        "4" #'+workspace/switch-to-3
+        :desc "Switch to workspace 5"        "5" #'+workspace/switch-to-4
+        :desc "Switch to workspace 6"        "6" #'+workspace/switch-to-5
+        :desc "Switch to workspace 7"        "7" #'+workspace/switch-to-6
+        :desc "Switch to workspace 8"        "8" #'+workspace/switch-to-7
+        :desc "Switch to workspace 9"        "9" #'+workspace/switch-to-8
+        :desc "Switch to last workspace"     "0" #'+workspace/switch-to-final)
        :desc "Autosave session"             "a" #'doom/quicksave-session
-       :desc "Display workspaces"           "d" #'+workspace/display
-       :desc "Rename workspace"             "r" #'+workspace/rename
-       :desc "Create workspace"             "c" #'+workspace/new
-       :desc "Delete workspace"             "k" #'+workspace/delete
        :desc "Save session"                 "s" #'doom/save-session
-       :desc "Save workspace"               "S" #'+workspace/save
        :desc "Load session"                 "l" #'doom/load-session
        :desc "Load last autosaved session"  "L" #'doom/quickload-session
-       :desc "Switch to other workspace"    "o" #'+workspace/other
        :desc "Undo window config"           "u" #'winner-undo
-       :desc "Redo window config"           "U" #'winner-redo
-       :desc "Switch to left workspace"     "p" #'+workspace/switch-left
-       :desc "Switch to right workspace"    "n" #'+workspace/switch-right
-       :desc "Switch to"                    "w" #'+workspace/switch-to
-       :desc "Switch to workspace 1"        "1" #'+workspace/switch-to-0
-       :desc "Switch to workspace 2"        "2" #'+workspace/switch-to-1
-       :desc "Switch to workspace 3"        "3" #'+workspace/switch-to-2
-       :desc "Switch to workspace 4"        "4" #'+workspace/switch-to-3
-       :desc "Switch to workspace 5"        "5" #'+workspace/switch-to-4
-       :desc "Switch to workspace 6"        "6" #'+workspace/switch-to-5
-       :desc "Switch to workspace 7"        "7" #'+workspace/switch-to-6
-       :desc "Switch to workspace 8"        "8" #'+workspace/switch-to-7
-       :desc "Switch to workspace 9"        "9" #'+workspace/switch-to-8
-       :desc "Switch to last workspace"     "0" #'+workspace/switch-to-final)
+       :desc "Redo window config"           "U" #'winner-redo)
 
       ;;; <leader> m --- multiple cursors
       (:when (featurep! :editor multiple-cursors)
@@ -399,7 +407,7 @@
         :desc "Reconnect all"      "r" #'circe-reconnect-all
         :desc "Send message"       "s" #'+irc/send-message
         (:when (featurep! :completion ivy)
-         :desc "Jump to channel"  "j" #'irc/ivy-jump-to-channel)))
+         :desc "Jump to channel"  "j" #'+irc/ivy-jump-to-channel)))
 
       ;;; <leader> T --- twitter
       (:when (featurep! :app twitter)
@@ -416,16 +424,9 @@
 (map! "C-'" #'imenu
 
       ;;; Text scaling
-      [C-mouse-4] #'text-scale-increase
-      [C-mouse-5] #'text-scale-decrease
-      [C-down-mouse-2] (cmd! (text-scale-set 0))
       "M-+" #'doom/reset-font-size
       "M-=" #'doom/increase-font-size
       "M--" #'doom/decrease-font-size
-
-      ;;; newlines
-      [remap newline]  #'newline-and-indent
-      "C-j"            #'+default/newline
 
       ;;; search
       (:when (featurep! :completion ivy)
@@ -557,13 +558,19 @@
         "C-M-b"     #'sp-backward-sexp
         "C-M-d"     #'sp-splice-sexp
         "C-M-k"     #'sp-kill-sexp
-        "C-M-t"     #'sp-transpose-sexp
-        "C-<right>" #'sp-forward-slurp-sexp
-        "M-<right>" #'sp-forward-barf-sexp
-        "C-<left>"  #'sp-backward-slurp-sexp
-        "M-<left>"  #'sp-backward-barf-sexp)
+        "C-M-t"     #'sp-transpose-sexp)
 
       ;;; treemacs
       (:when (featurep! :ui treemacs)
         "<f9>"   #'+treemacs/toggle
         "<C-f9>" #'treemacs-find-file))
+
+(map! :leader
+      (:when (featurep! :editor fold)
+       (:prefix ("C-f" . "fold")
+        "C-d"     #'vimish-fold-delete
+        "C-a C-d" #'vimish-fold-delete-all
+        "C-f"     #'+fold/toggle
+        "C-a C-f" #'+fold/close-all
+        "C-u"     #'+fold/open
+        "C-a C-u" #'+fold/open-all)))

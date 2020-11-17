@@ -1,5 +1,13 @@
 ;;; tools/magit/config.el -*- lexical-binding: t; -*-
 
+(defvar +magit-open-windows-in-direction 'right
+  "What direction to open new windows from the status buffer.
+For example, diffs and log buffers. Accepts `left', `right', `up', and `down'.")
+
+
+;;
+;;; Packages
+
 (use-package! magit
   :commands magit-file-delete
   :defer-incrementally (dash f s with-editor git-commit package eieio lv transient)
@@ -10,17 +18,17 @@
         transient-values-file  (concat doom-etc-dir "transient/values")
         transient-history-file (concat doom-etc-dir "transient/history"))
   :config
+  (add-to-list 'doom-debug-variables 'magit-refresh-verbose)
+
   (setq transient-default-level 5
-        magit-revision-show-gravatars '("^Author:     " . "^Commit:     ")
         magit-diff-refine-hunk t ; show granular diffs in selected hunk
         ;; Don't autosave repo buffers. This is too magical, and saving can
         ;; trigger a bunch of unwanted side-effects, like save hooks and
-        ;; formatters. Trust us to know what we're doing.
+        ;; formatters. Trust the user to know what they're doing.
         magit-save-repository-buffers nil
-        ;; Magit runs git *a lot*. Having to scan your PATH so many times can
-        ;; add up with each invokation, especially on Catalina (macOS) or
-        ;; Windows, so we resolve it once.
-        magit-git-executable (executable-find magit-git-executable))
+        ;; Don't display parent/related refs in commit buffers; they are rarely
+        ;; helpful and only add to runtime costs.
+        magit-revision-insert-related-refs nil)
   (add-hook 'magit-process-mode-hook #'goto-address-mode)
 
   (defadvice! +magit-revert-repo-buffers-deferred-a (&rest _)
@@ -72,7 +80,8 @@
   ;; 2. The status screen isn't buried when viewing diffs or logs from the
   ;;    status screen.
   (setq transient-display-buffer-action '(display-buffer-below-selected)
-        magit-display-buffer-function #'+magit-display-buffer-fn)
+        magit-display-buffer-function #'+magit-display-buffer-fn
+        magit-bury-buffer-function #'magit-mode-quit-window)
   (set-popup-rule! "^\\(?:\\*magit\\|magit:\\| \\*transient\\*\\)" :ignore t)
   (add-hook 'magit-popup-mode-hook #'hide-mode-line-mode)
 
@@ -94,7 +103,17 @@
   (define-key magit-status-mode-map [remap magit-mode-bury-buffer] #'+magit/quit)
 
   ;; Close transient with ESC
-  (define-key transient-map [escape] #'transient-quit-one))
+  (define-key transient-map [escape] #'transient-quit-one)
+
+  ;; An optimization that particularly affects macOS and Windows users: by
+  ;; resolving `magit-git-executable' Emacs does less work to find the
+  ;; executable in your PATH, which is great because it is called so frequently.
+  ;; However, absolute paths will break magit in TRAMP/remote projects if the
+  ;; git executable isn't in the exact same location.
+  (add-hook! 'magit-status-mode-hook
+    (defun +magit-optimize-process-calls-h ()
+      (when-let (path (executable-find magit-git-executable t))
+        (setq-local magit-git-executable path)))))
 
 
 (use-package! forge
@@ -154,10 +173,7 @@ ensure it is built when we actually use Forge."
   :after magit
   :config
   (setq magit-todos-keyword-suffix "\\(?:([^)]+)\\)?:?") ; make colon optional
-  (define-key magit-todos-section-map "j" nil)
-  ;; Warns that jT isn't bound. Well, yeah, you don't need to tell me, that was
-  ;; on purpose ya goose.
-  (advice-add #'magit-todos-mode :around #'doom-shut-up-a))
+  (define-key magit-todos-section-map "j" nil))
 
 
 (use-package! magit-gitflow
@@ -179,8 +195,12 @@ ensure it is built when we actually use Forge."
   (evil-define-key* 'normal magit-status-mode-map [escape] nil) ; q is enough
   (evil-define-key* '(normal visual) magit-mode-map
     "%"  #'magit-gitflow-popup
+    "zt" #'evil-scroll-line-to-top
     "zz" #'evil-scroll-line-to-center
-    "g=" #'magit-diff-default-context)
+    "zb" #'evil-scroll-line-to-bottom
+    "g=" #'magit-diff-default-context
+    "gi" #'forge-jump-to-issues
+    "gm" #'forge-jump-to-pullreqs)
   (define-key! 'normal
     (magit-status-mode-map
      magit-stash-mode-map
@@ -193,4 +213,8 @@ ensure it is built when we actually use Forge."
         (setcar desc (cdr key))))
     (evil-define-key* evil-magit-state git-rebase-mode-map
       "gj" #'git-rebase-move-line-down
-      "gk" #'git-rebase-move-line-up)))
+      "gk" #'git-rebase-move-line-up))
+  (transient-replace-suffix 'magit-dispatch 'magit-worktree
+    '("%" "Gitflow" magit-gitflow-popup))
+  (transient-append-suffix 'magit-dispatch '(0 -1 -1)
+    '("*" "Worktree" magit-worktree)))

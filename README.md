@@ -84,7 +84,7 @@ Check out [the FAQ][FAQ] for answers to common questions about the project.
 - A rule-based [popup manager][popup-system] to control how temporary buffers
   are displayed (and disposed of).
 - Per-file indentation style detection and [editorconfig] integration. Let
-  someone else can argue about tabs vs **_spaces_**.
+  someone else argue about tabs vs **_spaces_**.
 - Project-management tools and framework-specific minor modes with their own
   snippets libraries.
 - Project search (and replace) utilities, powered by [ripgrep] and [ivy] or
@@ -176,7 +176,7 @@ mysterious errors. When you do, here are some places you can look for help:
 + Run `bin/doom doctor` to detect common issues with your development
   environment and private config.
 + Check out the [FAQ], in case your question has already been answered.
-+ Search [Doom's issue tracker](/issues) in case your issue was already
++ Search [Doom's issue tracker](https://github.com/hlissner/doom-emacs/issues) in case your issue was already
   reported.
 + Hop on [our Discord server][discord]; it's active and friendly! Keep an eye on
   the #announcements channel, where I announce breaking updates and releases.
@@ -230,7 +230,7 @@ kind!
 [change-font]: docs/faq.org#how-do-i-change-the-fonts
 [modules]: docs/modules.org
 [popup-system]: modules/ui/popup/README.org
-[screenshots]: #screenshots
+[screenshots]: https://github.com/hlissner/doom-emacs/tree/screenshots#emacsd-screenshots
 
 [bindings]: modules/config/default/+evil-bindings.el
 [editorconfig]: http://editorconfig.org/

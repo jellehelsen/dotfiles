@@ -29,11 +29,11 @@ employed so that flycheck still does *some* helpful linting.")
   :config
   (set-repl-handler! '(emacs-lisp-mode lisp-interaction-mode) #'+emacs-lisp/open-repl)
   (set-eval-handler! '(emacs-lisp-mode lisp-interaction-mode) #'+emacs-lisp-eval)
-  (set-lookup-handlers! '(emacs-lisp-mode helpful-mode)
+  (set-lookup-handlers! '(emacs-lisp-mode lisp-interaction-mode helpful-mode)
     :definition    #'+emacs-lisp-lookup-definition
     :documentation #'+emacs-lisp-lookup-documentation)
   (set-docsets! '(emacs-lisp-mode lisp-interaction-mode) "Emacs Lisp")
-  (set-pretty-symbols! 'emacs-lisp-mode :lambda "lambda")
+  (set-ligatures! 'emacs-lisp-mode :lambda "lambda")
   (set-rotate-patterns! 'emacs-lisp-mode
     :symbols '(("t" "nil")
                ("let" "let*")
@@ -46,7 +46,11 @@ employed so that flycheck still does *some* helpful linting.")
                ("describe" "xdescribe")))
 
   (setq-hook! 'emacs-lisp-mode-hook
-    tab-width (or lisp-indent-offset 2)
+    ;; Emacs' built-in elisp files use a hybrid tab->space indentation scheme
+    ;; with a tab width of 8. Any smaller and the indentation will be
+    ;; unreadable. Since Emacs' lisp indenter doesn't respect this variable it's
+    ;; safe to ignore this setting otherwise.
+    tab-width 8
     ;; shorter name in modeline
     mode-name "Elisp"
     ;; Don't treat autoloads or sexp openers as outline headers, we have

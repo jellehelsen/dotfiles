@@ -4,15 +4,6 @@
   (load! "+light"))
 
 
-(defvar +modeline--redisplayed-p nil)
-(defadvice! modeline-recalculate-height-a (&optional _force &rest _ignored)
-  "Ensure that window resizing functions take modeline height into account."
-  :before '(fit-window-to-buffer resize-temp-buffer-window)
-  (unless +modeline--redisplayed-p
-    (setq-local +modeline--redisplayed-p t)
-    (redisplay t)))
-
-
 (use-package! doom-modeline
   :unless (featurep! +light)
   :hook (after-init . doom-modeline-mode)
@@ -41,6 +32,13 @@
   (when (daemonp)
     (setq doom-modeline-icon t))
   :config
+  ;; HACK Fix #4102 due to empty all-the-icons return value (caused by
+  ;;      `doom--disable-all-the-icons-in-tty-a' advice) in tty daemon frames.
+  (defadvice! +modeline-disable-icon-in-daemon-a (orig-fn &rest args)
+    :around #'doom-modeline-propertize-icon
+    (when (display-graphic-p)
+      (apply orig-fn args)))
+
   ;; Fix an issue where these two variables aren't defined in TTY Emacs on MacOS
   (defvar mouse-wheel-down-event nil)
   (defvar mouse-wheel-up-event nil)

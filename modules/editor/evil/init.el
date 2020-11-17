@@ -39,6 +39,7 @@
       free-keys
       help
       helm
+      indent
       image
       kotlin-mode
       occur
@@ -84,6 +85,8 @@ variable for an explanation of the defaults (in comments). See
       anaconda-mode
       apropos
       arc-mode
+      auto-package-update
+      bm
       bookmark
       (buff-menu "buff-menu")
       calc
@@ -111,6 +114,7 @@ variable for an explanation of the defaults (in comments). See
       edebug
       ediff
       eglot
+      explain-pause-mode
       elfeed
       elisp-mode
       elisp-refs
@@ -122,6 +126,7 @@ variable for an explanation of the defaults (in comments). See
       eval-sexp-fu
       evil-mc
       eww
+      finder
       flycheck
       flymake
       free-keys
@@ -142,7 +147,9 @@ variable for an explanation of the defaults (in comments). See
       image
       image-dired
       image+
+      imenu
       imenu-list
+      (indent "indent")
       indium
       info
       ivy
@@ -158,15 +165,17 @@ variable for an explanation of the defaults (in comments). See
       man
       magit
       magit-todos
-      ,@(if evil-collection-setup-minibuffer '(minibuffer))
       monky
       mu4e
       mu4e-conversation
       neotree
+      newsticker
       notmuch
       nov
       (occur replace)
       omnisharp
+      org-present
+      osx-dictionary
       outline
       p4
       (package-menu package)
@@ -174,7 +183,6 @@ variable for an explanation of the defaults (in comments). See
       (pdf pdf-tools)
       popup
       proced
-      process-menu
       prodigy
       profiler
       python
@@ -183,6 +191,7 @@ variable for an explanation of the defaults (in comments). See
       realgud
       reftex
       restclient
+      rg
       rjsx-mode
       robe
       rtags
@@ -190,12 +199,16 @@ variable for an explanation of the defaults (in comments). See
       simple
       slime
       sly
+      speedbar
       tablist
       tar-mode
       (term term ansi-term multi-term)
       tetris
+      ,@(if EMACS27+ '(thread))
       tide
+      timer-list
       transmission
+      trashed
       typescript-mode
       vc-annotate
       vc-dir
@@ -212,6 +225,7 @@ variable for an explanation of the defaults (in comments). See
       xref
       xwidget
       youtube-dl
+      zmusic
       (ztree ztree-diff)))
 
   (defun +evil-collection-init (module &optional disabled-list)
@@ -226,9 +240,14 @@ and complains if a module is loaded too early (during startup)."
       (with-demoted-errors "evil-collection error: %s"
         (evil-collection-init (list module)))))
 
+  (defadvice! +evil-collection-disable-blacklist-a (orig-fn)
+    :around #'evil-collection-vterm-toggle-send-escape  ; allow binding to ESC
+    (let (evil-collection-key-blacklist)
+      (funcall-interactively orig-fn)))
+
   ;; These modes belong to packages that Emacs always loads at startup, causing
-  ;; evil-collection to load immediately. We avoid this by loading them after
-  ;; evil-collection has first loaded...
+  ;; evil-collection and it's co-packages to all load immediately. We avoid this
+  ;; by loading them after evil-collection has first loaded...
   (with-eval-after-load 'evil-collection
     ;; Don't let evil-collection interfere with certain keys
     (setq evil-collection-key-blacklist
@@ -246,30 +265,35 @@ and complains if a module is loaded too early (during startup)."
 
     (mapc #'+evil-collection-init '(comint custom help)))
 
-  (defadvice! +evil-collection-disable-blacklist-a (orig-fn)
-    :around #'evil-collection-vterm-toggle-send-escape  ; allow binding to ESC
-    (let (evil-collection-key-blacklist)
-      (funcall-interactively orig-fn)))
-
   ;; ...or on first invokation of their associated major/minor modes.
-  (add-transient-hook! 'Buffer-menu-mode
-    (+evil-collection-init '(buff-menu "buff-menu")))
-  (add-transient-hook! 'image-mode
-    (+evil-collection-init 'image))
-  (add-transient-hook! 'emacs-lisp-mode
-    (+evil-collection-init 'elisp-mode))
-  (add-transient-hook! 'occur-mode
-    (+evil-collection-init '(occur replace)))
-  (add-transient-hook! 'minibuffer-setup-hook
-    (when evil-collection-setup-minibuffer
-      (+evil-collection-init 'minibuffer)
-      (evil-collection-minibuffer-insert)))
+  (after! evil
+    (add-transient-hook! 'Buffer-menu-mode
+      (+evil-collection-init '(buff-menu "buff-menu")))
+    (add-transient-hook! 'image-mode
+      (+evil-collection-init 'image))
+    (add-transient-hook! 'emacs-lisp-mode
+      (+evil-collection-init 'elisp-mode))
+    (add-transient-hook! 'occur-mode
+      (+evil-collection-init '(occur replace)))
+    (add-transient-hook! 'indent-rigidly
+      (+evil-collection-init '(indent "indent")))
+    (add-transient-hook! 'minibuffer-setup-hook
+      (when evil-collection-setup-minibuffer
+        (+evil-collection-init 'minibuffer)
+        (evil-collection-minibuffer-insert)))
+    (add-transient-hook! 'process-menu-mode
+      (+evil-collection-init '(process-menu simple)))
+    (add-transient-hook! 'tabulated-list-mode
+      (+evil-collection-init 'tabulated-list))
+    (when EMACS27+
+      (add-transient-hook! 'tab-bar-mode
+        (+evil-collection-init 'tab-bar)))
 
-  ;; HACK Do this ourselves because evil-collection break's `eval-after-load'
-  ;;      load order by loading their target plugin before applying keys. This
-  ;;      makes it hard for end-users to overwrite these keybinds with a
-  ;;      simple `after!' or `with-eval-after-load'.
-  (dolist (mode evil-collection-mode-list)
-    (dolist (req (or (cdr-safe mode) (list mode)))
-      (with-eval-after-load req
-        (+evil-collection-init mode +evil-collection-disabled-list)))))
+    ;; HACK Do this ourselves because evil-collection break's `eval-after-load'
+    ;;      load order by loading their target plugin before applying keys. This
+    ;;      makes it hard for end-users to overwrite these keybinds with a
+    ;;      simple `after!' or `with-eval-after-load'.
+    (dolist (mode evil-collection-mode-list)
+      (dolist (req (or (cdr-safe mode) (list mode)))
+        (with-eval-after-load req
+          (+evil-collection-init mode +evil-collection-disabled-list))))))

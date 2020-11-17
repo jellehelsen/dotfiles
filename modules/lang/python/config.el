@@ -1,19 +1,17 @@
 ;;; lang/python/config.el -*- lexical-binding: t; -*-
 
-(defvar +python-ipython-repl-args '("-i" "--simple-prompt" "--no-color-info")
-  "CLI arguments to initialize ipython with when `+python/open-ipython-repl' is
-called.")
+(defvar +python-ipython-command '("ipython" "-i" "--simple-prompt" "--no-color-info")
+  "Command to initialize the ipython REPL for `+python/open-ipython-repl'.")
 
-(defvar +python-jupyter-repl-args '("--simple-prompt")
-  "CLI arguments to initialize 'jupiter console %s' with when
-`+python/open-ipython-repl' is called.")
+(defvar +python-jupyter-command '("jupyter" "console" "--simple-prompt")
+  "Command to initialize the jupyter REPL for `+python/open-jupyter-repl'.")
 
 (after! projectile
   (pushnew! projectile-project-root-files "setup.py" "requirements.txt"))
 
 
 ;;
-;; Packages
+;;; Packages
 
 (use-package! python
   :mode ("[./]flake8\\'" . conf-mode)
@@ -31,7 +29,7 @@ called.")
   (set-repl-handler! 'python-mode #'+python/open-repl :persist t)
   (set-docsets! 'python-mode "Python 3" "NumPy" "SciPy")
 
-  (set-pretty-symbols! 'python-mode
+  (set-ligatures! 'python-mode
     ;; Functional
     :def "def"
     :lambda "lambda"
@@ -183,22 +181,23 @@ called.")
 
 
 (use-package! python-pytest
-  :defer t
+  :commands python-pytest-dispatch
   :init
   (map! :after python
         :localleader
         :map python-mode-map
         :prefix ("t" . "test")
+        "a" #'python-pytest
         "f" #'python-pytest-file-dwim
         "F" #'python-pytest-file
         "t" #'python-pytest-function-dwim
         "T" #'python-pytest-function
         "r" #'python-pytest-repeat
-        "p" #'python-pytest-popup))
+        "p" #'python-pytest-dispatch))
 
 
 ;;
-;; Environment management
+;;; Environment management
 
 (use-package! pipenv
   :commands pipenv-project-p
@@ -247,7 +246,7 @@ called.")
   (pyenv-mode +1)
   (when (executable-find "pyenv")
     (add-to-list 'exec-path (expand-file-name "shims" (or (getenv "PYENV_ROOT") "~/.pyenv"))))
-  (add-hook 'python-mode-hook #'+python-pyenv-mode-set-auto-h)
+  (add-hook 'python-mode-local-vars-hook #'+python-pyenv-mode-set-auto-h)
   (add-hook 'doom-switch-buffer-hook #'+python-pyenv-mode-set-auto-h))
 
 
@@ -266,14 +265,16 @@ called.")
                                 "~/.anaconda"
                                 "~/.miniconda"
                                 "~/.miniconda3"
+                                "~/anaconda3"
                                 "~/miniconda3"
+                                "~/opt/miniconda3"
                                 "/usr/bin/anaconda3"
                                 "/usr/local/anaconda3"
                                 "/usr/local/miniconda3"
                                 "/usr/local/Caskroom/miniconda/base")
                if (file-directory-p dir)
-               return (setq conda-anaconda-home dir
-                            conda-env-home-directory dir))
+               return (setq conda-anaconda-home (expand-file-name dir)
+                            conda-env-home-directory (expand-file-name dir)))
       (message "Cannot find Anaconda installation"))
 
   ;; integration with term/eshell
@@ -287,24 +288,9 @@ called.")
 
 (use-package! poetry
   :when (featurep! +poetry)
-  :after python)
-
-
-(use-package! lsp-python-ms
-  :when (and (featurep! +lsp) (not (featurep! :tools lsp +eglot)))
-  :after lsp-clients
-  :preface
-  (after! python
-    (setq lsp-python-ms-python-executable-cmd python-shell-interpreter))
+  :after python
   :init
-  ;; HACK If you don't have python installed, then opening python buffers with
-  ;;      this on causes a "wrong number of arguments: nil 0" error, because of
-  ;;      careless usage of `cl-destructuring-bind'. This silences that error,
-  ;;      since we may still want to write some python on a system without
-  ;;      python installed!
-  (defadvice! +python--silence-errors-a (orig-fn &rest args)
-    :around #'lsp-python-ms--extra-init-params
-    (ignore-errors (apply orig-fn args))))
+  (add-hook 'python-mode-hook #'poetry-tracking-mode))
 
 
 (use-package! cython-mode
@@ -322,3 +308,21 @@ called.")
   :when (featurep! +cython)
   :when (featurep! :checkers syntax)
   :after cython-mode)
+
+
+;;
+;;; LSP
+
+(eval-when! (and (featurep! +lsp)
+                 (not (featurep! :tools lsp +eglot)))
+
+  (use-package! lsp-python-ms
+    :unless (featurep! +pyright)
+    :after lsp-mode
+    :preface
+    (after! python
+      (setq lsp-python-ms-python-executable-cmd python-shell-interpreter)))
+
+  (use-package! lsp-pyright
+    :when (featurep! +pyright)
+    :after lsp-mode))

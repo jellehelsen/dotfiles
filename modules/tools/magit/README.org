@@ -12,6 +12,8 @@
 - [[#prerequisites][Prerequisites]]
 - [[#features][Features]]
 - [[#configuration][Configuration]]
+  - [[#enable-gravatars][Enable Gravatars]]
+  - [[#enable-granular-diff-highlights-for-all-hunks][Enable granular diff-highlights for all hunks]]
 - [[#troubleshooting][Troubleshooting]]
 
 * Description
@@ -53,8 +55,24 @@ Forge will require [[https://magit.vc/manual/forge/Token-Creation.html#Token-Cre
 * TODO Features
 # An in-depth list of features, how to use them, and their dependencies.
 
-* TODO Configuration
-# How to configure this module, including common problems and how to address them.
+* Configuration
+Add these to =$DOOMDIR/config.el=.
+** Enable Gravatars
+This will enable gravatars when viewing commits. The service used by default is [[https://www.libravatar.org/][Libravatar]].
+#+BEGIN_SRC emacs-lisp
+(setq magit-revision-show-gravatars '("^Author:     " . "^Commit:     "))
+#+END_SRC
+
+** Enable granular diff-highlights for all hunks
+
+By default, changes are highlighted *linewise* for all but the selected hunk. This
+has [[https://magit.vc/manual/magit/Performance.html][performance reasons]]. You can enable character-wise highlights for all
+visible hunks with:
+
+#+BEGIN_SRC emacs-lisp
+(after! magit
+  (setq magit-diff-refine-hunk 'all))
+#+END_SRC
 
 * TODO Troubleshooting
 # Common issues and their solution, or places to look for help.

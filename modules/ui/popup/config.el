@@ -147,7 +147,7 @@ prevent the popup(s) from messing up the UI (or vice versa)."
       ("^\\*Calc"
        :vslot -7 :side bottom :size 0.4 :select t :quit nil :ttl 0)
       ("^\\*Customize"
-       :slot 2 :side right :select t :quit t)
+       :slot 2 :side right :size 0.5 :select t :quit nil)
       ("^ \\*undo-tree\\*"
        :slot 2 :side left :size 20 :select t :quit t)
       ;; `help-mode', `helpful-mode'
@@ -161,7 +161,8 @@ prevent the popup(s) from messing up the UI (or vice versa)."
     ("^\\*Backtrace" :vslot 99 :size 0.4 :quit nil)
     ("^\\*CPU-Profiler-Report "    :side bottom :vslot 100 :slot 1 :height 0.4 :width 0.5 :quit nil)
     ("^\\*Memory-Profiler-Report " :side bottom :vslot 100 :slot 2 :height 0.4 :width 0.5 :quit nil)
-    ("^\\*\\(?:Proced\\|timer-list\\|Process List\\|Abbrevs\\|Output\\|Occur\\|unsent mail\\)\\*" :ignore t)))
+    ("^\\*Process List\\*" :side bottom :vslot 101 :size 0.25 :select t :quit t)
+    ("^\\*\\(?:Proced\\|timer-list\\|Abbrevs\\|Output\\|Occur\\|unsent mail\\)\\*" :ignore t)))
 
 (add-hook 'doom-init-ui-hook #'+popup-mode 'append)
 

@@ -113,10 +113,16 @@ unreadable. Returns the names of envvars that were changed."
                 env (split-string (buffer-substring (match-beginning 1) (point-max))
                                   "\0\n"
                                   'omit-nulls))))))
-      (setq process-environment (append (nreverse env) process-environment)
-            exec-path (append (split-string (getenv "PATH") path-separator t)
-                              (list exec-directory))
-            shell-file-name (or (getenv "SHELL") shell-file-name))
+      (setq-default
+       process-environment
+       (append (nreverse env)
+               (default-value 'process-environment))
+       exec-path
+       (append (split-string (getenv "PATH") path-separator t)
+               (list exec-directory))
+       shell-file-name
+       (or (getenv "SHELL")
+           (default-value 'shell-file-name)))
       env)))
 
 
@@ -214,19 +220,19 @@ writes to `standard-output'."
                    (funcall write-region start end filename append visit lockname mustbenew)))
            ,@forms))))
 
-(defmacro if! (cond then &rest body)
+(defmacro eval-if! (cond then &rest body)
   "Expands to THEN if COND is non-nil, to BODY otherwise.
-COND is checked at compile/expansion time, allowing BODY to be omitted
-entirely when the elisp is byte-compiled. Use this for forms that contain
-expensive macros that could safely be removed at compile time."
+COND is checked at compile/expansion time, allowing BODY to be omitted entirely
+when the elisp is byte-compiled. Use this for forms that contain expensive
+macros that could safely be removed at compile time."
   (declare (indent 2))
   (if (eval cond)
       then
     (macroexp-progn body)))
 
-(defmacro when! (cond &rest body)
+(defmacro eval-when! (cond &rest body)
   "Expands to BODY if CONDITION is non-nil at compile/expansion time.
-See `if!' for details on this macro's purpose."
+See `eval-if!' for details on this macro's purpose."
   (declare (indent 1))
   (when (eval cond)
     (macroexp-progn body)))
@@ -245,13 +251,17 @@ or aliases."
   (declare (doc-string 1) (pure t) (side-effect-free t))
   `(lambda (&rest _) (interactive) ,@body))
 
-(defmacro cmd!! (command &rest args)
+(defmacro cmd!! (command &optional prefix-arg &rest args)
   "Expands to a closure that interactively calls COMMAND with ARGS.
 A factory for quickly producing interactive, prefixed commands for keybinds or
 aliases."
   (declare (doc-string 1) (pure t) (side-effect-free t))
-  `(lambda (&rest _) (interactive)
-     (funcall-interactively ,command ,@args)))
+  `(lambda (arg &rest _) (interactive "P")
+     (let ((current-prefix-arg (or ,prefix-arg arg)))
+       (,(if args
+             'funcall-interactively
+           'call-interactively)
+        ,command ,@args))))
 
 (defmacro cmds! (&rest branches)
   "Expands to a `menu-item' dispatcher for keybinds."
@@ -318,7 +328,7 @@ The current file is the file from which `add-to-load-path!' is used."
   `(let ((default-directory ,(dir!))
          file-name-handler-alist)
      (dolist (dir (list ,@dirs))
-       (cl-pushnew (expand-file-name dir) load-path))))
+       (cl-pushnew (expand-file-name dir) load-path :test #'string=))))
 
 (defmacro after! (package &rest body)
   "Evaluate BODY after PACKAGE have loaded.
@@ -480,7 +490,11 @@ advised)."
 (defmacro add-hook-trigger! (hook-var &rest targets)
   "TODO"
   `(let ((fn (intern (format "%s-h" ,hook-var))))
-     (fset fn (lambda (&rest _) (run-hooks ,hook-var) (set ,hook-var nil)))
+     (fset
+      fn (lambda (&rest _)
+           (when after-init-time
+             (run-hook-wrapped ,hook-var #'doom-try-run-hook)
+             (set ,hook-var nil))))
      (put ,hook-var 'permanent-local t)
      (dolist (on (list ,@targets))
        (if (functionp on)
@@ -626,7 +640,7 @@ testing advice (when combined with `rotate-text').
 ;;
 ;;; Backports
 
-(when! (not EMACS27+)
+(eval-when! (version< emacs-version "27.0.90")
   ;; DEPRECATED Backported from Emacs 27
   (defmacro setq-local (&rest pairs)
     "Make variables in PAIRS buffer-local and assign them the corresponding values.
@@ -657,6 +671,28 @@ set earlier in the ‘setq-local’.  The return value of the
                expr))
         (setq pairs (cdr (cdr pairs))))
       (macroexp-progn (nreverse expr)))))
+
+(eval-when! (version< emacs-version "27.1")
+  ;; DEPRECATED Backported from Emacs 27; earlier verisons don't have REMOTE arg
+  (defun executable-find (command &optional remote)
+    "Search for COMMAND in `exec-path' and return the absolute file name.
+Return nil if COMMAND is not found anywhere in `exec-path'.  If
+REMOTE is non-nil, search on the remote host indicated by
+`default-directory' instead."
+    (if (and remote (file-remote-p default-directory))
+        (let ((res (locate-file
+                    command
+                    (mapcar
+                     (lambda (x) (concat (file-remote-p default-directory) x))
+                     (exec-path))
+                    exec-suffixes 'file-executable-p)))
+          (when (stringp res) (file-local-name res)))
+      ;; Use 1 rather than file-executable-p to better match the
+      ;; behavior of call-process.
+      (let ((default-directory
+              (let (file-name-handler-alist)
+                (file-name-quote default-directory))))
+        (locate-file command exec-path exec-suffixes 1)))))
 
 (provide 'core-lib)
 ;;; core-lib.el ends here

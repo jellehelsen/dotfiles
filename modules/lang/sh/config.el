@@ -16,6 +16,19 @@
   :config
   (set-electric! 'sh-mode :words '("else" "elif" "fi" "done" "then" "do" "esac" ";;"))
   (set-repl-handler! 'sh-mode #'+sh/open-repl)
+  (set-ligatures! 'sh-mode
+    ;; Functional
+    :def "function"
+    ;; Types
+    :true "true" :false "false"
+    ;; Flow
+    :not "!"
+    :and "&&" :or "||"
+    :in "in"
+    :for "for"
+    :return "return"
+    ;; Other
+    :dot "." :dot "source")
 
   (when (featurep! +lsp)
     (add-hook 'sh-mode-local-vars-hook #'lsp!))
@@ -52,7 +65,6 @@
   ;; autoclose backticks
   (sp-local-pair 'sh-mode "`" "`" :unless '(sp-point-before-word-p sp-point-before-same-p)))
 
-
 (use-package! company-shell
   :when (featurep! :completion company)
   :unless (featurep! +lsp)
@@ -61,8 +73,14 @@
   (set-company-backend! 'sh-mode '(company-shell company-files))
   (setq company-shell-delete-duplicates t))
 
-
 (use-package! fish-mode
   :when (featurep! +fish)
   :defer t
   :config (set-formatter! 'fish-mode #'fish_indent))
+
+(use-package! powershell
+  :when (featurep! +powershell)
+  :defer t
+  :config
+  (when (featurep! +lsp)
+    (add-hook 'powershell-mode-local-vars-hook #'lsp!)))

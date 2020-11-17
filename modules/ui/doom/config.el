@@ -35,16 +35,6 @@
           (when solaire-global-mode
             (solaire-global-mode -1))))))
 
-  (add-hook! 'solaire-global-mode-hook
-    (defun +doom-solaire-swap-bg-faces-maybe-h ()
-      (and solaire-global-mode
-           (string-prefix-p "doom-" (symbol-name doom-theme))
-           (solaire-mode-swap-bg))))
-
-  ;; org-capture takes an org buffer and narrows it. The result is erroneously
-  ;; considered an unreal buffer, so solaire-mode must be restored.
-  (add-hook 'org-capture-mode-hook #'turn-on-solaire-mode)
-
   ;; DEPRECATED No longer needed in Emacs 27+
   (unless EMACS27+
     ;; HACK On Emacs <=26, when point is on the last (or second to last) line
@@ -72,7 +62,7 @@
     ;; HACK The fringe cannot have a buffer-local remapping on Emacs <= 26, so
     ;;      we jump through hoops to reset it (globally) whenever it is likely
     ;;      that the fringe will have lost its background color.
-    (add-hook! '(doom-load-theme-hook doom-reload-hook) :append
+    (add-hook! '(doom-load-theme-hook doom-after-reload-hook) :append
                #'solaire-mode-reset)
 
     ;; fringe can become unstyled when deleting or focusing frames

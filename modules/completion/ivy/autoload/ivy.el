@@ -77,6 +77,26 @@ Buffers that are considered unreal (see `doom-real-buffer-p') are dimmed with
            ((format "%s" val)))
      t)))
 
+;;;###autoload
+(defun +ivy-format-function-line-or-arrow (cands)
+  "Transform CANDS into a string for minibuffer.
+
+If in terminal, prefix candidates with a chevron to make it more obvious which
+one you're selecting, especially in themes that can't set a good background for
+`ivy-current-match'. This is a combination of `ivy-format-function-line' and
+`ivy-format-function-arrow'.
+
+In the GUI, this is the same as `ivy-format-function-line'."
+  (if (display-graphic-p)
+      (ivy-format-function-line cands)
+    (ivy--format-function-generic
+     (lambda (str)
+       (ivy--add-face (concat "> " str "\n") 'ivy-current-match))
+     (lambda (str)
+       (concat "  " str "\n"))
+     cands
+     "")))
+
 
 ;;
 ;; Library
@@ -252,7 +272,8 @@ The point of this is to avoid Emacs locking up indexing massive file trees."
          (directory (or in project-root))
          (args (concat (if all-files " -uu")
                        (unless recursive " --maxdepth 1")
-                       " " (mapconcat #'shell-quote-argument args " "))))
+                       " --hidden -g!.git "
+                       (mapconcat #'shell-quote-argument args " "))))
     (setq deactivate-mark t)
     (counsel-rg
      (or query

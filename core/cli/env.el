@@ -1,10 +1,12 @@
 ;;; core/cli/env.el -*- lexical-binding: t; -*-
 
 (defcli! env
-    ((allow      ["-a" "--allow" regexp]  "An envvar whitelist regexp")
-     (reject     ["-r" "--reject" regexp] "An envvar blacklist regexp")
-     (clear-p    ["-c" "--clear"] "Clear and delete your envvar file")
-     (outputfile ["-o" path]
+    ((allow       ["-a" "--allow" regexp]  "An additive envvar whitelist regexp")
+     (reject      ["-r" "--reject" regexp] "An additive envvar blacklist regexp")
+     (allow-only  ["-A" regexp] "Blacklist everything but REGEXP")
+     (reject-only ["-R" regexp] "Whitelist everything but REGEXP")
+     (clear-p     ["-c" "--clear"] "Clear and delete your envvar file")
+     (outputfile  ["-o" path]
     "Generate the envvar file at PATH. Envvar files that aren't in
 `doom-env-file' won't be loaded automatically at startup. You will need to load
 them manually from your private config with the `doom-load-envvars-file'
@@ -42,7 +44,11 @@ Why this over exec-path-from-shell?
   (let ((env-file (expand-file-name (or outputfile doom-env-file))))
     (if (null clear-p)
         (doom-cli-reload-env-file
-         'force env-file (list allow) (list reject))
+         'force env-file
+         (append (if reject-only (list "."))
+                 (delq nil (list allow allow-only)))
+         (append (if allow-only (list "."))
+                 (delq nil (list reject reject-only))))
       (unless (file-exists-p env-file)
         (user-error! "%S does not exist to be cleared"
                      (path env-file)))
@@ -55,11 +61,14 @@ Why this over exec-path-from-shell?
 ;; Helpers
 
 (defvar doom-env-blacklist
-  '("^DBUS_SESSION_BUS_ADDRESS$"
-    "^GPG_AGENT_INFO$" "^\\(SSH\\|GPG\\)_TTY$"
-    "^SSH_\\(AUTH_SOCK\\|AGENT_PID\\)$"
-    "^HOME$" "^PWD$" "^PS1$" "^R?PROMPT$" "^TERM$"
-    ;; Doom envvars
+  '(;; State that may be problematic if overwritten
+    "^HOME$" "^\\(OLD\\)?PWD$" "^SHLVL$" "^PS1$" "^R?PROMPT$" "^TERM$" "^USER$"
+    ;; X server or services' variables
+    "^DISPLAY$" "^DBUS_SESSION_BUS_ADDRESS$"
+    ;; ssh and gpg variables (likely to become stale)
+    "^SSH_\\(AUTH_SOCK\\|AGENT_PID\\)$" "^\\(SSH\\|GPG\\)_TTY$"
+    "^GPG_AGENT_INFO$"
+    ;; Internal Doom envvars
     "^DEBUG$" "^INSECURE$" "^YES$" "^__")
   "Environment variables to not save in `doom-env-file'.
 
@@ -119,8 +128,8 @@ default, on Linux, this is '$SHELL -ic /usr/bin/env'. Variables in
                            (remq nil (append blacklist doom-env-blacklist)))
                (if (not (cl-find-if (doom-rpartial #'string-match-p (car (split-string env "=")))
                                     (remq nil (append whitelist doom-env-whitelist))))
-                   (print! (info "Ignoring %s") env)
-                 (print! (info "Whitelisted %s") env)
+                   (print! (debug "Ignoring %s") env)
+                 (print! (debug "Whitelisted %s") env)
                  (insert env "\0\n"))
              (insert env "\0\n")))
          (print! (success "Successfully generated %S")

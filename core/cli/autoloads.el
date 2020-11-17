@@ -10,11 +10,12 @@ one wants that.")
 (defvar doom-autoloads-cached-vars
   '(doom-modules
     doom-disabled-packages
+    comp-deferred-compilation-black-list
     load-path
     auto-mode-alist
     interpreter-mode-alist
     Info-directory-list)
-  "A list of variables to be cached in `doom-autoload-file'.")
+  "A list of variables to be cached in `doom-autoloads-file'.")
 
 (defvar doom-autoloads-files ()
   "A list of additional files or file globs to scan for autoloads.")
@@ -26,7 +27,7 @@ one wants that.")
 (defun doom-autoloads-reload (&optional file)
   "Regenerates Doom's autoloads and writes them to FILE."
   (unless file
-    (setq file doom-autoload-file))
+    (setq file doom-autoloads-file))
   (print! (start "(Re)generating autoloads file..."))
   (print-group!
    (cl-check-type file string)
@@ -34,16 +35,13 @@ one wants that.")
    (and (print! (start "Generating autoloads file..."))
         (doom-autoloads--write
          file
-         `((unless (equal emacs-major-version ,emacs-major-version)
-             (signal 'doom-error
-                     (list "The installed version of Emacs has changed since last 'doom sync' ran"
-                           "Run 'doom sync && doom build' to bring Doom up to speed")))
-           (unless (equal doom-version ,doom-version)
+         `((unless (equal doom-version ,doom-version)
              (signal 'doom-error
                      (list "The installed version of Doom has changed since last 'doom sync' ran"
                            "Run 'doom sync' to bring Doom up to speed"))))
-         (mapcar (lambda (var) `(set ',var ',(symbol-value var)))
-                 doom-autoloads-cached-vars)
+         (cl-loop for var in doom-autoloads-cached-vars
+                  when (boundp var)
+                  collect `(set ',var ',(symbol-value var)))
          (doom-autoloads--scan
           (append (cl-loop for dir
                            in (append (list doom-core-dir)

@@ -1,5 +1,10 @@
 ;;; core.el --- the heart of the beast -*- lexical-binding: t; -*-
 
+;; Prevent unwanted runtime builds in gccemacs (native-comp); packages are
+;; compiled ahead-of-time when they are installed and site files are compiled
+;; when gccemacs is installed.
+(setq comp-deferred-compilation nil)
+
 (eval-when-compile
   (when (< emacs-major-version 26)
     (error "Detected Emacs v%s. Doom only supports Emacs 26 and newer"
@@ -34,7 +39,7 @@
 ;; path/io functions. You get a minor speed up by nooping this. However, this
 ;; may cause problems on builds of Emacs where its site lisp files aren't
 ;; byte-compiled and we're forced to load the *.el.gz files (e.g. on Alpine)
-(unless noninteractive
+(unless (or noninteractive (daemonp))
   (defvar doom--initial-file-name-handler-alist file-name-handler-alist)
 
   (setq file-name-handler-alist nil)
@@ -47,6 +52,12 @@
       (add-to-list 'doom--initial-file-name-handler-alist handler))
     (setq file-name-handler-alist doom--initial-file-name-handler-alist))
   (add-hook 'emacs-startup-hook #'doom-reset-file-handler-alist-h))
+
+;; REVIEW Fixes 'void-variable tab-prefix-map' errors caused by packages that
+;;        prematurely use this variable before it was introduced. Remove this in
+;;        a year.
+(unless (boundp 'tab-prefix-map)
+  (defvar tab-prefix-map (make-sparse-keymap)))
 
 ;; Just the bare necessities
 (require 'subr-x)
@@ -90,6 +101,7 @@ envvar will enable this at startup.")
   "Root directory for local storage.
 
 Use this as a storage location for this system's installation of Doom Emacs.
+
 These files should not be shared across systems. By default, it is used by
 `doom-etc-dir' and `doom-cache-dir'. Must end with a slash.")
 
@@ -121,7 +133,8 @@ Use this for files that change often, like cache files. Must end with a slash.")
 Defaults to ~/.config/doom, ~/.doom.d or the value of the DOOMDIR envvar;
 whichever is found first. Must end in a slash.")
 
-(defconst doom-autoload-file (concat doom-local-dir "autoloads.el")
+(defconst doom-autoloads-file
+  (concat doom-local-dir "autoloads." emacs-version ".el")
   "Where `doom-reload-core-autoloads' stores its core autoloads.
 
 This file is responsible for informing Emacs where to find all of Doom's
@@ -148,7 +161,7 @@ users).")
 ;;; Emacs core configuration
 
 ;; lo', longer logs ahoy, so to reliably locate lapses in doom's logic later
-(setq message-log-max 8192)
+(setq message-log-max 4096)
 
 ;; Reduce debug output, well, unless we've asked for it.
 (setq debug-on-error doom-debug-p
@@ -160,8 +173,8 @@ users).")
   (set-charset-priority 'unicode))       ; pretty
 (prefer-coding-system 'utf-8)            ; pretty
 (setq locale-coding-system 'utf-8)       ; please
-;; The clipboard's on Windows could be in an encoding that's wider (or thinner)
-;; than utf-8, so let Emacs/the OS decide what encoding to use there.
+;; The clipboard's on Windows could be in a wider (or thinner) encoding than
+;; utf-8 (likely UTF-16), so let Emacs/the OS decide what encoding to use there.
 (unless IS-WINDOWS
   (setq selection-coding-system 'utf-8)) ; with sugar on top
 
@@ -169,7 +182,7 @@ users).")
 ;; we do about them, besides changing packages upstream?
 (setq ad-redefinition-action 'accept)
 
-;; Make apropos omnipotent. It's more useful this way.
+;; Make `apropos' et co search more extensively. They're more useful this way.
 (setq apropos-do-all t)
 
 ;; A second, case-insensitive pass over `auto-mode-alist' is time wasted, and
@@ -177,17 +190,19 @@ users).")
 ;; insensitivity).
 (setq auto-mode-case-fold nil)
 
-;; Less noise at startup. The dashboard/empty scratch buffer is good enough.
+;; Reduce *Message* noise at startup. An empty scratch buffer (or the dashboard)
+;; is more than enough.
 (setq inhibit-startup-message t
       inhibit-startup-echo-area-message user-login-name
       inhibit-default-init t
-      ;; Avoid pulling in many packages by starting the scratch buffer in
-      ;; `fundamental-mode', rather than, say, `org-mode' or `text-mode'.
+      ;; Shave seconds off startup time by starting the scratch buffer in
+      ;; `fundamental-mode', rather than, say, `org-mode' or `text-mode', which
+      ;; pull in a ton of packages.
       initial-major-mode 'fundamental-mode
       initial-scratch-message nil)
 
 ;; Get rid of "For information about GNU Emacs..." message at startup, unless
-;; we're in a daemon session, where it'll say "Starting Emacs daemon." instead,
+;; we're in a daemon session where it'll say "Starting Emacs daemon." instead,
 ;; which isn't so bad.
 (unless (daemonp)
   (advice-add #'display-startup-echo-area-message :override #'ignore))
@@ -233,14 +248,13 @@ users).")
 (setq abbrev-file-name             (concat doom-local-dir "abbrev.el")
       async-byte-compile-log-file  (concat doom-etc-dir "async-bytecomp.log")
       bookmark-default-file        (concat doom-etc-dir "bookmarks")
-      custom-file                  (concat doom-local-dir "custom.el")
+      custom-file                  (concat doom-private-dir "custom.el")
       custom-theme-directory       (concat doom-private-dir "themes/")
       desktop-dirname              (concat doom-etc-dir "desktop")
       desktop-base-file-name       "autosave"
       desktop-base-lock-name       "autosave-lock"
       pcache-directory             (concat doom-cache-dir "pcache/")
       request-storage-directory    (concat doom-cache-dir "request")
-      server-auth-dir              (concat doom-cache-dir "server/")
       shared-game-score-directory  (concat doom-etc-dir "shared-game-score/")
       tramp-auto-save-directory    (concat doom-cache-dir "tramp-auto-save/")
       tramp-backup-directory-alist backup-directory-alist
@@ -254,6 +268,30 @@ users).")
   :override #'emacs-session-filename
   (concat doom-cache-dir "emacs-session." session-id))
 
+(defadvice! doom--save-enabled-commands-to-doomdir-a (orig-fn &rest args)
+  "When enabling a disabled command, the `put' call is written to
+~/.emacs.d/init.el, which causes issues for Doom, so write it to the user's
+config.el instead."
+  :around #'en/disable-command
+  (let ((user-init-file custom-file))
+    (apply orig-fn args)))
+
+
+;;
+;;; Native Compilation support (http://akrl.sdf.org/gccemacs.html)
+
+;; Don't store eln files in ~/.emacs.d/eln-cache (they are likely to be purged
+;; when upgrading Doom).
+(when (boundp 'comp-eln-load-path)
+  (add-to-list 'comp-eln-load-path (concat doom-cache-dir "eln/")))
+
+(after! comp
+  ;; HACK Disable native-compilation for some troublesome packages
+  (dolist (entry (list (concat "\\`" (regexp-quote doom-local-dir) ".*/evil-collection-vterm\\.el\\'")
+                       (concat "\\`" (regexp-quote doom-local-dir) ".*/with-editor\\.el\\'")
+                       (concat "\\`" (regexp-quote doom-autoloads-file) "'")))
+    (add-to-list 'comp-deferred-compilation-black-list entry)))
+
 
 ;;
 ;;; Optimizations
@@ -263,6 +301,11 @@ users).")
 ;; is an undefined state and suggest this to be just as good:
 (setq-default bidi-display-reordering 'left-to-right
               bidi-paragraph-direction 'left-to-right)
+
+;; Disabling the BPA makes redisplay faster, but might produce incorrect display
+;; reordering of bidirectional text with embedded parentheses and other bracket
+;; characters whose 'paired-bracket' Unicode property is non-nil.
+(setq bidi-inhibit-bpa t)  ; Emacs 27 only
 
 ;; Reduce rendering/line scan work for Emacs by not rendering cursors or regions
 ;; in non-focused windows.
@@ -283,14 +326,15 @@ users).")
 (setq ffap-machine-p-known 'reject)
 
 ;; Font compacting can be terribly expensive, especially for rendering icon
-;; fonts on Windows. Whether it has a notable affect on Linux and Mac hasn't
-;; been determined, but we inhibit it there anyway.
+;; fonts on Windows. Whether disabling it has a notable affect on Linux and Mac
+;; hasn't been determined, but we inhibit it there anyway. This increases memory
+;; usage, however!
 (setq inhibit-compacting-font-caches t)
 
-;; Performance on Windows is considerably worse than elsewhere, especially if
-;; WSL is involved. We'll need everything we can get.
+;; Performance on Windows is considerably worse than elsewhere. We'll need
+;; everything we can get.
 (when IS-WINDOWS
-  (setq w32-get-true-file-attributes nil   ; slightly faster IO
+  (setq w32-get-true-file-attributes nil   ; decrease file IO workload
         w32-pipe-read-delay 0              ; faster ipc
         w32-pipe-buffer-size (* 64 1024))) ; read more at a time (was 4K)
 
@@ -299,10 +343,6 @@ users).")
 (unless IS-MAC   (setq command-line-ns-option-alist nil))
 (unless IS-LINUX (setq command-line-x-option-alist nil))
 
-;; Delete files to trash on macOS, as an extra layer of precaution against
-;; accidentally deleting wanted files.
-(setq delete-by-moving-to-trash IS-MAC)
-
 ;; Adopt a sneaky garbage collection strategy of waiting until idle time to
 ;; collect; staving off the collector while the user is working.
 (setq gcmh-idle-delay 5
@@ -310,8 +350,10 @@ users).")
       gcmh-verbose doom-debug-p)
 
 ;; HACK `tty-run-terminal-initialization' is *tremendously* slow for some
-;;      reason. Disabling it completely could have many side-effects, so we
-;;      defer it until later, at which time it (somehow) runs very quickly.
+;;      reason; inexplicably doubling startup time for terminal Emacs. Keeping
+;;      it disabled will have nasty side-effects, so we simply delay it until
+;;      later in the startup process and, for some reason, it runs much faster
+;;      when it does.
 (unless (daemonp)
   (advice-add #'tty-run-terminal-initialization :override #'ignore)
   (add-hook! 'window-setup-hook
@@ -326,10 +368,14 @@ users).")
 ;; File+dir local variables are initialized after the major mode and its hooks
 ;; have run. If you want hook functions to be aware of these customizations, add
 ;; them to MODE-local-vars-hook instead.
+(defvar doom-inhibit-local-var-hooks nil)
+
 (defun doom-run-local-var-hooks-h ()
   "Run MODE-local-vars-hook after local variables are initialized."
-  (run-hook-wrapped (intern-soft (format "%s-local-vars-hook" major-mode))
-                    #'doom-try-run-hook))
+  (unless doom-inhibit-local-var-hooks
+    (set (make-local-variable 'doom-inhibit-local-var-hooks) t)
+    (run-hook-wrapped (intern-soft (format "%s-local-vars-hook" major-mode))
+                      #'doom-try-run-hook)))
 
 ;; If the user has disabled `enable-local-variables', then
 ;; `hack-local-variables-hook' is never triggered, so we trigger it at the end
@@ -429,6 +475,12 @@ If this is a daemon session, load them all immediately instead."
 (defvar doom-first-buffer-hook nil
   "Transient hooks run before the first interactively opened buffer.")
 
+(defvar doom-after-reload-hook nil
+  "A list of hooks to run before `doom/reload' has reloaded Doom.")
+
+(defvar doom-before-reload-hook nil
+  "A list of hooks to run after `doom/reload' has reloaded Doom.")
+
 
 ;;
 ;;; Bootstrap helpers
@@ -449,7 +501,7 @@ If RETURN-P, return the message as a string instead of displaying it."
   "Bootstrap Doom, if it hasn't already (or if FORCE-P is non-nil).
 
 The bootstrap process ensures that everything Doom needs to run is set up;
-essential directories exist, core packages are installed, `doom-autoload-file'
+essential directories exist, core packages are installed, `doom-autoloads-file'
 is loaded (failing if it isn't), that all the needed hooks are in place, and
 that `core-packages' will load when `package' or `straight' is used.
 
@@ -481,7 +533,7 @@ to least)."
                   load-path doom--initial-load-path
                   process-environment doom--initial-process-environment)
 
-    ;; Doom caches a lot of information in `doom-autoload-file'. Module and
+    ;; Doom caches a lot of information in `doom-autoloads-file'. Module and
     ;; package autoloads, autodefs like `set-company-backend!', and variables
     ;; like `doom-modules', `doom-disabled-packages', `load-path',
     ;; `auto-mode-alist', and `Info-directory-list'. etc. Compiling them into
@@ -490,18 +542,22 @@ to least)."
         ;; Avoid `file-name-sans-extension' for premature optimization reasons.
         ;; `string-remove-suffix' is cheaper because it performs no file sanity
         ;; checks; just plain ol' string manipulation.
-        (load (string-remove-suffix ".el" doom-autoload-file)
+        (load (string-remove-suffix ".el" doom-autoloads-file)
               nil 'nomessage)
       (file-missing
        ;; If the autoloads file fails to load then the user forgot to sync, or
        ;; aborted a doom command midway!
-       (signal 'doom-error
-               (list "Doom is in an incomplete state"
-                     "run 'bin/doom sync' on the command line to repair it"))))
+       (if (equal (nth 3 e) doom-autoloads-file)
+           (signal 'doom-error
+                   (list "Doom is in an incomplete state"
+                         "run 'doom sync' on the command line to repair it"))
+         ;; Otherwise, something inside the autoloads file is triggering this
+         ;; error; forward it!
+         (signal 'doom-autoload-error e))))
 
     ;; Load shell environment, optionally generated from 'doom env'. No need
     ;; to do so if we're in terminal Emacs, where Emacs correctly inherits
-    ;; your shell environment there.
+    ;; your shell environment.
     (if (or (display-graphic-p)
             (daemonp))
         (doom-load-envvars-file doom-env-file 'noerror))
@@ -510,27 +566,28 @@ to least)."
     ;; to configure their packages.
     (require 'core-modules)
 
-    ;; There's a chance the user will want to use package.el or straight later
-    ;; on in this interactive session. If that's the case, make sure they're
-    ;; properly initialized when they do.
+    ;; There's a chance the user will later use package.el or straight in this
+    ;; interactive session. If they do, make sure they're properly initialized
+    ;; when they do.
     (autoload 'doom-initialize-packages "core-packages")
     (autoload 'doom-initialize-core-packages "core-packages")
     (with-eval-after-load 'package (require 'core-packages))
     (with-eval-after-load 'straight (doom-initialize-packages))
 
+    ;; Bootstrap our GC manager
+    (add-hook 'doom-first-input-hook #'gcmh-mode)
+
     ;; Bootstrap the interactive session
-    (add-hook! 'window-setup-hook
-      (add-hook 'hack-local-variables-hook #'doom-run-local-var-hooks-h)
-      (add-hook 'after-change-major-mode-hook #'doom-run-local-var-hooks-maybe-h 'append)
-      (add-hook 'doom-first-input-hook #'gcmh-mode)
-      (add-hook-trigger! 'doom-first-input-hook 'pre-command-hook)
-      (add-hook-trigger! 'doom-first-file-hook 'after-find-file 'dired-initial-position-hook)
-      (add-hook-trigger! 'doom-first-buffer-hook 'after-find-file 'doom-switch-buffer-hook))
+    (add-hook 'after-change-major-mode-hook #'doom-run-local-var-hooks-maybe-h)
     (add-hook 'emacs-startup-hook #'doom-load-packages-incrementally-h)
-    (add-hook 'window-setup-hook #'doom-display-benchmark-h 'append)
+    (add-hook 'hack-local-variables-hook #'doom-run-local-var-hooks-h)
+    (add-hook 'window-setup-hook #'doom-display-benchmark-h)
+    (add-hook-trigger! 'doom-first-buffer-hook 'after-find-file 'doom-switch-buffer-hook)
+    (add-hook-trigger! 'doom-first-file-hook 'after-find-file 'dired-initial-position-hook)
+    (add-hook-trigger! 'doom-first-input-hook 'pre-command-hook)
     (if doom-debug-p (doom-debug-mode +1))
 
-    ;; Load core/core-*.el, the user's private init.el and their config.el
+    ;; Load core/core-*.el, the user's private init.el, then their config.el
     (doom-initialize-modules force-p))
 
   doom-init-p)

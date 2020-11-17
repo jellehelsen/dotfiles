@@ -219,11 +219,10 @@ https://emacs.stackexchange.com/questions/10230/how-to-indent-keywords-aligned"
 verbosity when editing a file in `doom-private-dir' or `doom-emacs-dir'."
   (when (and (bound-and-true-p flycheck-mode)
              (eq major-mode 'emacs-lisp-mode)
-             (or (not buffer-file-name)
-                 (cl-find-if (doom-partial #'file-in-directory-p buffer-file-name)
+             (or (not default-directory)
+                 (cl-find-if (doom-partial #'file-in-directory-p default-directory)
                              +emacs-lisp-disable-flycheck-in-dirs)))
-    (add-to-list (make-local-variable 'flycheck-disabled-checkers)
-                 'emacs-lisp-checkdoc)
+    (add-to-list 'flycheck-disabled-checkers 'emacs-lisp-checkdoc)
     (set (make-local-variable 'flycheck-emacs-lisp-check-form)
          (concat "(progn "
                  (prin1-to-string
@@ -251,7 +250,7 @@ verbosity when editing a file in `doom-private-dir' or `doom-emacs-dir'."
     (goto-char (match-beginning 0))
     (and (stringp (plist-get (sexp-at-point) :pin))
          (search-forward ":pin" nil t)
-         (let ((start (re-search-forward "\"[^\"]\\{10\\}" nil t))
+         (let ((start (re-search-forward "\"[^\"\n]\\{10\\}" nil t))
                (finish (and (re-search-forward "\"" (line-end-position) t)
                             (match-beginning 0))))
            (when (and start finish)
@@ -275,6 +274,7 @@ library/userland functions"
               ((let ((symbol (intern-soft (match-string-no-properties 0))))
                  (and (cond ((null symbol) nil)
                             ((eq symbol t) nil)
+                            ((keywordp symbol) nil)
                             ((special-variable-p symbol)
                              (setq +emacs-lisp--face 'font-lock-variable-name-face))
                             ((and (fboundp symbol)

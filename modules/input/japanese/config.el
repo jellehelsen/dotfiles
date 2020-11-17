@@ -35,7 +35,9 @@
 
 
 (use-package! ddskk
-  :general ("C-x j" #'skk-mode))
+  :general ("C-x j" #'skk-mode)
+  :init
+  (add-hook 'doom-escape-hook #'skk-mode-exit))
 
 
 ;;
@@ -47,14 +49,9 @@ when exporting org-mode to html."
   :filter-args #'org-html-paragraph
   (cl-destructuring-bind (paragraph contents info) args
     (let* ((fix-regexp "[[:multibyte:]]")
-           (origin-contents
-            (replace-regexp-in-string
-             "<[Bb][Rr] */>"
-             ""
-             contents))
            (fixed-contents
             (replace-regexp-in-string
              (concat "\\(" fix-regexp "\\) *\n *\\(" fix-regexp "\\)")
              "\\1\\2"
-             origin-contents)))
+             contents)))
       (list paragraph fixed-contents info))))

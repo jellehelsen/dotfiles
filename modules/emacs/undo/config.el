@@ -3,10 +3,6 @@
 (use-package! undo-fu
   :unless (featurep! +tree)
   :hook (doom-first-buffer . undo-fu-mode)
-  :init
-  ;; `evil' activates undo-tree, so we must pre-emptively disable it.
-  (after! undo-tree
-    (global-undo-tree-mode -1))
   :config
   ;; Store more undo history to prevent loss of data
   (setq undo-limit 400000
@@ -33,7 +29,7 @@
   :hook (undo-fu-mode . global-undo-fu-session-mode)
   :preface
   (setq undo-fu-session-directory (concat doom-cache-dir "undo-fu-session/")
-        undo-fu-session-incompatible-files '("/COMMIT_EDITMSG\\'" "/git-rebase-todo\\'"))
+        undo-fu-session-incompatible-files '("\\.gpg$" "/COMMIT_EDITMSG\\'" "/git-rebase-todo\\'"))
 
   ;; HACK We avoid `:config' here because `use-package's `:after' complicates
   ;;      the load order of a package's `:config' block and makes it impossible

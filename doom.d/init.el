@@ -2,6 +2,7 @@
 ;; Copy me to ~/.doom.d/init.el or ~/.config/doom/init.el, then edit me!
 
 (add-to-list 'exec-path "/usr/local/bin/")
+(add-to-list 'load-path "/usr/local/share/emacs/site-lisp/mu/mu4e")
 (setq exec-path-from-shell-check-startup-files nil)
 (setq exec-path-from-shell-variables '("PATH" "GOPATH"))
 (use-package-hook! doom-themes
@@ -11,18 +12,7 @@
   (exec-path-from-shell-initialize)
   nil)
 
-(doom! :feature
-       ;;debugger          ; FIXME stepping through code, to help you add bugs
-       ;; eval              ; run code, run (also, repls)
-       ;; (evil +everywhere); come to the dark side, we have cookies
-       ;; file-templates    ; auto-snippets for empty files
-       ;; (lookup           ; helps you navigate your code and documentation
-       ;;  +docsets)        ; ...or in Dash docsets locally
-       ;; snippets          ; my elves. They type so I don't have to
-       ;; spellcheck        ; tasing you for misspelling mispelling
-       ;; (syntax-checker   ; tasing you for every semicolon you forget
-       ;;  +childframe)     ; use childframes for error popups (Emacs 26+ only)
-       ;; workspaces        ; tab emulation, persistence & separate workspaces
+(doom! :input
 
        :completion
        (company          ; the ultimate code completion backend
@@ -33,22 +23,22 @@
        ;;(ivy              ; a search engine for love and life
        ;; +fuzzy)          ; enable fuzzy search backend for ivy
 
+
        :ui
        ;;deft              ; notational velocity for Emacs
        doom              ; what makes DOOM look the way it does
        doom-dashboard    ; a nifty splash screen for Emacs
-       modeline     ; a snazzy Atom-inspired mode-line
+       modeline          ; a snazzy Atom-inspired mode-line
        doom-quit         ; DOOM quit-message prompts when you quit Emacs
-       ;;fci               ; a `fill-column' indicator
+       fill-column       ; a `fill-column' indicator
        hl-todo           ; highlight TODO/FIXME/NOTE tags
-       ;;modeline          ; snazzy, Atom-inspired modeline, plus API
        nav-flash         ; blink the current line after jumping
        ;;neotree           ; a project drawer, like NERDTree for vim
        treemacs          ; a project drawer, like neotree but cooler
        (popup            ; tame sudden yet inevitable temporary windows
         +all             ; catch all popups that start with an asterix
         +defaults)       ; default popup rules
-       pretty-code       ; replace bits of code with pretty symbols
+       ligatures         ; replace bits of code with pretty symbols
        ;;tabbar            ; FIXME an (incomplete) tab bar for Emacs
        unicode           ; extended unicode support for various languages
        vc-gutter         ; vcs diff in the fringe
@@ -56,12 +46,13 @@
        window-select     ; visually switch windows
        workspaces
        ophints
+       zen
 
        :editor
        ;;(format +onsave)  ; automated prettiness
-       multiple-cursors  ; editing in many places at once
+       ;; multiple-cursors  ; editing in many places at once
        ;;parinfer          ; turn lisp into python, sort of
-       rotate-text       ; cycle region at point between text candidates
+       ;; rotate-text       ; cycle region at point between text candidates
        ;;fold
        (evil +everywhere)
        file-templates
@@ -77,7 +68,11 @@
 
        :term              ; terminals in Emacs
        eshell
-       term
+       vterm
+
+       :checkers
+       spell
+       syntax
 
        :tools
        ansible
@@ -85,15 +80,12 @@
        editorconfig      ; let someone else argue about tabs vs spaces
        ;;ein               ; tame Jupyter notebooks with emacs
        ;;gist              ; interacting with github gists
-       macos             ; MacOS-specific commands
        make              ; run make tasks from Emacs
        magit             ; a git porcelain for Emacs
        ;; password-store    ; password manager for nerds
        pdf               ; pdf enhancements
        prodigy           ; FIXME managing external services & code builders
        rgb               ; creating color strings
-       flyspell
-       flycheck
        eval
        lookup
        pass
@@ -102,11 +94,15 @@
        ;;upload            ; map local to remote projects via ssh/ftp
        wakatime
 
+       :os
+       (:if IS-MAC macos)             ; MacOS-specific commands
+       tty
+
        :lang
        ;;assembly          ; assembly for fun or debugging
-       ;;(cc +irony +rtags); C/C++/Obj-C madness
+       (cc +irony +rtags); C/C++/Obj-C madness
        ;;clojure           ; java with a lisp
-       common-lisp       ; if you've seen one lisp, you've seen them all
+       ;; common-lisp       ; if you've seen one lisp, you've seen them all
        ;;coq               ; proofs-as-programs
        ;;crystal           ; ruby at the speed of c
        ;;csharp            ; unity, .NET, and mono shenanigans
@@ -138,7 +134,7 @@
         +present)        ; Emacs for presentations
        ;;perl              ; write code no one else can comprehend
        ;;php               ; perl's insecure younger brother
-       ;;plantuml          ; diagrams for confusing people more
+       plantuml          ; diagrams for confusing people more
        ;;purescript        ; javascript, but functional
        python            ; beautiful is better than ugly
        ;;qt                ; the 'cutest' gui framework ever
@@ -149,24 +145,24 @@
        ;;scala             ; java, but good
        (sh +fish)        ; she sells (ba|z|fi)sh shells on the C xor
        solidity          ; do you need a blockchain? No.
-       ;;swift             ; who asked for emoji variables?
-       ;;web               ; the tubes
+       swift             ; who asked for emoji variables?
+       web               ; the tubes
        ;;vala              ; GObjective-C
 
        ;; Applications are complex and opinionated modules that transform Emacs
        ;; toward a specific purpose. They may have additional dependencies and
        ;; should be loaded late.
        :app
-       (email +gmail)    ; emacs as an email client
+       ;; (email +gmail)    ; emacs as an email client
        ;; irc               ; how neckbeards socialize
        (rss +org)        ; emacs as an RSS reader
-       ;;twitter           ; twitter client https://twitter.com/vnought
-       ;; (write            ; emacs as a word processor (latex + org + markdown)
-       ;; +wordnut         ; wordnet (wn) search
-       ;; +langtool)       ; a proofreader (grammar/style check) for Emacs
+       twitter           ; twitter client https://twitter.com/vnought
+       (write            ; emacs as a word processor (latex + org + markdown)
+       +wordnut         ; wordnet (wn) search
+       +langtool)       ; a proofreader (grammar/style check) for Emacs
 
        :email
-       mu4e
+       (mu4e +gmail)
 
        :collab
        ;;floobits          ; peer programming for a price

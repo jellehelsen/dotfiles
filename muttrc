@@ -3,7 +3,7 @@
 # set assumed_charset="utf-8"
 source ~/.mutt/general.rc
 ## ACCOUNT
-source ~/.mutt/account.rc
+#source ~/.mutt/account.rc
 source ~/.mutt/composing.rc
 source ~/.mutt/ui.rc
 

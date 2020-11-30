@@ -1,4 +1,5 @@
 #+TITLE: config
+#+STARTUP: overview
 * Basics
 #+BEGIN_SRC emacs-lisp
 (when (memq window-system '(mac ns x))
@@ -45,13 +46,15 @@
 #+RESULTS:
 
 * Orgmode
-#+NAME: Testing
+** General
+#+NAME: Load
 #+BEGIN_SRC emacs-lisp
-(setq org-directory "~/Dropbox/Notes")
 (require 'ox-md)
 (require 'ox-hugo)
 (require 'ox-asciidoc)
 (require 'ox-confluence)
+(require 'org-capture)
+(require 'org-protocol)
 ;(org-babel-do-load-languages
 ;    'org-babel-load-languages
 ;    '((emacs-lisp . t)
@@ -63,9 +66,46 @@
 
 #+END_SRC
 
-#+RESULTS: Testing
-: ox-confluence
+#+RESULTS: Load
+: org-protocol
 
+#+NAME: basics
+#+BEGIN_SRC emacs-lisp
+(setq org-directory "~/Dropbox/Notes")
+#+END_SRC
+
+#+RESULTS: basics
+: ~/Dropbox/Notes
+
+** Capture
+#+BEGIN_SRC emacs-lisp
+(setq org-capture-templates '(("t" "Todo [inbox]" entry
+                               (file+headline "~/gtd/inbox.org" "Tasks")
+                               "* TODO %i%?")
+                              ("T" "Tickler" entry
+                               (file+headline "~/gtd/tickler.org" "Tickler")
+                               "* %i%? \n %U")
+                              ("l" "Temp Links from the interwebs" entry
+         (file+headline "~/gtd/links.org" "Temporary Links")
+         "* %a\n%?\nEntered on %U\n \%i\n")
+                              ))
+(defadvice org-capture
+    (after make-full-window-frame activate)
+  "Advise capture to be the only window when used as a popup"
+  (if (equal "emacs-capture" (frame-parameter nil 'name))
+      (delete-other-windows)))
+
+(defadvice org-capture-finalize
+    (after delete-capture-frame activate)
+  "Advise capture-finalize to close the frame"
+  (if (equal "emacs-capture" (frame-parameter nil 'name))
+      (delete-frame)))
+#+END_SRC
+
+#+RESULTS:
+: org-capture-finalize
+
+** Publishing
 #+BEGIN_SRC emacs-lisp
 (setq base-ref ".")
 (setf my-header
@@ -109,6 +149,20 @@
 
 #+RESULTS:
 | orgfiles | :base-directory | ~/org/manmethoed/ | :base-extension | org | :publishing-directory | ~/public-html/ | :publishing-function | org-html-publish-to-html | :exclude | PrivatePage.org | :headline-levels | 1 | :section-numbers | t | :with-toc | nil | :with-date | nil | :with-author | nil | :with-creator | nil | :html-validation-link | nil | :html-head |
+
+** Agenda
+#+BEGIN_SRC emacs-lisp
+(setq org-agenda-files '("~/gtd/inbox.org"
+                         "~/gtd/gtd.org"
+                         "~/gtd/tickler.org"))
+#+END_SRC
+
+** Refiling
+#+BEGIN_SRC emacs-lisp
+(setq org-refile-targets '(("~/gtd/gtd.org" :maxlevel . 3)
+                           ("~/gtd/someday.org" :level . 1)
+                           ("~/gtd/tickler.org" :maxlevel . 2)))
+#+END_SRC
 
 * Email
 ** Setup folders
@@ -197,7 +251,12 @@
       smtpmail-stream-type  'ssl
       smtpmail-smtp-service 465
       )
+(require 'smtpmail)
 #+END_SRC
+
+#+RESULTS:
+: smtpmail
+
 * Confluence
 #+BEGIN_SRC emacs-lisp
 (require 'confluence)
@@ -219,9 +278,10 @@
                                     ("Low"     . ?D)
                                     ("Lowest"  . ?E))
         ejira-update-jql-unresolved-fn #'ejira-jql-my-unresolved-project-tickets
-        ejira-todo-states-alist   '(("To Do"       . 1)
-                                    ("In Progress" . 2)
-                                    ("Done"        . 3)))
+        ;; ejira-todo-states-alist   '(("To Do"       . 1)
+        ;;                             ("In Progress" . 2)
+        ;;                             ("Done"        . 3))
+        )
   :config
   ;; Tries to auto-set custom fields by looking into /editmeta
   ;; of an issue and an epic.
@@ -232,6 +292,7 @@
   ;;       ejira-epic-field         'customfield_10002
   ;;       ejira-epic-summary-field 'customfield_10004)
 
+  (require 'helm-ejira)
   (require 'ejira-agenda)
 
   ;; Make the issues visisble in your agenda by adding `ejira-org-directory'
@@ -310,9 +371,9 @@
 #+BEGIN_SRC emacs-lisp
 (setenv "PATH" (concat "~/go/bin/:" (getenv "PATH")))
 (add-to-list 'load-path "~/go/bin/")
+(add-to-list 'load-path "/usr/local/share/emacs/site-lisp/")
 #+END_SRC
 
-#+RESULTS:
 * Yaml
 #+BEGIN_SRC emacs-lisp
 (setq yaml-indent-level 2)
@@ -350,3 +411,7 @@
 
 #+RESULTS:
 : ox-moderncv
+
+#+BEGIN_SRC emacs-lisp
+load-path
+#+END_SRC

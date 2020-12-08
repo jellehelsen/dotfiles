@@ -17,6 +17,11 @@
 (setq display-line-numbers 'visual)
 (setq doom-line-numbers-style 'visual)
 (menu-bar-mode 1)
+(setq doom-font (font-spec :family "MesloLGSDZ Nerd Font" :size 14)
+      doom-variable-pitch-font (font-spec :family "Gill Sans") ; inherits `doom-font''s :size
+      doom-unicode-font (font-spec :family "MesloLGSDZ Nerd Font" :size 14)
+      doom-big-font (font-spec :family "MesloLGSDZ Nerd Font" :size 19))
+
 #+END_SRC
 
 #+RESULTS:

@@ -39,3 +39,5 @@
 	protocol = ssh
 [diff "sopsdiffer"]
 	textconv = sops -d
+[github]
+	user = jellehelsen

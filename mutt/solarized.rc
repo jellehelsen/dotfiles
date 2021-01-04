@@ -31,7 +31,7 @@ color message       color37         color234
 color markers       color160        color254        
 color attachment    color254        color234        
 color search        color61         color234        
-#color status        J_black         J_status        
+#color status        J_black         J_status
 color status        color241        color235        
 color indicator     color234        color136        
 color tree          color136        color234                                    # arrow in threads
@@ -44,13 +44,12 @@ mono  error         bold
 
 # index ----------------------------------------------------------------
 
-#color index         color160        color234        "~D(!~p|~p)"               # deleted
-#color index         color235        color234        ~F                         # flagged
-#color index         color166        color234        ~=                         # duplicate messages
-#color index         color240        color234        "~A!~N!~T!~p!~Q!~F!~D!~P"  # the rest
-#color index         J_base          color234        "~A~N!~T!~p!~Q!~F!~D"      # the rest, new
-color index         color160        color234        "~A"                        # all messages
-color index         color166        color234        "~E"                        # expired messages
+#   color index         color160        color234        "~D(!~p|~p)"               # deleted
+# color index         color235        color234        ~F                         # flagged
+# color index         color166        color234        ~=                         # duplicate messages
+# color index         color240        color234        "~A!~N!~T!~p!~Q!~F!~D!~P"  # the rest
+# color index         color160        color234        "~A"                        # all messages
+# color index         color166        color234        "~E"                        # expired messages
 color index         color33         color234        "~N"                        # new messages
 color index         color33         color234        "~O"                        # old messages
 color index         color61         color234        "~Q"                        # messages that have been replied to

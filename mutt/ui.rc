@@ -27,3 +27,6 @@ macro index,pager \e1 "s=_Read<enter>y" "Save Message to _Read"
 macro index,pager \e<F1> "c=_Read<enter>" "Goto _Read"
 macro index,pager \e2 "s=_Reply<enter>y" "Save Message to _Reply"
 macro index,pager \e<F1> "c=_Reply<enter>" "Goto _Reply"
+
+# Keybindings
+bind index G imap-fetch-mail

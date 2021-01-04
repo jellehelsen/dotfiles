@@ -3,7 +3,7 @@
 # set assumed_charset="utf-8"
 source ~/.mutt/general.rc
 ## ACCOUNT
-#source ~/.mutt/account.rc
+source ~/.mutt/hcode.be
 source ~/.mutt/composing.rc
 source ~/.mutt/ui.rc
 
@@ -12,7 +12,7 @@ source ~/.mutt/ui.rc
 ## EXTRAS
 
 source ~/.mutt/solarized.rc
-# source ~/.mutt/gpg.rc
+source ~/.mutt/gpg.rc
 
 ## S/MIME
 #source ~/.mutt/smime.rc
@@ -20,5 +20,8 @@ source ~/.mutt/solarized.rc
 # set smime_is_default
 
 ## PRINTER
-#set print_command="~/.mutt/print"
+# set print_command="~/.mutt/print"
 source ~/.mutt/aliasses.rc
+
+macro index <f2> '<sync-mailbox><enter-command>source ~/.mutt/hcode.be<enter><change-folder>!<enter>'
+macro index <f3> '<sync-mailbox><enter-command>source ~/.mutt/devoteam.com<enter><change-folder>!<enter>'

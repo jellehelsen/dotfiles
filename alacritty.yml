@@ -1,6 +1,3 @@
-window:
-  startup_mode: Fullscreen
-
 env:
   TERM: xterm-256color
 font:

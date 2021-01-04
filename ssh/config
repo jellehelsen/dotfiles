@@ -2,6 +2,10 @@ Host jumphost
   HostName 195.130.158.150
   User devoteam
 
+Host hebe
+  HostName 192.168.238.161
+  ProxyJump dawnautomate
+
 Host dawnautomate
   HostName 192.168.186.10
   User nvt
@@ -35,3 +39,8 @@ Host castaway
 
 Host osdvp-git.eng.lab.telenet-ops.be
   ProxyJump shipwrek
+
+Host miner
+  HostName server.hcode.be
+  XAuthLocation /opt/X11/bin/xauth
+  ForwardX11 yes

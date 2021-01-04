@@ -162,7 +162,9 @@
        +langtool)       ; a proofreader (grammar/style check) for Emacs
 
        :email
-       (mu4e +gmail)
+       ;; (mu4e +gmail)
+       ;; notmuch
+       (wanderlust +gmail)
 
        :collab
        ;;floobits          ; peer programming for a price

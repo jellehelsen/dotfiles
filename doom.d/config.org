@@ -170,6 +170,14 @@
 #+END_SRC
 
 * Email
+** Basics
+#+BEGIN_SRC emacs-lisp
+(setq user-mail-address "jelle.helsen@hcode.be")
+#+END_SRC
+
+#+RESULTS:
+: jelle.helsen@hcode.be
+
 ** Setup folders
 #+BEGIN_SRC emacs-lisp
   (setq mu4e-maildir "~/email"

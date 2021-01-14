@@ -44,3 +44,8 @@ Host miner
   HostName server.hcode.be
   XAuthLocation /opt/X11/bin/xauth
   ForwardX11 yes
+
+Host triton
+  HostName 192.168.122.149
+  XAuthLocation /opt/X11/bin/xauth
+  ForwardX11 yes

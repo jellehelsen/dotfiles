@@ -59,6 +59,8 @@ results buffer.")
   (setq ivy-height 17
         ivy-wrap t
         ivy-fixed-height-minibuffer t
+        ivy-read-action-function #'ivy-hydra-read-action
+        ivy-read-action-format-function #'ivy-read-action-format-columns
         projectile-completion-system 'ivy
         ;; don't show recent files in switch-buffer
         ivy-use-virtual-buffers nil
@@ -88,17 +90,17 @@ results buffer.")
                        +ivy--origin))
            (with-current-buffer (marker-buffer +ivy--origin)
              (better-jumper-set-jump +ivy--origin)))
+      (set-marker +ivy--origin nil)
       (setq +ivy--origin nil)))
 
   (after! yasnippet
     (add-hook 'yas-prompt-functions #'+ivy-yas-prompt-fn))
 
-  (defadvice! +ivy--inhibit-completion-in-region-a (orig-fn &rest args)
-    "`ivy-completion-in-region' struggles with completing certain
-evil-ex-specific constructs, so we disable it solely in evil-ex."
-    :around #'evil-ex
-    (let ((completion-in-region-function #'completion--in-region))
-      (apply orig-fn args)))
+  (after! ivy-hydra
+    ;; Ensure `ivy-dispatching-done' and `hydra-ivy/body' hydras can be
+    ;; exited / toggled by the same key binding they were opened
+    (add-to-list 'ivy-dispatching-done-hydra-exit-keys '("C-o" nil))
+    (defhydra+ hydra-ivy () ("M-o" nil)))
 
   (define-key! ivy-minibuffer-map
     [remap doom/delete-backward-word] #'ivy-backward-kill-word
@@ -118,6 +120,10 @@ evil-ex-specific constructs, so we disable it solely in evil-ex."
                                  'ivy-switch-buffer))
                 :test #'equal))
 
+  (defun ivy-rich-bookmark-filename-or-empty (candidate)
+    (let ((filename (ivy-rich-bookmark-filename candidate)))
+      (if (not filename) "" filename)))
+
   ;; Enahnce the appearance of a couple counsel commands
   (plist-put! ivy-rich-display-transformers-list
               'counsel-describe-variable
@@ -135,7 +141,7 @@ evil-ex-specific constructs, so we disable it solely in evil-ex."
               'counsel-bookmark
               '(:columns
                 ((ivy-rich-candidate (:width 0.5))
-                 (ivy-rich-bookmark-filename (:width 60)))))
+                 (ivy-rich-bookmark-filename-or-empty (:width 60)))))
 
   ;; Remove built-in coloring of buffer list; we do our own
   (setq ivy-switch-buffer-faces-alist nil)
@@ -229,6 +235,10 @@ evil-ex-specific constructs, so we disable it solely in evil-ex."
   (setq counsel-describe-function-function #'helpful-callable
         counsel-describe-variable-function #'helpful-variable)
 
+  ;; Decorate `doom/help-custom-variable' results the same way as
+  ;; `counsel-describe-variable' (adds value and docstring columns).
+  (ivy-configure 'doom/help-custom-variable :parent 'counsel-describe-variable)
+
   ;; Record in jumplist when opening files via counsel-{ag,rg,pt,git-grep}
   (add-hook 'counsel-grep-post-action-hook #'better-jumper-set-jump)
   (add-hook 'counsel-grep-post-action-hook #'recenter)
@@ -281,10 +291,10 @@ evil-ex-specific constructs, so we disable it solely in evil-ex."
     "Change `counsel-file-jump' to use fd or ripgrep, if they are available."
     :override #'counsel--find-return-list
     (cl-destructuring-bind (find-program . args)
-        (cond ((when-let (fd (executable-find (or doom-projectile-fd-binary "fd")))
+        (cond ((when-let (fd (executable-find (or doom-projectile-fd-binary "fd") t))
                  (append (list fd "-H" "--color=never" "--type" "file" "--type" "symlink" "--follow")
                          (if IS-WINDOWS '("--path-separator=/")))))
-              ((executable-find "rg")
+              ((executable-find "rg" t)
                (append (list "rg" "--files" "--follow" "--color=never" "--hidden" "-g!.git" "--no-messages")
                        (cl-loop for dir in projectile-globally-ignored-directories
                                 collect "--glob"
@@ -365,6 +375,8 @@ evil-ex-specific constructs, so we disable it solely in evil-ex."
   :defer t  ; is loaded by ivy
   :init (setq ivy-flx-limit 10000))
 
+(use-package! ivy-avy
+  :after ivy)
 
 (use-package! ivy-prescient
   :when (featurep! +prescient)

@@ -81,6 +81,10 @@ debian, and derivatives). On most it's 'fd'.")
 
   (push (abbreviate-file-name doom-local-dir) projectile-globally-ignored-directories)
 
+  ;; Per-project compilation buffers
+  (setq compilation-buffer-name-function #'projectile-compilation-buffer-name
+        compilation-save-buffers-predicate #'projectile-current-project-buffer-p)
+
   ;; Override projectile's dirconfig file '.projectile' with doom's project marker '.project'.
   (defadvice! doom--projectile-dirconfig-file-a ()
     :override #'projectile-dirconfig-file
@@ -175,7 +179,7 @@ And if it's a function, evaluate it."
                          (cl-find-if (doom-rpartial #'executable-find t)
                                      (list "fdfind" "fd"))
                        doom-projectile-fd-binary))
-              (concat (format "%s . -0 -H --color=never --type file --type symlink --follow"
+              (concat (format "%s . -0 -H --color=never --type file --type symlink --follow --exclude .git"
                               bin)
                       (if IS-WINDOWS " --path-separator=/"))))
            ;; Otherwise, resort to ripgrep, which is also faster than find

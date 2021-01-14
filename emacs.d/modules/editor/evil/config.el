@@ -20,7 +20,7 @@ directives. By default, this only recognizes C directives.")
 ;; Set these defaults before `evil'; use `defvar' so they can be changed prior
 ;; to loading.
 (defvar evil-want-C-g-bindings t)
-(defvar evil-want-C-i-jump (or (daemonp) (display-graphic-p)))
+(defvar evil-want-C-i-jump nil)  ; we do this ourselves
 (defvar evil-want-C-u-scroll t)  ; moved the universal arg to <leader> u
 (defvar evil-want-C-u-delete t)
 (defvar evil-want-C-w-scroll t)
@@ -87,7 +87,7 @@ directives. By default, this only recognizes C directives.")
   (defvar +evil--default-cursor-color "#ffffff")
   (defvar +evil--emacs-cursor-color "#ff9999")
 
-  (add-hook! 'doom-load-theme-hook :append
+  (add-hook! 'doom-load-theme-hook
     (defun +evil-update-cursor-color-h ()
       (setq +evil--default-cursor-color (face-background 'cursor)
             +evil--emacs-cursor-color (face-foreground 'warning))))
@@ -115,6 +115,14 @@ directives. By default, this only recognizes C directives.")
 
 
   ;; --- evil hacks -------------------------
+  (after! eldoc
+    ;; Allow eldoc to trigger directly after changing modes
+    (eldoc-add-command 'evil-normal-state
+                       'evil-insert
+                       'evil-change
+                       'evil-delete
+                       'evil-replace))
+
   (unless noninteractive
     (setq save-silently t)
     (add-hook! 'after-save-hook
@@ -411,6 +419,8 @@ directives. By default, this only recognizes C directives.")
 ;;   zu{q,w} - undo last marking
 
 (map! :v  "@"     #'+evil:apply-macro
+      :m  [C-i]   #'evil-jump-forward
+      :m  [tab]   #'evil-jump-item
 
       ;; implement dictionary keybinds
       ;; evil already defines 'z=' to `ispell-word' = correct word at point
@@ -508,8 +518,8 @@ directives. By default, this only recognizes C directives.")
       :n  "zx"    #'kill-current-buffer
       :n  "ZX"    #'doom/save-and-kill-buffer
       ;; don't leave visual mode after shifting
-      :v  "<"     #'+evil/visual-dedent  ; vnoremap < <gv
-      :v  ">"     #'+evil/visual-indent  ; vnoremap > >gv
+      :v  "<"     #'+evil/shift-left  ; vnoremap < <gv
+      :v  ">"     #'+evil/shift-right  ; vnoremap > >gv
 
       ;; window management (prefix "C-w")
       (:map evil-window-map

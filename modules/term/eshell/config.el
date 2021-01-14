@@ -92,9 +92,7 @@ You should use `set-eshell-alias!' to change this.")
   (add-hook! 'eshell-mode-hook
     (defun +eshell-remove-fringes-h ()
       (set-window-fringes nil 0 0)
-      (set-window-margins nil 1 nil)))
-
-  (add-hook! 'eshell-mode-hook
+      (set-window-margins nil 1 nil))
     (defun +eshell-enable-text-wrapping-h ()
       (visual-line-mode +1)
       (set-display-table-slot standard-display-table 0 ?\ )))
@@ -104,6 +102,10 @@ You should use `set-eshell-alias!' to change this.")
   ;; Don't auto-write our aliases! Let us manage our own `eshell-aliases-file'
   ;; or configure `+eshell-aliases' via elisp.
   (advice-add #'eshell-write-aliases-list :override #'ignore)
+
+  ;; REVIEW In Emacs 27 and newer, waiting for esh-module is unnecessary.
+  (after! esh-module
+    (add-to-list 'eshell-modules-list 'eshell-tramp))
 
   ;; Visual commands require a proper terminal. Eshell can't handle that, so
   ;; it delegates these commands to a term buffer.
@@ -175,6 +177,10 @@ You should use `set-eshell-alias!' to change this.")
   ;;      last command and then calling the output filter.
   (setq eshell-last-command-name "catt")
   (eshell-did-you-mean-output-filter "catt: command not found"))
+
+
+(use-package eshell-syntax-highlighting
+  :hook (eshell-mode . eshell-syntax-highlighting-mode))
 
 
 (use-package! fish-completion

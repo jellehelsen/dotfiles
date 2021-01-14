@@ -289,18 +289,16 @@ windows, switch to `doom-fallback-buffer'. Otherwise, delegate to original
 ;; where we resize windows too quickly.
 (setq window-resize-pixelwise nil)
 
-(unless (assq 'menu-bar-lines default-frame-alist)
-  ;; We do this in early-init.el too, but in case the user is on Emacs 26 we do
-  ;; it here too: disable tool and scrollbars, as Doom encourages
-  ;; keyboard-centric workflows, so these are just clutter (the scrollbar also
-  ;; impacts performance).
-  (add-to-list 'default-frame-alist '(menu-bar-lines . 0))
-  (add-to-list 'default-frame-alist '(tool-bar-lines . 0))
-  (add-to-list 'default-frame-alist '(vertical-scroll-bars)))
+;; Disable tool, menu, and scrollbars. Doom is designed to be keyboard-centric,
+;; so these are just clutter (the scrollbar also impacts performance). Whats
+;; more, the menu bar exposes functionality that Doom doesn't endorse.
+(push '(menu-bar-lines . 0)   default-frame-alist)
+(push '(tool-bar-lines . 0)   default-frame-alist)
+(push '(vertical-scroll-bars) default-frame-alist)
 
-;; These are disabled directly through their frame parameters, to avoid the
-;; extra work their minor modes do, but we have to unset these variables
-;; ourselves, otherwise users will have to cycle them twice to re-enable them.
+;; These are disabled directly through their frame parameters to avoid the extra
+;; work their minor modes do, but their variables must be unset too, otherwise
+;; users will have to cycle them twice to re-enable them.
 (setq menu-bar-mode nil
       tool-bar-mode nil
       scroll-bar-mode nil)
@@ -344,9 +342,7 @@ windows, switch to `doom-fallback-buffer'. Otherwise, delegate to original
 
 ;; Expand the minibuffer to fit multi-line text displayed in the echo-area. This
 ;; doesn't look too great with direnv, however...
-(setq resize-mini-windows 'grow-only
-      ;; But don't let the minibuffer grow beyond this size
-      max-mini-window-height 0.15)
+(setq resize-mini-windows 'grow-only)
 
 ;; Typing yes/no is obnoxious when y/n will do
 (fset #'yes-or-no-p #'y-or-n-p)
@@ -550,6 +546,14 @@ windows, switch to `doom-fallback-buffer'. Otherwise, delegate to original
 ;;
 ;;; Theme & font
 
+;; User themes should live in ~/.doom.d/themes, not ~/.emacs.d
+(setq custom-theme-directory (concat doom-private-dir "themes/"))
+
+;; Always prioritize the user's themes above the built-in/packaged ones.
+(setq custom-theme-load-path
+      (cons 'custom-theme-directory
+            (remq 'custom-theme-directory custom-theme-load-path)))
+
 ;; Underline looks a bit better when drawn lower
 (setq x-underline-at-descent-line t)
 
@@ -589,8 +593,9 @@ behavior). Do not set this directly, this is let-bound in `doom-init-theme-h'.")
         (when doom-variable-pitch-font
           (set-face-attribute 'variable-pitch nil :font doom-variable-pitch-font))
         (when (fboundp 'set-fontset-font)
-          (dolist (font (append doom-unicode-extra-fonts (doom-enlist doom-unicode-font)))
-            (set-fontset-font t 'unicode font nil 'prepend))))
+          (dolist (font (cons doom-unicode-font doom-unicode-extra-fonts))
+            (set-fontset-font t 'unicode font nil 'prepend)))
+        (run-hooks 'after-setting-font-hook))
     ((debug error)
      (if (string-prefix-p "Font not available: " (error-message-string e))
          (lwarn 'doom-ui :warning
@@ -626,7 +631,7 @@ behavior). Do not set this directly, this is let-bound in `doom-init-theme-h'.")
         ;; `load-theme' doesn't disable previously enabled themes, which seems
         ;; like what you'd want. You could always use `enable-theme' to activate
         ;; multiple themes instead.
-        (mapc #'disable-theme (remq theme custom-enabled-themes))
+        (mapc #'disable-theme (remq theme (remq 'use-package custom-enabled-themes)))
         (run-hooks 'doom-load-theme-hook))
       result)))
 
@@ -638,7 +643,7 @@ behavior). Do not set this directly, this is let-bound in `doom-init-theme-h'.")
     "Disable other themes when loading a new one."
     :before #'load-theme
     (unless no-enable
-      (mapc #'disable-theme custom-enabled-themes)))
+      (mapc #'disable-theme (remq 'use-package custom-enabled-themes))))
 
   ;; DEPRECATED Not needed in Emacs 27
   (defadvice! doom--prefer-compiled-theme-a (orig-fn &rest args)

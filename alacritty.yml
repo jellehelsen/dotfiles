@@ -30,3 +30,5 @@ colors:
 
 cursor:
   blinking: On
+
+alt_send_esc: false

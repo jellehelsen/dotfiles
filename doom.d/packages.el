@@ -10,7 +10,6 @@
 (package! rbenv)
 (package! nvm)
 (package! confluence)
-;; (package! ox-confluence)
 (package! org-jira)
 (package! emmet-mode)
 (package! mocha)
@@ -28,7 +27,6 @@
   (:host gitlab
    :repo "Titan-C/org-cv"
    :files ("*.el")))
-(package! ox-asciidoc)
 (package! blacken)
 (package! origami)
 (package! ag)
@@ -41,3 +39,4 @@
 (package! ejira
   :recipe (:host github :repo "nyyManni/ejira")
   )
+(package! org-chef)

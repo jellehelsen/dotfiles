@@ -56,7 +56,6 @@
 #+BEGIN_SRC emacs-lisp
 (require 'ox-md)
 (require 'ox-hugo)
-(require 'ox-asciidoc)
 (require 'ox-confluence)
 (require 'org-capture)
 (require 'org-protocol)
@@ -84,15 +83,18 @@
 
 ** Capture
 #+BEGIN_SRC emacs-lisp
-(setq org-capture-templates '(("t" "Todo [inbox]" entry
-                               (file+headline "~/gtd/inbox.org" "Tasks")
-                               "* TODO %i%?")
-                              ("T" "Tickler" entry
-                               (file+headline "~/gtd/tickler.org" "Tickler")
-                               "* %i%? \n %U")
-                              ("l" "Temp Links from the interwebs" entry
-         (file+headline "~/gtd/links.org" "Temporary Links")
-         "* %a\n%?\nEntered on %U\n \%i\n")
+(setq org-capture-templates '(
+  ("t" "Todo [inbox]" entry
+      (file+headline "~/gtd/inbox.org" "Tasks") "* TODO %i%?")
+  ("T" "Tickler" entry
+      (file+headline "~/gtd/tickler.org" "Tickler") "* %i%? \n %U")
+  ("l" "Temp Links from the interwebs" entry
+      (file+headline "~/gtd/links.org" "Temporary Links")
+          "* %a\n%?\nEntered on %U\n \%i\n")
+  ("c" "Cookbook" entry (file "~/org/cookbook.org")
+      "%(org-chef-get-recipe-from-url)" :empty-lines 1)
+  ("m" "Manual Cookbook" entry (file "~/org/cookbook.org")
+      "* %^{Recipe title: }\n  :PROPERTIES:\n  :source-url:\n  :servings:\n  :prep-time:\n  :cook-time:\n  :ready-in:\n  :END:\n** Ingredients\n   %?\n** Directions\n\n")
                               ))
 (defadvice org-capture
     (after make-full-window-frame activate)

@@ -13,5 +13,6 @@ set spoolfile = "+INBOX"
 set postponed = "+[Gmail]/Drafts"
 set record = ""
 set trash = ""
+set signature="~/.mutt/devoteam_signature"
 
 color status red color235

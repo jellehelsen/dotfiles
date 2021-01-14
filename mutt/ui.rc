@@ -17,8 +17,8 @@ macro index \ca s=Archive<enter><enter>
 macro pager \ca s=Archive<enter><enter>
 macro index \cx $<enter>
 macro pager \cx $<enter>
-macro index \cb "|~/.mutt/urlview" "open url with urlview" 
-macro pager \cb "|~/.mutt/urlview" "open url with urlview" 
+macro index \cb "|urlview" "open url with urlview"
+macro pager \cb "|urlview" "open url with urlview"
 # macro index \033OP |~/.mutt/add_to_addressbook.rb<enter><space>
 # macro pager \033OP |~/.mutt/add_to_addressbook.rb<enter><space>
 macro index,pager <F5> c!<enter>

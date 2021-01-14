@@ -11,6 +11,7 @@ set folder = "imaps://imap.gmail.com/"
 set spoolfile = "+INBOX"
 set postponed = "+[Gmail]/Drafts"
 set record = ""
-set trash = "+[Gmail]/Trash"
+set trash = ""
+set signature="~/.mutt/signature"
 
 color status blue color235

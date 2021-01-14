@@ -1,7 +1,7 @@
 # Images
 image/jpeg; /Users/jelle/.mutt/view_attachment.sh %s
 image/pjpeg; /Users/jelle/.mutt/view_attachment.sh %s
-image/png; /Users/jelle/.mutt/view_attachment.sh %s
+image/png; /Users/jelle/.mutt/view_attachment.sh %s png
 image/gif; /Users/jelle/.mutt/view_attachment.sh %s
 
 # PDF
@@ -9,5 +9,8 @@ application/pdf; /Users/jelle/.mutt/view_attachment.sh %s pdf
 
 # HTML
 # -- always use lynx; we prefer the commandline
-text/html; elinks -force-html %s
+text/html; /Users/jelle/.mutt/view_attachment.sh %s html; nametemplate=%s.html
+text/html; w3m -I %{charset} -T text/html; copiousoutput;
 
+#Others
+application/*; /Users/jelle/.mutt/view_attachment.sh %s

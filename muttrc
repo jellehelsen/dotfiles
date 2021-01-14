@@ -2,8 +2,6 @@
 # set charset="utf-8"
 # set assumed_charset="utf-8"
 source ~/.mutt/general.rc
-## ACCOUNT
-source ~/.mutt/hcode.be
 source ~/.mutt/composing.rc
 source ~/.mutt/ui.rc
 
@@ -13,7 +11,8 @@ source ~/.mutt/ui.rc
 
 source ~/.mutt/solarized.rc
 source ~/.mutt/gpg.rc
-
+## ACCOUNT
+source ~/.mutt/hcode.be
 ## S/MIME
 #source ~/.mutt/smime.rc
 # set smime_default_key="d4354654.0"

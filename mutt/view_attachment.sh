@@ -98,11 +98,11 @@ fi
 # if the type is '-' then we don't want to mess with type.
 # Otherwise we are rebuilding the name.  Either from the
 # type that was passed in or from the type we discerned.
-if [ $type = "-" ]; then
-    newfile=$filename
-else
-    newfile=$file.$type
-fi
+# if [ $type = "-" ]; then
+newfile=$filename
+# else
+    # newfile=$file.$type
+# fi
 
 newfile=$tmpdir/$newfile
 

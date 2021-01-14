@@ -12,3 +12,6 @@ set header_cache = "~/.mutt_cache"
 set message_cachedir = "~/.mutt_cache"
 set move = no
 set folder = ~/email/
+
+auto_view text/html
+alternative_order text/plain text/enriched text/html

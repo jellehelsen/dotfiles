@@ -196,7 +196,7 @@ processed."
             (if disable
                 (cl-pushnew name doom-disabled-packages)
               (when shadow
-                (straight-override-recipe (cons shadow '(:local-repo nil)))
+                (straight-override-recipe (cons shadow `(:local-repo nil :package included :build nil :included-by ,name)))
                 (let ((site-load-path (copy-sequence doom--initial-load-path))
                       lib)
                   (while (setq
@@ -278,12 +278,15 @@ processed."
       (copy-sequence deps))))
 
 (defun doom-package-depending-on (package &optional noerror)
-  "Return a list of packages that depend on the package named NAME."
-  (cl-check-type name symbol)
+  "Return a list of packages that depend on PACKAGE.
+
+If PACKAGE (a symbol) isn't installed, throw an error, unless NOERROR is
+non-nil."
+  (cl-check-type package symbol)
   ;; can't get dependencies for built-in packages
-  (unless (or (doom-package-build-recipe name)
+  (unless (or (doom-package-build-recipe package)
               noerror)
-    (error "Couldn't find %s, is it installed?" name))
+    (error "Couldn't find %s, is it installed?" package))
   (cl-loop for pkg in (hash-table-keys straight--build-cache)
            for deps = (doom-package-dependencies pkg)
            if (memq package deps)
@@ -493,7 +496,7 @@ elsewhere."
          (when-let (recipe (plist-get plist :recipe))
            (cl-destructuring-bind
                (&key local-repo _files _flavor
-                     _build _pre-build _post-build _no-byte-compile
+                     _build _pre-build _post-build _no-byte-compile _includes
                      _no-native-compile _no-autoloads _type _repo _host _branch
                      _remote _nonrecursive _fork _depth)
                recipe

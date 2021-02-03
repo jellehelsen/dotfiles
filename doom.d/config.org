@@ -272,6 +272,25 @@
 #+RESULTS:
 : smtpmail
 
+** LastPass
+#+begin_src emacs-lisp
+(setq lastpass-user "jelle.helsen@hcode.be")
+(setq lastpass-trust-login t)
+;; Enable lastpass custom auth-source
+(lastpass-auth-source-enable)
+(defun lastpass-mu4e-update-mail-and-index (update-function &rest r)
+       "Check if user is logged in and run UPDATE-FUNCTION with arguments R."
+       (unless (lastpass-logged-in-p)
+         (lastpass-login)
+         (error "LastPass: Not logged in, log in and retry"))
+       (apply update-function r))
+
+(advice-add 'mu4e-update-mail-and-index :around #'lastpass-mu4e-update-mail-and-index)
+
+#+end_src
+
+#+RESULTS:
+
 * Confluence
 #+BEGIN_SRC emacs-lisp
 (require 'confluence)

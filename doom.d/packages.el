@@ -40,3 +40,4 @@
   :recipe (:host github :repo "nyyManni/ejira")
   )
 (package! org-chef)
+(package! lastpass)

@@ -45,11 +45,11 @@
        vi-tilde-fringe   ; fringe tildes to mark beyond EOB
        window-select     ; visually switch windows
        workspaces
-       ophints
-       zen
+       ;; ophints
+       ;; zen
 
        :editor
-       ;;(format +onsave)  ; automated prettiness
+       (format +onsave)  ; automated prettiness
        ;; multiple-cursors  ; editing in many places at once
        ;;parinfer          ; turn lisp into python, sort of
        ;; rotate-text       ; cycle region at point between text candidates
@@ -60,7 +60,7 @@
 
        :emacs
        dired             ; making dired pretty [functional]
-       ;; ediff             ; comparing files in Emacs
+       ediff             ; comparing files in Emacs
        electric          ; smarter, keyword-based electric-indent
        ;; eshell            ; a consistent, cross-platform shell (WIP)
        ;; imenu             ; an imenu sidebar and searchable code index
@@ -120,7 +120,7 @@
        javascript        ; all(hope(abandon(ye(who(enter(here))))))
        ;;julia             ; a better, faster MATLAB
        latex             ; writing papers in Emacs has never been so fun
-       ledger            ; an accounting system in Emacs
+       ;; ledger            ; an accounting system in Emacs
        ;;lua               ; one-based indices? one-based indices
        markdown          ; writing docs for people to ignore
        ;;nim               ; python + lisp at the speed of c
@@ -134,7 +134,7 @@
         +present)        ; Emacs for presentations
        ;;perl              ; write code no one else can comprehend
        ;;php               ; perl's insecure younger brother
-       plantuml          ; diagrams for confusing people more
+       ;; plantuml          ; diagrams for confusing people more
        ;;purescript        ; javascript, but functional
        python            ; beautiful is better than ugly
        ;;qt                ; the 'cutest' gui framework ever
@@ -153,7 +153,6 @@
        ;; toward a specific purpose. They may have additional dependencies and
        ;; should be loaded late.
        :app
-       ;; (email +gmail)    ; emacs as an email client
        ;; irc               ; how neckbeards socialize
        (rss +org)        ; emacs as an RSS reader
        twitter           ; twitter client https://twitter.com/vnought
@@ -162,9 +161,9 @@
        +langtool)       ; a proofreader (grammar/style check) for Emacs
 
        :email
-       ;; (mu4e +gmail)
+       (mu4e +gmail)
        ;; notmuch
-       (wanderlust +gmail)
+       ;; (wanderlust +gmail)
 
        :collab
        ;;floobits          ; peer programming for a price

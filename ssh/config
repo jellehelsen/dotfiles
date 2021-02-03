@@ -27,15 +27,9 @@ Host sshuttle
   User devoteam
   ProxyJump dawndove
 
-Host shipwrek
-  HostName 10.101.12.56
-  User core
-  ProxyCommand ssh -W %h:%p -q dawndove
-
-Host castaway
-  HostName 10.101.12.57
-  User core
-  ProxyCommand ssh -W %h:%p -q dawndove
+Host anthos
+  HostName anthos-jumpstation.lab.netw.telenet.be
+  ProxyJump dawnautomate
 
 Host osdvp-git.eng.lab.telenet-ops.be
   ProxyJump shipwrek

@@ -85,12 +85,12 @@ results buffer.")
 
   (add-hook! 'minibuffer-exit-hook
     (defun +ivy--set-jump-point-maybe-h ()
-      (and (markerp (bound-and-true-p +ivy--origin))
-           (not (equal (ignore-errors (with-ivy-window (point-marker)))
-                       +ivy--origin))
-           (with-current-buffer (marker-buffer +ivy--origin)
-             (better-jumper-set-jump +ivy--origin)))
-      (set-marker +ivy--origin nil)
+      (when (markerp (bound-and-true-p +ivy--origin))
+        (unless (equal (ignore-errors (with-ivy-window (point-marker)))
+                       +ivy--origin)
+          (with-current-buffer (marker-buffer +ivy--origin)
+            (better-jumper-set-jump +ivy--origin)))
+        (set-marker +ivy--origin nil))
       (setq +ivy--origin nil)))
 
   (after! yasnippet
@@ -184,6 +184,7 @@ results buffer.")
     [remap describe-face]            #'counsel-faces
     [remap describe-function]        #'counsel-describe-function
     [remap describe-variable]        #'counsel-describe-variable
+    [remap describe-symbol]          #'counsel-describe-symbol
     [remap evil-ex-registers]        #'counsel-evil-registers
     [remap evil-show-marks]          #'counsel-mark-ring
     [remap execute-extended-command] #'counsel-M-x
@@ -221,15 +222,6 @@ results buffer.")
   ;;        just force it to always be a list.
   (when (stringp counsel-rg-base-command)
     (setq counsel-rg-base-command (split-string counsel-rg-base-command)))
-
-  ;; REVIEW Fix #3215: prevents mingw on Windows throwing an error trying to
-  ;;        expand / to an absolute path. Remove this when it is fixed upstream
-  ;;        in counsel.
-  (when (and (memq system-type '(windows-nt ms-dos))
-             (listp counsel-rg-base-command)
-             (member "--path-separator" counsel-rg-base-command))
-    (setf (cadr (member "--path-separator" counsel-rg-base-command))
-          "/"))
 
   ;; Integrate with `helpful'
   (setq counsel-describe-function-function #'helpful-callable
@@ -299,7 +291,7 @@ results buffer.")
                        (cl-loop for dir in projectile-globally-ignored-directories
                                 collect "--glob"
                                 collect (concat "!" dir))
-                       (if IS-WINDOWS (list "--path-separator" "/"))))
+                       (if IS-WINDOWS '("--path-separator=/"))))
               ((cons find-program args)))
       (unless (listp args)
         (user-error "`counsel-file-jump-args' is a list now, please customize accordingly."))

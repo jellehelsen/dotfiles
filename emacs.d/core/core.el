@@ -159,6 +159,8 @@ users).")
   (mapc (doom-partial #'add-to-list 'comp-deferred-compilation-deny-list)
         (let ((local-dir-re (concat "\\`" (regexp-quote doom-local-dir))))
           (list (concat "\\`" (regexp-quote doom-autoloads-file) "\\'")
+                (concat local-dir-re ".*/evil-collection-vterm\\.el\\'")
+                (concat local-dir-re ".*/with-editor\\.el\\'")
                 ;; https://github.com/nnicandro/emacs-jupyter/issues/297
                 (concat local-dir-re ".*/jupyter-channel\\.el\\'"))))
   ;; Default to using all cores, rather than half of them, since we compile
@@ -206,7 +208,8 @@ users).")
       inhibit-default-init t
       ;; Shave seconds off startup time by starting the scratch buffer in
       ;; `fundamental-mode', rather than, say, `org-mode' or `text-mode', which
-      ;; pull in a ton of packages.
+      ;; pull in a ton of packages. `doom/open-scratch-buffer' provides a better
+      ;; scratch buffer anyway.
       initial-major-mode 'fundamental-mode
       initial-scratch-message nil)
 
@@ -244,8 +247,7 @@ config.el instead."
 ;;; Optimizations
 
 ;; A second, case-insensitive pass over `auto-mode-alist' is time wasted, and
-;; indicates misconfiguration (or that the user needs to stop relying on case
-;; insensitivity).
+;; indicates misconfiguration (don't rely on case insensitivity for file names).
 (setq auto-mode-case-fold nil)
 
 ;; Disable bidirectional text rendering for a modest performance boost. I've set
@@ -379,7 +381,7 @@ config.el instead."
 
 (defvar doom-incremental-packages '(t)
   "A list of packages to load incrementally after startup. Any large packages
-here may cause noticable pauses, so it's recommended you break them up into
+here may cause noticeable pauses, so it's recommended you break them up into
 sub-packages. For example, `org' is comprised of many packages, and can be
 broken up into:
 

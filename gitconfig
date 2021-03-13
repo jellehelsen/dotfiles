@@ -14,7 +14,7 @@
 	tool = Kaleidoscope
 [user]
 	name = Jelle Helsen
-	email = jelle.helsen@devoteam.com
+	email = jelle.helsen@hcode.be
 [core]
 	excludesfile = /Users/jelle/.gitignore_global
 	precomposeunicode = false

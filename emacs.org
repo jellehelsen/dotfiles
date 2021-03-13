@@ -1205,15 +1205,7 @@ These template are shortcuts for code blocks. It enables you to type things like
   #+RESULTS:
 * Tests
   #+begin_src emacs-lisp
-    (nnimap-login (nnimap "imap.gmail.com")
-     "jelle.helsen@hcode.be"
-     (funcall
-      (plist-get
-       (nth 0 (auth-source-search :host "imap.gmail.com")) :secret)))
   #+end_src
-
-  #+RESULTS:
-  : szxkybmphsizhhde
 
 
 

@@ -1,4 +1,5 @@
 #!/bin/sh
 
 vim +PlugInstall +qa
-~/.emacs.d/bin/doom sync
+emacs -Q --script ~/.dotfiles/tangle-dotfiles.el
+emacs -Q --script ~/.emacs.d/init.el

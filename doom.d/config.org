@@ -197,36 +197,39 @@
 ** Contexts
 #+BEGIN_SRC emacs-lisp
   (with-eval-after-load 'mu4e (setq mu4e-contexts
-        `(
-          ,(make-mu4e-context
-            :name "hcode"
-            :enter-func (lambda () (mu4e-message "Entering HCODE context"))
-            :match-func (lambda(msg)
-                          (when msg
-                            (string-match-p "^/hcode" (mu4e-message-field msg :maildir))))
-            :vars '(
-                    (user-mail-address . "jelle.helsen@hcode.be")
-                    (user-full-name    . "Jelle Helsen")
-                    (mu4e-compose-signature . "With kind regards,\nJelle Helsen")
-                    )
-            )
-          ,(make-mu4e-context
-            :name "devoteam"
-            :enter-func (lambda () (mu4e-message "Entering DevoTeam context"))
-            :match-func (lambda(msg)
-                          (when msg
-                            (string-match-p "^/devoteam" (mu4e-message-field msg :maildir))))
-            :vars '(
-                    (user-mail-address . "jelle.helsen@devoteam.com")
-                    (user-full-name    . "Jelle Helsen")
-                    (mu4e-compose-signature . "With kind regards,\nJelle Helsen")
-                    )
-            )
-          )
-        ) )
+                                    `(
+                                      ,(make-mu4e-context
+                                        :name "hcode"
+                                        :enter-func (lambda () (mu4e-message "Entering HCODE context"))
+                                        :match-func (lambda(msg)
+                                                      (when msg
+                                                        (string-match-p "^/hcode" (mu4e-message-field msg :maildir))))
+                                        :vars '(
+                                                (user-mail-address . "jelle.helsen@hcode.be")
+                                                (user-full-name    . "Jelle Helsen")
+                                                (mu4e-compose-signature . "With kind regards,\nJelle Helsen")
+                                                (smtpmail-smtp-user "jelle.helsen@hcode.be")
+                                                )
+                                        )
+                                      ,(make-mu4e-context
+                                        :name "devoteam"
+                                        :enter-func (lambda () (mu4e-message "Entering DevoTeam context"))
+                                        :match-func (lambda(msg)
+                                                      (when msg
+                                                        (string-match-p "^/devoteam" (mu4e-message-field msg :maildir))))
+                                        :vars '(
+                                                (user-mail-address . "jelle.helsen@devoteam.com")
+                                                (user-full-name    . "Jelle Helsen")
+                                                (mu4e-compose-signature . "With kind regards,\nJelle Helsen")
+                                                (smtpmail-smtp-user "jelle.helsen@devoteam.com")
+                                                )
+                                        )
+                                      )
+                                    ) )
 #+END_SRC
 
 #+RESULTS:
+| #s(mu4e-context hcode (lambda nil (mu4e-message Entering HCODE context)) nil (lambda (msg) (when msg (string-match-p ^/hcode (mu4e-message-field msg :maildir)))) ((user-mail-address . jelle.helsen@hcode.be) (user-full-name . Jelle Helsen) (mu4e-compose-signature . With kind regards, |
 ** Shortcuts
 #+BEGIN_SRC emacs-lisp
   (setq mu4e-maildir-shortcuts
@@ -241,9 +244,9 @@
 ** Bookmarks
 #+BEGIN_SRC emacs-lisp
   (setq mu4e-bookmarks
-        `(("flag:unread AND NOT flag:trashed" "Unread messages" ?u)
-          ("date:today..now" "Today's messages" ?t)
-          ("date:7d..now" "Last 7 days" ?w)
+        `(("flag:unread AND NOT flag:trashed AND NOT maildir:/Trash/" "Unread messages" ?u)
+          ("date:today..now AND NOT flag:trashed AND NOT maildir:/Trash/" "Today's messages" ?t)
+          ("date:7d..now AND NOT maildir:/Trash/" "Last 7 days" ?w)
           ("mime:image/*" "Messages with images" ?p)
           (,(mapconcat 'identity
                        (mapcar
@@ -254,23 +257,22 @@
 #+END_SRC
 
 #+RESULTS:
-| flag:unread AND NOT flag:trashed                | Unread messages      | 117 |
-| date:today..now                                 | Today's messages     | 116 |
-| date:7d..now                                    | Last 7 days          | 119 |
-| mime:image/*                                    | Messages with images | 112 |
-| maildir:/hcode/INBOX OR maildir:/devoteam/INBOX | All inboxes          | 105 |
+| flag:unread AND NOT flag:trashed AND NOT maildir:/Trash/     | Unread messages      | 117 |
+| date:today..now AND NOT flag:trashed AND NOT maildir:/Trash/ | Today's messages     | 116 |
+| date:7d..now AND NOT maildir:/Trash/                         | Last 7 days          | 119 |
+| mime:image/*                                                 | Messages with images | 112 |
+| maildir:/hcode/INBOX OR maildir:/devoteam/INBOX              | All inboxes          | 105 |
 ** Sending
 #+BEGIN_SRC emacs-lisp
-(setq message-send-mail-function 'smtpmail-send-it
-      smtpmail-default-smtp-server "smtp.gmail.com"
-      smtpmail-stream-type  'ssl
-      smtpmail-smtp-service 465
-      )
-(require 'smtpmail)
+(setq sendmail-program "msmtp"
+      send-mail-function 'smtpmail-send-it
+      message-sendmail-f-is-evil t
+      message-sendmail-extra-arguments '("--read-envelope-from")
+      message-send-mail-function 'message-send-mail-with-sendmail)
 #+END_SRC
 
 #+RESULTS:
-: smtpmail
+: message-send-mail-with-sendmail
 
 ** LastPass
 #+begin_src emacs-lisp
@@ -449,3 +451,11 @@
 #+BEGIN_SRC emacs-lisp
 load-path
 #+END_SRC
+
+* Spelling
+#+begin_src emacs-lisp
+(setq ispell-dictionary "english")
+#+end_src
+
+#+RESULTS:
+: english

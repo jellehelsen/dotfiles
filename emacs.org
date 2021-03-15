@@ -122,55 +122,68 @@
    : t
 
 ** Mode Line
-   #+begin_src emacs-lisp
-   (setq
-    display-time-format "%l:%m %p %b %y"
-    display-time-default-load-average nil
+#+begin_src emacs-lisp
+  (setq
+   display-time-format "%l:%m %p %b %y"
+   display-time-default-load-average nil
    )
-   (use-package minions
-   :hook (doom-modeline-mode . minions-mode)
-   )
-   (use-package doom-modeline
-   :hook (after-init . doom-modeline-init)
-   :custom-face
-   (mode-line ((t (:height 1.0))))
-   (mode-line-inactive ((t (:height 0.85))))
-   :custom
-   (doom-modeline-height 15)
-   (doom-modeline-bar-width 6)
-   (doom-modeline-lsp t)
-   (doom-modeline-minor-modes t)
-   )
-   #+end_src
+  (use-package minions
+    :hook (doom-modeline-mode . minions-mode)
+    )
+  (use-package doom-modeline
+    :hook (after-init . doom-modeline-init)
+    :custom-face
+    (mode-line ((t (:height 1.0))))
+    (mode-line-inactive ((t (:height 0.85))))
+    :custom
+    (doom-modeline-height 15)
+    (doom-modeline-bar-width 6)
+    (doom-modeline-lsp t)
+    (doom-modeline-minor-modes t)
+    )
+#+end_src
 
    #+RESULTS:
    | doom-modeline-init | tramp-register-archive-file-name-handler | magit-maybe-define-global-key-bindings | magit-auto-revert-mode--init-kludge | magit-startup-asserts | magit-version |
    
 ** Font setup
-   #+begin_src emacs-lisp
+#+begin_src emacs-lisp
   (set-face-attribute 'default nil :font "Meslo LG L" :height 150) 
   (set-face-attribute 'fixed-pitch nil :font "Meslo LG L" :height 150) 
   (set-face-attribute 'variable-pitch nil :font "Meslo LG L" :height 140) 
-   #+end_src
+ #+end_src
 
    #+RESULTS:
 
 ** Helpful
-   #+begin_src emacs-lisp
-     (use-package helpful
-	:custom
-	    (counsel-describe-function-function #'helpful-callable)
-	    (counsel-describe-variable-function #'helpful-variable)
-	:bind
-	    ([remap describe-function] . counsel-describe-function)
-	    ([remap describe-variable] . counsel-describe-variable)
-	    ([remap describe-command] . helpful-command)
-	    ([remap describe-key] . helpful-key)
-     )
+Improved help functions.
+#+begin_src emacs-lisp
+  (use-package helpful
+    :custom
+    (counsel-describe-function-function #'helpful-callable)
+    (counsel-describe-variable-function #'helpful-variable)
+    :bind
+    ([remap describe-function] . counsel-describe-function)
+    ([remap describe-variable] . counsel-describe-variable)
+    ([remap describe-command] . helpful-command)
+    ([remap describe-key] . helpful-key)
+    )
    #+end_src
 
    #+RESULTS:
    : helpful-key
+
+** Misc
+Show the max line length (80) and highlight the current line.
+Highlight TODO and FIXME keywords.
+#+begin_src emacs-lisp
+  (global-display-fill-column-indicator-mode 1)
+  (global-hl-line-mode 1)
+  (global-hl-todo-mode 1)
+#+end_src
+
+#+RESULTS:
+: t
 
 * Automatically tangle on save
 #+begin_src emacs-lisp
@@ -360,7 +373,7 @@
                ))
        (org-indent-mode)
        (variable-pitch-mode 1)
-       (auto-fill-mode 0)
+       (auto-fill-mode 1)
        (visual-line-mode 1)
        (setq evil-auto-indent nil) )
      (use-package org-chef)
@@ -448,17 +461,20 @@ These template are shortcuts for code blocks. It enables you to type things like
 
 ** Agenda
 #+BEGIN_SRC emacs-lisp
-(setq org-agenda-files '("~/gtd/inbox.org"
-                         "~/gtd/gtd.org"
-                         "~/gtd/tickler.org"))
+  (setq org-agenda-files '("~/gtd/inbox.org"
+			   "~/gtd/gtd.org"
+			   "~/gtd/tickler.org"))
+  (setq org-todo-keywords '((sequence "TODO(t)" "WAITING(w)" "|" "DONE(d)" "CANCELLED(c)")))
+  (setq org-time-stamp-custom-formats '("<%d/%m/%Y %a>" . "<%d/%m/%Y %a %H:%M>"))
+  (setq org-display-custom-times t)
+
 #+END_SRC
 
 #+RESULTS:
-| ~/gtd/inbox.org | ~/gtd/gtd.org | ~/gtd/tickler.org |
 
 ** Refiling
 #+BEGIN_SRC emacs-lisp
-(setq org-refile-targets '(("~/gtd/gtd.org" :maxlevel . 3)
+(setq org-refile-targets '(("~/gtd/gtd.org" :maxlevel . 2)
                            ("~/gtd/someday.org" :level . 1)
                            ("~/gtd/tickler.org" :maxlevel . 2)))
 #+END_SRC
@@ -485,6 +501,7 @@ These template are shortcuts for code blocks. It enables you to type things like
        "oa" '(org-agenda :which-key "agenda")
        "on" '(browse-notes :which-key "Browse notes")
        "ot" '(org-todo :which-key "Todo")
+       "os" '(org-schedule :which-key "Schedule")
        "od" '(org-deadline :which-key "Set Deadline")
        "oc" '(org-capture :which-key "Capture")
        )
@@ -719,23 +736,25 @@ These template are shortcuts for code blocks. It enables you to type things like
 
     #+RESULTS:
 *** Perspective
-    #+begin_src emacs-lisp
-      (use-package persp-mode
-	:init
-	(persp-mode +1)
-	:config
-	(setq
-	 persp-nil-hidden t
-	 )
-	)
-      (use-package persp-mode-projectile-bridge
-	:init
-	(persp-mode-projectile-bridge-mode +1)
-	)
-      (nmap :prefix "g" "t" 'persp-next)
-      (nmap :prefix "g" "T" 'persp-prev)
-    #+end_src
-    #+RESULTS:
+#+begin_src emacs-lisp
+  (use-package persp-mode
+    :init
+    (persp-mode +1)
+    :config
+    (setq persp-nil-hidden t
+	  persp-auto-resume-time -1 ;; don't autoload on startup
+	  persp-kill-foreign-buffer-behaviour 'kill
+	  persp-remove-buffers-from-nil-persp-behaviour nil
+	  )
+    )
+  (use-package persp-mode-projectile-bridge
+    :init
+    (persp-mode-projectile-bridge-mode +1)
+    )
+  (nmap :prefix "g" "t" 'persp-next)
+  (nmap :prefix "g" "T" 'persp-prev)
+  #+end_src
+#+RESULTS:
 
 ** Git
 *** Magit
@@ -942,22 +961,6 @@ These template are shortcuts for code blocks. It enables you to type things like
 #+RESULTS:
 : smtpmail
 
-** Keybindings
-   #+begin_src emacs-lisp
-     (defun jh/go-to-inbox()
-       (interactive)
-       (mu4e-headers-search "maildir:/hcode/INBOX OR maildir:/devoteam/INBOX")
-       )
-     (jh/leader-key-def
-       "m" '(:ignore t :which-key "mail")
-       "mm" 'mu4e
-       "mi" 'jh/go-to-inbox
-       "mc" 'mu4e-compose-new
-       )
-   #+end_src
-
-   #+RESULTS:
-
 ** Don't Start it!
    #+begin_src emacs-lisp
    ;; (mu4e t)
@@ -1073,7 +1076,6 @@ These template are shortcuts for code blocks. It enables you to type things like
      (use-package pinentry
        :config
        (pinentry-start)
-       (shell-command "gpg-connect-agent /bye")
        )
      ;; (add-hook 'mu4e-compose-mode-hook 'mml-secure-message-sign)
    #+end_src
@@ -1109,7 +1111,7 @@ These template are shortcuts for code blocks. It enables you to type things like
 		     (nnimap-server-port 993)
 		     (nnimap-stream ssl)
 		     (nnimap-streaming t)
-		     (nnimap-record-commands t)
+		     (nnimap-record-commands nil)
 		     (nnimap-list-pattern ("INBOX"))
 		     (nnmail-expiry-wait immediate)
 		     )
@@ -1118,7 +1120,7 @@ These template are shortcuts for code blocks. It enables you to type things like
 		     (nnimap-server-port 993)
 		     (nnimap-stream ssl)
 		     (nnimap-streaming t)
-		     (nnimap-record-commands t)
+		     (nnimap-record-commands nil)
 		     (nnimap-list-pattern ("INBOX"))
 		     (nnmail-expiry-wait immediate)
 		     )
@@ -1127,7 +1129,6 @@ These template are shortcuts for code blocks. It enables you to type things like
 	   gnus-expert-user nil
 	   gnus-agent nil
 	   )
-     ;; (setq gnus-server-alist '(("imap.gmail.com" nnimap "imap.gmail.com")))
      (setq auth-source-debug t)
      (setq nnimap-record-commands t)
 
@@ -1138,6 +1139,17 @@ These template are shortcuts for code blocks. It enables you to type things like
 	   gnus-ignored-newsgroups nil)
 
 
+   #+end_src
+
+   #+RESULTS:
+
+** Keybindings
+   #+begin_src emacs-lisp
+     (jh/leader-key-def
+       "m" '(:ignore t :which-key "mail")
+       "mm" 'gnus
+       "mc" 'compose-mail
+       )
    #+end_src
 
    #+RESULTS:

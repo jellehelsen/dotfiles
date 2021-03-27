@@ -36,7 +36,6 @@ Host osdvp-git.eng.lab.telenet-ops.be
 
 Host miner
   HostName server.hcode.be
-  XAuthLocation /opt/X11/bin/xauth
   ForwardX11 yes
 
 Host triton

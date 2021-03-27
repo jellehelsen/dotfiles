@@ -16,7 +16,7 @@ case "$(uname)" in
     ;;
 
   Darwin)
-    plugins=(git git-flow iterm2 osx brew history-substring-search vi-mode bundler ssh-agent pow tmux tmuxinator bwana docker docker-compose go nvm virtualenvwrapper pyenv kubectl)
+    plugins=(git git-flow iterm2 osx brew history-substring-search vi-mode bundler ssh-agent pow tmux tmuxinator bwana docker docker-compose go nvm virtualenvwrapper kubectl)
     #source /usr/local/bin/virtualenvwrapper.sh
     export ZSH_TMUX_AUTOSTART=false
     ;;
@@ -27,7 +27,7 @@ case "$(uname)" in
   *)
     echo "$(uname) Didn't match anything"
 esac
-ssh-add ~/.ssh/id_rsa_old
+# ssh-add ~/.ssh/id_rsa_old
 source $ZSH/oh-my-zsh.sh
 alias ti=tmuxinator
 function bundled_rubocop(){
@@ -44,9 +44,9 @@ case "$(uname)" in
     export NVM_DIR="$HOME/.nvm"
     [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
     [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
-    eval "$(pyenv init -)"
-    eval "$(pyenv virtualenv-init -)"
-    eval "$(rbenv init -)"
+    # eval "$(pyenv init -)"
+    # eval "$(pyenv virtualenv-init -)"
+    # eval "$(rbenv init -)"
     stty -ixon
     ;;
 

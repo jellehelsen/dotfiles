@@ -661,6 +661,12 @@ These template are shortcuts for code blocks. It enables you to type things like
     #+end_src
 
     #+RESULTS:
+*** Lua
+    #+begin_src emacs-lisp
+    (use-package lua-mode)
+    #+end_src
+
+    #+RESULTS:
 
 ** Productivity
 *** Smartparens
@@ -795,11 +801,11 @@ These template are shortcuts for code blocks. It enables you to type things like
 ** Basics
    #+BEGIN_SRC emacs-lisp
      (setq user-mail-address "jelle.helsen@hcode.be")
-     (add-to-list 'load-path "/usr/local/share/emacs/site-lisp/mu/mu4e")
+     (add-to-list 'load-path "/usr/share/emacs/site-lisp/mu4e")
      (require 'mu4e)
      (require 'org-mu4e)
      (setq
-      mu4e-mu-binary "/usr/local/bin/mu"
+      mu4e-mu-binary "/usr/bin/mu"
       mu4e-headers-fields
       '((:account . 12)
 	(:human-date . 12)

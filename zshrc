@@ -5,13 +5,14 @@ export EDITOR=vim
 export VAGRANT_PREFER_SYSTEM_BIN=1
 export ANSIBLE_COW_SELECTION=random
 export EMAIL=jelle@hcode.be
+export TERM=xterm-256color
 fpath=(/usr/local/share/zsh/site-functions $fpath)
 
 zstyle :omz:plugins:ssh-agent agent-forwarding on
 
 case "$(uname)" in
   Linux)
-    plugins=(tmux git git-flow history-substring-search vi-mode bundler ssh-agent docker docker-compose)
+    plugins=(tmux git git-flow history-substring-search vi-mode bundler ssh-agent docker docker-compose kubectl)
     export ZSH_TMUX_AUTOSTART=false
     ;;
 

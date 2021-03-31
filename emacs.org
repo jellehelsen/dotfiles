@@ -437,15 +437,15 @@ These template are shortcuts for code blocks. It enables you to type things like
 (require 'ol-gnus)
 (setq org-capture-templates '(
   ("t" "Todo [inbox]" entry
-      (file+headline "~/gtd/inbox.org" "Tasks") "* TODO %i%?, Link: %a")
+      (file+headline "~/Documents/gtd/inbox.org" "Tasks") "* TODO %i%?, Link: %a")
   ("T" "Tickler" entry
-      (file+headline "~/gtd/tickler.org" "Tickler") "* %i%? \n %U")
+      (file+headline "~/Documents/gtd/tickler.org" "Tickler") "* %i%? \n %U")
   ("l" "Temp Links from the interwebs" entry
-      (file+headline "~/gtd/links.org" "Temporary Links")
+      (file+headline "~/Documents/gtd/links.org" "Temporary Links")
           "* %a\n%?\nEntered on %U\n \%i\n")
-  ("c" "Cookbook" entry (file "~/org/cookbook.org")
+  ("c" "Cookbook" entry (file "~/Documents/org/cookbook.org")
       "%(org-chef-get-recipe-from-url)" :empty-lines 1)
-  ("m" "Manual Cookbook" entry (file "~/org/cookbook.org")
+  ("m" "Manual Cookbook" entry (file "~/Documents/org/cookbook.org")
       "* %^{Recipe title: }\n  :PROPERTIES:\n  :source-url:\n  :servings:\n  :prep-time:\n  :cook-time:\n  :ready-in:\n  :END:\n** Ingredients\n   %?\n** Directions\n\n")
                               ))
 (defadvice org-capture
@@ -466,9 +466,9 @@ These template are shortcuts for code blocks. It enables you to type things like
 
 ** Agenda
 #+BEGIN_SRC emacs-lisp
-  (setq org-agenda-files '("~/gtd/inbox.org"
-			   "~/gtd/gtd.org"
-			   "~/gtd/tickler.org"))
+  (setq org-agenda-files '("~/Documents/gtd/inbox.org"
+			   "~/Documents/gtd/gtd.org"
+			   "~/Documents/gtd/tickler.org"))
   (setq org-todo-keywords '((sequence "TODO(t)" "WAITING(w)" "|" "DONE(d)" "CANCELLED(c)")))
   (setq org-time-stamp-custom-formats '("<%d/%m/%Y %a>" . "<%d/%m/%Y %a %H:%M>"))
   (setq org-display-custom-times t)
@@ -476,16 +476,17 @@ These template are shortcuts for code blocks. It enables you to type things like
 #+END_SRC
 
 #+RESULTS:
+: t
 
 ** Refiling
 #+BEGIN_SRC emacs-lisp
-(setq org-refile-targets '(("~/gtd/gtd.org" :maxlevel . 2)
-                           ("~/gtd/someday.org" :level . 1)
-                           ("~/gtd/tickler.org" :maxlevel . 2)))
+(setq org-refile-targets '(("~/Documents/gtd/gtd.org" :maxlevel . 2)
+                           ("~/Documents/gtd/someday.org" :level . 1)
+                           ("~/Documents/gtd/tickler.org" :maxlevel . 2)))
 #+END_SRC
 
 #+RESULTS:
-: ((~/gtd/gtd.org :maxlevel . 3) (~/gtd/someday.org :level . 1) (~/gtd/tickler.org :maxlevel . 2))
+: ((~/Documents/gtd/gtd.org :maxlevel . 2) (~/Documents/gtd/someday.org :level . 1) (~/Documents/gtd/tickler.org :maxlevel . 2))
 
 ** Notes
   #+begin_src emacs-lisp
@@ -555,6 +556,16 @@ These template are shortcuts for code blocks. It enables you to type things like
   #+end_src
 
   #+RESULTS:
+** Dired
+   #+begin_src emacs-lisp
+     (use-package quelpa-use-package)
+     (use-package dired+
+       :quelpa (dired+ :fetcher github :repo "emacsmirror/dired-plus"))
+
+   #+end_src
+
+   #+RESULTS:
+
 * Development
 ** Flycheck
    #+begin_src emacs-lisp

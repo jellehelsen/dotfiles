@@ -15,7 +15,7 @@ if has('nvim')
 else
   Plug 'powerline/powerline'
 endif
-Plug 'altercation/vim-colors-solarized'
+"Plug 'altercation/vim-colors-solarized'
 Plug 'tpope/vim-surround'
 Plug 'spf13/vim-autoclose'
 Plug 'kien/ctrlp.vim'
@@ -242,7 +242,7 @@ set matchpairs+=<:>             " Match, to be used with %
 set pastetoggle=<F12>           " pastetoggle (sane indentation on pastes)
 set background=dark
 syntax enable
-colorscheme solarized
+"colorscheme solarized
 set nospell
 set incsearch
 set hlsearch
@@ -560,11 +560,7 @@ set grepprg=ack
 let g:notes_directories = ['~/Dropbox/Notes']
 let g:vimwiki_list = [{'path': '~/Google\ Drive/wiki/'}]
 
-if has('python')
-  python from powerline.vim import setup as powerline_setup
-  python powerline_setup()
-  python del powerline_setup
-elseif has('python3')
+if has('python3')
   python3 from powerline.vim import setup as powerline_setup
   python3 powerline_setup()
   python3 del powerline_setup

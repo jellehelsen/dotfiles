@@ -223,7 +223,7 @@ bindsym $mod+F1 exec playerctl previous
 bindsym $mod+F2 exec playerctl next
 bindsym $mod+F3 exec thunar
 bindsym $mod+Shift+f exec firefox
-bindsym $mod+Return exec urxvt
+bindsym $mod+Return exec alacritty
 bindsym $mod+Shift+q kill
 bindsym Print exec screenshot
 bindsym $mod+d exec rofi -show run -eh 2

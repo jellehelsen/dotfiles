@@ -5,7 +5,7 @@ export EDITOR=vim
 export VAGRANT_PREFER_SYSTEM_BIN=1
 export ANSIBLE_COW_SELECTION=random
 export EMAIL=jelle@hcode.be
-export TERM=xterm-256color
+# export TERM=xterm-256color
 fpath=(/usr/local/share/zsh/site-functions $fpath)
 
 zstyle :omz:plugins:ssh-agent agent-forwarding on

@@ -68,3 +68,9 @@ esac
 
 # Created by `userpath` on 2020-01-10 16:57:13
 export PATH="$PATH:/Users/jelle/.local/bin"
+
+# The next line updates PATH for the Google Cloud SDK.
+if [ -f '/home/jelle/Documents/code/telenet/google-cloud-sdk/path.zsh.inc' ]; then . '/home/jelle/Documents/code/telenet/google-cloud-sdk/path.zsh.inc'; fi
+
+# The next line enables shell command completion for gcloud.
+if [ -f '/home/jelle/Documents/code/telenet/google-cloud-sdk/completion.zsh.inc' ]; then . '/home/jelle/Documents/code/telenet/google-cloud-sdk/completion.zsh.inc'; fi

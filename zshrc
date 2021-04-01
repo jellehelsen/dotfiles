@@ -74,3 +74,7 @@ if [ -f '/home/jelle/Documents/code/telenet/google-cloud-sdk/path.zsh.inc' ]; th
 
 # The next line enables shell command completion for gcloud.
 if [ -f '/home/jelle/Documents/code/telenet/google-cloud-sdk/completion.zsh.inc' ]; then . '/home/jelle/Documents/code/telenet/google-cloud-sdk/completion.zsh.inc'; fi
+
+eval "$(starship init zsh)"
+
+neofetch

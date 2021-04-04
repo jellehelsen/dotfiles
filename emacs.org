@@ -823,6 +823,12 @@ These template are shortcuts for code blocks. It enables you to type things like
 
     #+RESULTS:
     | git-gutter-mode | rainbow-delimiters-mode |
+*** Git timemachine
+    #+begin_src emacs-lisp
+    (use-package git-timemachine)
+    #+end_src
+
+    #+RESULTS:
 
 * Mail
   Setup mu4e.

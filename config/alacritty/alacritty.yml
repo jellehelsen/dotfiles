@@ -1,5 +1,9 @@
 env:
   TERM: xterm-256color
+window:
+  padding:
+    x: 6
+    y: 6
 font:
   normal:
     family: MesloLGLDZ Nerd Font
@@ -7,13 +11,13 @@ font:
 colors:
   # Default colors
   primary:
-    background: '#fdf6e3' # base3
-    foreground: '#657b83' # base00
+    background: '#002b36' # base03
+    foreground: '#839496' # base0
 
   # Cursor colors
   cursor:
-    text: '#fdf6e3' # base3
-    cursor: '#657b83' # base00
+    text: '#002b36' # base03
+    cursor: '#839496' # base0
 
   # Normal colors
   normal:

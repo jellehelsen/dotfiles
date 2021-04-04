@@ -236,6 +236,7 @@ bindsym $mod+Shift+Ctrl+2 exec ~/.screenlayout/default.sh
 exec_always --no-startup-id ~/.screenlayout/default.sh
 # exec --no-startup-id spotify
 exec pa-applet
+exec_always conky
 
 # Keys
 # exec_always xmodmap -e "clear lock" #disable caps lock switch

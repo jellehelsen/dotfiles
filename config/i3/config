@@ -242,7 +242,7 @@ exec_always --no-startup-id $HOME/.config/polybar/launch.sh
 # exec --no-startup-id spotify
 exec pa-applet
 exec_always picom
-exec_always conky
+exec_always --no-startup-id ~/.config/conky/start.sh
 
 # Keys
 # exec_always xmodmap -e "clear lock" #disable caps lock switch

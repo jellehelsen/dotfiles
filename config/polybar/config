@@ -83,6 +83,7 @@ volume-max = #bf616a
 [bar/mainbar-i3]
 ;https://github.com/jaagr/polybar/wiki/Configuration
 
+locale = nl_BE.UTF-8
 monitor = ${env:MONITOR}
 ;monitor-fallback = HDMI1
 monitor-strict = false
@@ -1002,10 +1003,10 @@ type = internal/date
 interval = 5
 ; See "http://en.cppreference.com/w/cpp/io/manip/put_time" for details on how to format the date string
 ; NOTE: if you want to use syntax tags here you need to use %%{...}
-date = " %a %b %d, %Y"
-date-alt = " %a %b %d, %Y"
-time = %l:%M%p
-time-alt = %l:%M%p
+date = " %a %d %b %Y"
+date-alt = " %a %d %b %Y"
+time = %H:%M
+time-alt = %H:%M
 format-prefix = " "
 format-prefix-foreground = #fefefe
 format-foreground = #fefefe

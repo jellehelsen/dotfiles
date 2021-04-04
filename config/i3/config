@@ -1,6 +1,7 @@
 # mod
 set $mod Mod4
 set $editor emacs
+set $terminal alacritty
 
 set_from_resource $darkred     color1  #000000
 set_from_resource $red         color9  #000000
@@ -24,9 +25,10 @@ set $transparent #00000000
 # font
 font pango: System San Francisco Display 10
 # gaps top 40
-gaps inner 10
+gaps inner 16
 # thin borders
 hide_edge_borders both
+default_border none
 
 # drag windows
 floating_modifier $mod
@@ -221,9 +223,11 @@ workspace $workspace10 output eDP-1
 bindsym Pause exec playerctl play-pause
 bindsym $mod+F1 exec playerctl previous
 bindsym $mod+F2 exec playerctl next
-bindsym $mod+F3 exec thunar
+bindsym $mod+F3 exec $terminal -e ranger
+bindsym $mod+Shift+F3 exec thunar
 bindsym $mod+Shift+f exec firefox
-bindsym $mod+Return exec alacritty
+bindsym $mod+Return exec $terminal
+bindsym $mod+Shift+Return exec $terminal -e fish
 bindsym $mod+Shift+q kill
 bindsym Print exec screenshot
 bindsym $mod+d exec rofi -show run -eh 2
@@ -234,8 +238,10 @@ bindsym $mod+Shift+Ctrl+2 exec ~/.screenlayout/default.sh
 # startup
 # exec_always --no-startup-id feh --bg-scale /home/jelle/.wallpaper.jpg
 exec_always --no-startup-id ~/.screenlayout/default.sh
+exec_always --no-startup-id $HOME/.config/polybar/launch.sh
 # exec --no-startup-id spotify
 exec pa-applet
+exec_always picom
 exec_always conky
 
 # Keys
@@ -243,11 +249,9 @@ exec_always conky
 # exec_always xmodmap -e "add control = Control_L" #set caps_lock as escape
 exec_always dropbox start
 exec_always /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1
-
-# exec --no-startup-id compton -f
-# exec --no-startup-id skype
 exec_always --no-startup-id xautolock -time 5 -locker /home/jelle/.config/i3/scripts/blurlock
 exec_always --no-startup-id blueman-tray
 exec_always --no-startup-id nm-applet
 exec_always --no-startup-id nitrogen --restore
 exec --no-startup-id xfce4-power-manager
+

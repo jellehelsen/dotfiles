@@ -1,3 +1,4 @@
 function fish_greeting
-colorscript -e bars
+    fortune -as | cowsay -f tux | lolcat
+    colorscript -e bars
 end

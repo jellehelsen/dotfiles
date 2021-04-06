@@ -25,6 +25,7 @@
 	  kept-old-versions 5
 	  kept-new-versions 5
 	  backup-directory-alist (list (cons "." (concat "~/.cache/" "backup/")))
+	  auto-save-file-name-transforms (list (cons "." (concat "~/.cache/" "autosave/")))
 	  tramp-backup-directory-alist backup-directory-alist)
 
   #+end_src

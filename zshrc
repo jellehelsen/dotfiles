@@ -1,7 +1,7 @@
 . ~/.zshenv
 export ZSH=$HOME/.oh-my-zsh/
 export ZSH_THEME="flazz"
-export EDITOR=emacsclient
+export EDITOR=/usr/bin/vim
 export VAGRANT_PREFER_SYSTEM_BIN=1
 export ANSIBLE_COW_SELECTION=random
 export EMAIL=jelle@hcode.be

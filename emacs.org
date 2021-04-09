@@ -2,35 +2,37 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ~/.emacs.d/init.el
 * Basics
   #+begin_src emacs-lisp
-    ;; (make-directory "~/.emacs.d/" t)
-    (add-to-list 'exec-path "/usr/local/bin")
-    (setq backup-directory-alist (list (cons "." "~/.caches/emacs.saves/")))
-    (setq confirm-kill-emacs #'yes-or-no-p)
-    (prefer-coding-system 'utf-8)
-    (set-default-coding-systems 'utf-8)
-    (set-terminal-coding-system 'utf-8)
-    (set-keyboard-coding-system 'utf-8)
+	;; (make-directory "~/.emacs.d/" t)
+	(add-to-list 'exec-path "/usr/local/bin")
+	(setq backup-directory-alist (list (cons "." "~/.caches/emacs.saves/")))
+	(setq confirm-kill-emacs #'yes-or-no-p)
+	(prefer-coding-system 'utf-8)
+	(set-default-coding-systems 'utf-8)
+	(set-terminal-coding-system 'utf-8)
+	(set-keyboard-coding-system 'utf-8)
 
-    ;; Don't generate backups or lockfiles. While auto-save maintains a copy so long
-    ;; as a buffer is unsaved, backups create copies once, when the file is first
-    ;; written, and never again until it is killed and reopened. This is better
-    ;; suited to version control, and I don't want world-readable copies of
-    ;; potentially sensitive material floating around our filesystem.
-    (setq create-lockfiles nil
-	  make-backup-files nil
-	  ;; But in case the user does enable it, some sensible defaults:
-	  version-control t     ; number each backup file
-	  backup-by-copying t   ; instead of renaming current file (clobbers links)
-	  delete-old-versions t ; clean up after itself
-	  kept-old-versions 5
-	  kept-new-versions 5
-	  backup-directory-alist (list (cons "." (concat "~/.cache/" "backup/")))
-	  tramp-backup-directory-alist backup-directory-alist)
+	;; Don't generate backups or lockfiles. While auto-save maintains a copy so long
+	;; as a buffer is unsaved, backups create copies once, when the file is first
+	;; written, and never again until it is killed and reopened. This is better
+	;; suited to version control, and I don't want world-readable copies of
+	;; potentially sensitive material floating around our filesystem.
+	(setq create-lockfiles nil
+	      make-backup-files nil
+	      ;; But in case the user does enable it, some sensible defaults:
+	      version-control t     ; number each backup file
+	      backup-by-copying t   ; instead of renaming current file (clobbers links)
+	      delete-old-versions t ; clean up after itself
+	      kept-old-versions 5
+	      kept-new-versions 5
+	      backup-directory-alist (list (cons "." (concat "~/.cache/" "backup/")))
+	      auto-save-default nil
+	      tramp-backup-directory-alist backup-directory-alist)
+
+    (auto-save-mode -1)
 
   #+end_src
 
   #+RESULTS:
-  : ((. . ~/.cache/backup/))
 
 * Startup performance 
   Make startup faster by reducing the frequency of garbage collection.

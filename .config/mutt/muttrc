@@ -1,0 +1,26 @@
+## GENERAL
+# set charset="utf-8"
+# set assumed_charset="utf-8"
+source ~/.config/mutt/general.rc
+source ~/.config/mutt/composing.rc
+source ~/.config/mutt/ui.rc
+
+
+
+## EXTRAS
+
+source ~/.config/mutt/solarized.rc
+source ~/.config/mutt/gpg.rc
+## ACCOUNT
+source ~/.config/mutt/hcode.be
+## S/MIME
+#source ~/.config/mutt/smime.rc
+# set smime_default_key="d4354654.0"
+# set smime_is_default
+
+## PRINTER
+# set print_command="~/.mutt/print"
+source ~/.config/mutt/aliasses.rc
+
+macro index <f2> '<sync-mailbox><enter-command>source ~/.config/mutt/hcode.be<enter><change-folder>!<enter>'
+macro index <f3> '<sync-mailbox><enter-command>source ~/.config/mutt/devoteam.com<enter><change-folder>!<enter>'

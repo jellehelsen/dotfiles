@@ -1,9 +1,0 @@
-#!/usr/bin/env xdg-open
-[Desktop Entry]
-Version=1.0
-Terminal=false
-Type=Application
-Name=Connect VPN
-Exec=/bin/bash -c "nmcli c up \"$(echo 'Telenet IT|IPOPS|tc' | rofi -dmenu -i -sep '|' -p 'Connect VPN')\""
-# Icon=brave-faolnafnngnfdaknnbpnkhgohbobgegn-Default
-# StartupWMClass=crx_faolnafnngnfdaknnbpnkhgohbobgegn

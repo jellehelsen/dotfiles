@@ -1,5 +1,0 @@
-#!/bin/sh
-
-vim +PlugInstall +qa
-emacs -Q --script ~/.dotfiles/tangle-dotfiles.el
-emacs -Q --script ~/.emacs.d/init.el

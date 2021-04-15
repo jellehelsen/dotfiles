@@ -1,5 +1,5 @@
 #+TITLE: Emacs configuration
-#+PROPERTY: header-args:emacs-lisp :tangle ~/.emacs.d/init.el
+#+PROPERTY: header-args:emacs-lisp
 * Basics
   #+begin_src emacs-lisp
 	;; (make-directory "~/.emacs.d/" t)
@@ -1304,6 +1304,7 @@ These template are shortcuts for code blocks. It enables you to type things like
   #+RESULTS:
 * Tests
   #+begin_src emacs-lisp
+(org-batch-agenda "+TODO=\"TODO\"" org-agenda-files)
   #+end_src
 * IRC
   #+begin_src emacs-lisp

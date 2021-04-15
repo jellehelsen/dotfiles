@@ -40,7 +40,7 @@ bindsym $mod+k focus up
 bindsym $mod+l focus right
 
 # lock
-bindsym $mod+Shift+x exec /home/jelle/.config/i3/scripts/blurlock
+bindsym $mod+Shift+x exec sLockscreenctl lock
 
 # move focused window
 bindsym $mod+Shift+h move left
@@ -66,10 +66,10 @@ bindsym $mod+e layout toggle split
 bindsym $mod+Shift+space floating toggle
 
 # change focus between tiling / floating windows
-bindsym $mod+space focus mode_toggle
+# bindsym $mod+Ctrl+space focus mode_toggle
 
 # focus the parent container
-bindsym $mod+a focus parent
+# bindsym $mod+a focus parent
 
 set $workspace1 "1 "
 set $workspace2 "2 "
@@ -192,11 +192,6 @@ client.urgent           $urgent-bg-color    $urgent-bg-color   $text-color      
 # sticky window
 bindsym $mod+Shift+s sticky toggle
 
-# floating
-for_window [class="qTox"] floating enable
-for_window [class="Pavucontrol"] floating enable
-for_window [class="Skype"] floating disable
-
 # default workspaces
 for_window [class="Spotify"] move to workspace $workspace10
 assign [class="Skype"] $workspace9
@@ -205,6 +200,12 @@ assign [class="Teams"] $workspace9
 assign [class="Google-chrome"] $workspace1
 assign [class="Firefox"] $workspace1
 assign [class="Emacs"] $workspace3
+
+# floating
+for_window [class="qTox"] floating enable
+for_window [class="Pavucontrol"] floating enable
+for_window [class="Skype"] floating disable
+for_window [class="Emacs" title="emacs-capture"] floating enable, move container to output current, focus
 
 # workspace default monitors
 workspace $workspace1 output HDMI-1-0
@@ -216,10 +217,19 @@ workspace $workspace6 output HDMI-1-0
 workspace $workspace9 output eDP-1
 workspace $workspace10 output eDP-1
 
+# ======ROFI THEMES===================================
+set $rofi_theme_drun            "glass/simonvic"
+set $rofi_theme_combi           "glass/simonvic_window"
+set $rofi_theme_windowSwitcher  "glass/simonvic_window"
+set $rofi_theme_fileBrowser     "glass/simonvic_fileBrowser"
+set $rofi_theme_calc            "glass/simonvic_calc"
+
 # key-bindings
-# bindsym XF86AudioRaiseVolume exec --no-startup-id pulseaudio-ctl up
-# bindsym XF86AudioLowerVolume exec --no-startup-id pulseaudio-ctl down
-# bindsym XF86AudioMute exec --no-startup-id pulseaudio-ctl mute
+bindsym XF86AudioRaiseVolume exec --no-startup-id sVolumectl up 1
+bindsym XF86AudioLowerVolume exec --no-startup-id sVolumectl down 1
+bindsym Shift+XF86AudioRaiseVolume exec --no-startup-id sVolumectl up 10
+bindsym Shift+XF86AudioLowerVolume exec --no-startup-id sVolumectl down 10
+bindsym XF86AudioMute exec --no-startup-id sVolumectl mute
 bindsym Pause exec playerctl play-pause
 bindsym $mod+F1 exec playerctl previous
 bindsym $mod+F2 exec playerctl next
@@ -230,28 +240,41 @@ bindsym $mod+Return exec $terminal
 bindsym $mod+Shift+Return exec $terminal -e fish
 bindsym $mod+Shift+q kill
 bindsym Print exec screenshot
-bindsym $mod+d exec rofi -show run -eh 2
-bindsym $mod+Shift+d exec rofi -show drun -eh 2 
+# bindsym $mod+d exec rofi -show run -eh 2
+# bindsym $mod+Shift+d exec rofi -show drun -eh 2 
+# bindsym $mod+Ctrl+d exec rofi -show calc -modi calc -no-show-match -no-sort -calc-command \"echo -n '{result}' | xclip -selection clipboard\"
 bindsym $mod+Shift+Ctrl+1 exec ~/.screenlayout/single.sh
 bindsym $mod+Shift+Ctrl+2 exec ~/.screenlayout/default.sh
 
-# startup
-# exec_always --no-startup-id feh --bg-scale /home/jelle/.wallpaper.jpg
-exec_always --no-startup-id ~/.screenlayout/default.sh
-exec_always --no-startup-id $HOME/.config/polybar/launch.sh
-# exec --no-startup-id spotify
-exec pa-applet
-exec_always picom
-exec_always --no-startup-id ~/.config/conky/start.sh
+# ======ROFI===========================================
+bindsym Ctrl+space                       exec rofi -show combi -combi-modi "drun#run#window" -modi "combi#drun#run" -theme $rofi_theme_drun
+bindsym $mod+space                       exec rofi -show combi -theme $rofi_theme_combi
+bindsym $mod+Tab                         exec rofi -modi "window#windowcd" -show window -theme $rofi_theme_windowSwitcher
+bindsym $mod+Shift+Tab                   exec rofi -show "file-browser" -theme $rofi_theme_fileBrowser
+bindsym $mod+c                           exec rofi -show calc -modi calc -no-show-match -no-sort -calc-command "echo -n '{result}' | xclip -selection clipboard -i" -theme $rofi_theme_calc
 
-# Keys
-# exec_always xmodmap -e "clear lock" #disable caps lock switch
-# exec_always xmodmap -e "add control = Control_L" #set caps_lock as escape
-exec_always dropbox start
-exec_always /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1
-exec_always --no-startup-id xautolock -time 5 -locker /home/jelle/.config/i3/scripts/blurlock
-exec_always --no-startup-id blueman-tray
-exec_always --no-startup-id nm-applet
-exec_always --no-startup-id nitrogen --restore
-exec --no-startup-id xfce4-power-manager
+
+# startup
+exec --no-startup-id $HOME/.config/i3/scripts/startup
+# exec xset s 180 120
+# exec_always xss-lock -n "dimscreen" -l -- sLockscreenctl lock
+# exec_always setxkbmap -option compose:ralt
+
+# # exec_always --no-startup-id feh --bg-scale /home/jelle/.wallpaper.jpg
+# exec_always ~/.screenlayout/default.sh
+# exec_always --no-startup-id picom -b
+# exec_always --no-startup-id $HOME/.config/polybar/launch.sh
+# # exec --no-startup-id spotify
+# exec pa-applet
+# exec_always --no-startup-id ~/.config/conky/start.sh
+
+# # Keys
+# # exec_always xmodmap -e "clear lock" #disable caps lock switch
+# # exec_always xmodmap -e "add control = Control_L" #set caps_lock as escape
+# exec_always dropbox start
+# exec_always /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1
+# exec_always --no-startup-id blueman-tray
+# exec_always --no-startup-id nm-applet
+# exec_always --no-startup-id nitrogen --restore
+# exec --no-startup-id xfce4-power-manager
 

@@ -1,0 +1,22 @@
+#!/bin/bash
+#
+monitors=$(xrandr --listmonitors | awk '/^ [0-9]/{print $4}')
+
+reset() {
+    for monitor in $monitors; do
+        xrandr --output $monitor --brightness 1
+    done
+}
+
+dim() {
+    for monitor in $monitors; do
+        xrandr --output $monitor --brightness 0.7
+    done
+}
+
+
+trap 'exit 0' TERM INT
+trap "reset; kill %%" EXIT
+dim
+sleep 2147483647 &
+wait

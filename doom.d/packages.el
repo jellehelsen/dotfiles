@@ -41,3 +41,6 @@
   )
 (package! org-chef)
 (package! lastpass)
+(package! gnus)
+(package! elfeed-goodies)
+(package! org-gcal)

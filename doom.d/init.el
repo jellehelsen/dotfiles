@@ -17,10 +17,12 @@
        :completion
        ;; (company          ; the ultimate code completion backend
         ;; +auto)           ; as-you-type code completion
-       (helm             ; the *other* search engine for love and life
-        +fuzzy)          ; enable fuzzy search backend for helm
+       ;; (helm             ; the *other* search engine for love and life
+       ;;  +fuzzy)          ; enable fuzzy search backend for helm
        ;;ido               ; the other *other* search engine...
-       ;;(ivy              ; a search engine for love and life
+       (ivy
+        +icons
+        )              ; a search engine for love and life
        ;; +fuzzy)          ; enable fuzzy search backend for ivy
 
 
@@ -36,7 +38,7 @@
        ;;neotree           ; a project drawer, like NERDTree for vim
        treemacs          ; a project drawer, like neotree but cooler
        (popup            ; tame sudden yet inevitable temporary windows
-        +all             ; catch all popups that start with an asterix
+        ;; +all             ; catch all popups that start with an asterix
         +defaults)       ; default popup rules
        ligatures         ; replace bits of code with pretty symbols
        ;;tabbar            ; FIXME an (incomplete) tab bar for Emacs
@@ -121,7 +123,7 @@
        ;;julia             ; a better, faster MATLAB
        latex             ; writing papers in Emacs has never been so fun
        ;; ledger            ; an accounting system in Emacs
-       ;;lua               ; one-based indices? one-based indices
+       lua               ; one-based indices? one-based indices
        markdown          ; writing docs for people to ignore
        ;;nim               ; python + lisp at the speed of c
        ;; nix               ; I hereby declare "nix geht mehr!"

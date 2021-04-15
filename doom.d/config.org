@@ -17,15 +17,15 @@
 (setq display-line-numbers 'visual)
 (setq doom-line-numbers-style 'visual)
 (menu-bar-mode 1)
-(setq doom-font (font-spec :family "MesloLGSDZ Nerd Font" :size 14)
-      doom-variable-pitch-font (font-spec :family "Gill Sans") ; inherits `doom-font''s :size
-      doom-unicode-font (font-spec :family "MesloLGSDZ Nerd Font" :size 14)
-      doom-big-font (font-spec :family "MesloLGSDZ Nerd Font" :size 19))
-
+(load-theme 'doom-dark+ t)
+(setq doom-font (font-spec :family "MesloLGLDZ Nerd Font" :size 14)
+      doom-variable-pitch-font (font-spec :family "DejaVu Sans") ; inherits `doom-font''s :size
+      doom-unicode-font (font-spec :family "MesloLGLDZ Nerd Font" :size 14)
+      doom-big-font (font-spec :family "MesloLGLDZ Nerd Font" :size 19))
 #+END_SRC
 
 #+RESULTS:
-: t
+: #<font-spec nil nil MesloLGLDZ\ Nerd\ Font nil nil nil nil nil 19 nil nil nil nil>
 
 * Ruby
 #+BEGIN_SRC emacs-lisp
@@ -85,11 +85,11 @@
 #+BEGIN_SRC emacs-lisp
 (setq org-capture-templates '(
   ("t" "Todo [inbox]" entry
-      (file+headline "~/gtd/inbox.org" "Tasks") "* TODO %i%?")
+      (file+headline "~/Documents/gtd/inbox.org" "Tasks") "* TODO %i%?")
   ("T" "Tickler" entry
-      (file+headline "~/gtd/tickler.org" "Tickler") "* %i%? \n %U")
+      (file+headline "~/Documents/gtd/tickler.org" "Tickler") "* %i%? \n %U")
   ("l" "Temp Links from the interwebs" entry
-      (file+headline "~/gtd/links.org" "Temporary Links")
+      (file+headline "~/Documents/gtd/links.org" "Temporary Links")
           "* %a\n%?\nEntered on %U\n \%i\n")
   ("c" "Cookbook" entry (file "~/org/cookbook.org")
       "%(org-chef-get-recipe-from-url)" :empty-lines 1)
@@ -159,17 +159,31 @@
 
 ** Agenda
 #+BEGIN_SRC emacs-lisp
-(setq org-agenda-files '("~/gtd/inbox.org"
-                         "~/gtd/gtd.org"
-                         "~/gtd/tickler.org"))
+(setq org-agenda-files '("~/Documents/gtd/inbox.org"
+                         "~/Documents/gtd/gtd.org"
+                         "~/Documents/gtd/tickler.org"))
 #+END_SRC
+
+** Google Calendar Sync
+#+begin_src emacs-lisp
+(require 'org-gcal)
+(setq org-gcal-client-id "818210936169-7hdbvpqdg9jib2845teqf08i71h16tlv.apps.googleusercontent.com"
+      org-gcal-client-secret "aq4jLz970s_JYd50y3g3-QO9"
+      org-gcal-fetch-file-alist '(("jelle.helsen@hcode.be" .  "~/Documents/gtd/hcode.org")))
+#+end_src
+
+#+RESULTS:
+: ((jelle.helsen@hcode.be . ~/Documents/gtd/hcode.org))
 
 ** Refiling
 #+BEGIN_SRC emacs-lisp
-(setq org-refile-targets '(("~/gtd/gtd.org" :maxlevel . 3)
-                           ("~/gtd/someday.org" :level . 1)
-                           ("~/gtd/tickler.org" :maxlevel . 2)))
+(setq org-refile-targets '(("~/Documents/gtd/gtd.org" :maxlevel . 3)
+                           ("~/Documents/gtd/someday.org" :level . 1)
+                           ("~/Documents/gtd/tickler.org" :maxlevel . 2)))
 #+END_SRC
+
+#+RESULTS:
+: ((~/Documents/gtd/gtd.org :maxlevel . 3) (~/Documents/gtd/someday.org :level . 1) (~/Documents/gtd/tickler.org :maxlevel . 2))
 
 * Email
 ** Basics
@@ -268,27 +282,111 @@
       send-mail-function 'smtpmail-send-it
       message-sendmail-f-is-evil t
       message-sendmail-extra-arguments '("--read-envelope-from")
-      message-send-mail-function 'message-send-mail-with-sendmail)
+      message-send-mail-function 'smtpmail-send-it)
 #+END_SRC
 
 #+RESULTS:
-: message-send-mail-with-sendmail
+: smtpmail-send-it
 
 ** LastPass
 #+begin_src emacs-lisp
 (setq lastpass-user "jelle.helsen@hcode.be")
 (setq lastpass-trust-login t)
 ;; Enable lastpass custom auth-source
-(lastpass-auth-source-enable)
+;; (lastpass-auth-source-enable)
 (defun lastpass-mu4e-update-mail-and-index (update-function &rest r)
-       "Check if user is logged in and run UPDATE-FUNCTION with arguments R."
-       (unless (lastpass-logged-in-p)
-         (lastpass-login)
-         (error "LastPass: Not logged in, log in and retry"))
-       (apply update-function r))
+  "Check if user is logged in and run UPDATE-FUNCTION with arguments R."
+  (unless (lastpass-logged-in-p)
+    (lastpass-login)
+    (error "LastPass: Not logged in, log in and retry"))
+  (apply update-function r))
 
 (advice-add 'mu4e-update-mail-and-index :around #'lastpass-mu4e-update-mail-and-index)
+#+end_src
 
+#+RESULTS:
+
+** GNUS
+   #+begin_src emacs-lisp
+     (setenv "GPG_AGENT_INFO" nil)
+     (setq user-mail-address "jelle.helsen@hcode.be"
+	   user-full-name "Jelle Helsen")
+
+     (setq gnus-summary-line-format "%U%R %-18,18&user-date; %4L:%-25,25f %B%s\n")
+     (setq nnmail-expiry-wait 'immediate)
+
+     (setq gnus-select-method '(nnnil ""))
+     (setq gnus-secondary-select-methods
+	   '((nntp "news.gwene.org")
+	     (nntp "news.eternal-september.org")
+	     (nnimap "hcode"
+		     (nnimap-address "imap.gmail.com")
+		     (nnimap-server-port 993)
+		     (nnimap-stream ssl)
+		     (nnimap-streaming t)
+		     (nnimap-record-commands nil)
+		     (nnimap-list-pattern ("INBOX"))
+		     (nnmail-expiry-wait immediate)
+		     )
+	     (nnimap "devoteam"
+		     (nnimap-address "imap.gmail.com")
+		     (nnimap-server-port 993)
+		     (nnimap-stream ssl)
+		     (nnimap-streaming t)
+		     (nnimap-record-commands nil)
+		     (nnimap-list-pattern ("INBOX"))
+		     (nnmail-expiry-wait immediate)
+		     )
+	     )
+	   gnus-novice-user t
+	   gnus-expert-user nil
+	   gnus-agent nil
+	   )
+     ;; Reply to mails with matching email address
+     (setq gnus-posting-styles
+	   '((".*" ; Matches all groups of messages
+	      (address "JelleHelsen <jelle.helsen@hcode.be>"))
+	     ("devoteam" ; Matches Gnus group called "devoteam"
+	      (address "Jelle Helsen <jelle.helsen@devoteam.com>")
+	      (organization "Devoteam")
+	      ;; (signature-file "~/.signature-work")
+	      ("X-Message-SMTP-Method" "smtp smtp.gmail.com 587 jelle.helsen@devoteam.com"))))
+
+     (setq auth-source-debug t)
+     (setq nnimap-record-commands t)
+
+     (add-hook 'gnus-group-mode-hook #'gnus-topic-mode)
+
+     (setq smtpmail-smtp-server "smtp.gmail.com"
+	   smtpmail-smtp-service 587
+	   gnus-ignored-newsgroups nil)
+
+
+   #+end_src
+
+   #+RESULTS:
+
+* RSS
+** Elfeed
+#+begin_src emacs-lisp
+(elfeed-org)
+(add-hook! 'elfeed-show-mode-hook (setq display-line-numbers nil))
+(require 'elfeed-goodies)
+(elfeed-goodies/setup)
+(after! elfeed-goodies
+  (setq elfeed-goodies/entry-pane-size 0.5)
+  )
+;; (add-hook! 'elfeed-show-mode-hook #'menu-bar--display-line-numbers-mode-none)
+#+end_src
+
+#+RESULTS:
+: 0.5
+** Keybindings
+#+begin_src emacs-lisp
+(map! :map elfeed-search-mode-map
+      :localleader
+      :desc "Update" "u" #'elfeed-update
+      )
 #+end_src
 
 #+RESULTS:
@@ -328,7 +426,7 @@
   ;;       ejira-epic-field         'customfield_10002
   ;;       ejira-epic-summary-field 'customfield_10004)
 
-  (require 'helm-ejira)
+  ;; (require 'helm-ejira)
   (require 'ejira-agenda)
 
   ;; Make the issues visisble in your agenda by adding `ejira-org-directory'
@@ -340,7 +438,6 @@
    '("j" "My JIRA issues"
      ((ejira-jql "resolution = unresolved and assignee = currentUser()"
                  ((org-agenda-overriding-header "Assigned to me")))))))
-
 #+END_SRC
 
 #+RESULTS:
@@ -349,29 +446,30 @@
 * Apps menu
 #+BEGIN_SRC emacs-lisp
 (map! :leader
-     (:desc "Apps" :prefix "a"
-       :desc "Email" :n "m" #'mu4e
+      (:desc "Apps" :prefix "a"
+       :desc "Email" :n "m" #'gnus
        :desc "IRC" :n "i" #'irc
+       :desc "RSS" :n "r" #'elfeed
        ))
 #+END_SRC
 
 #+RESULTS:
+: elfeed
 * Key bindings
 #+BEGIN_SRC emacs-lisp
 (map! :leader
- (:desc "project" :prefix "p"
-        :desc "Browse project"          :n  "." #'+default/browse-project
-        :desc "Find file in project"    :n  "/" #'projectile-find-file
-        :desc "Run cmd in project root" :nv "!" #'projectile-run-shell-command-in-root
-        :desc "Compile project"         :n  "c" #'projectile-compile-project
-        :desc "Test project"            :n  "t" #'projectile-test-project
-        :desc "Find other file"         :n  "o" #'projectile-find-other-file
-        :desc "Switch project"          :n  "p" #'projectile-switch-project
-        :desc "Recent project files"    :n  "r" #'projectile-recentf
-        :desc "List project tasks"      :n  "T" #'+ivy/tasks
-        :desc "Find in project (ack)"   :n  "a" #'helm-projectile-ack
-        :desc "Invalidate cache"        :n  "x" #'projectile-invalidate-cache)     )
-
+      (:desc "project" :prefix "p"
+       :desc "Browse project"          :n  "." #'+default/browse-project
+       :desc "Find file in project"    :n  "/" #'projectile-find-file
+       :desc "Run cmd in project root" :nv "!" #'projectile-run-shell-command-in-root
+       :desc "Compile project"         :n  "c" #'projectile-compile-project
+       :desc "Test project"            :n  "t" #'projectile-test-project
+       :desc "Find other file"         :n  "o" #'projectile-find-other-file
+       :desc "Switch project"          :n  "p" #'projectile-switch-project
+       :desc "Recent project files"    :n  "r" #'projectile-recentf
+       :desc "List project tasks"      :n  "T" #'+ivy/tasks
+       :desc "Find in project (ag)"   :n  "a" #'counsel-projectile-ag
+       :desc "Invalidate cache"        :n  "x" #'projectile-invalidate-cache)     )
 #+END_SRC
 
 #+RESULTS:

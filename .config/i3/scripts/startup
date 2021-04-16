@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+xset s 180 120
+xss-lock -n "dimscreen" -l -- sLockscreenctl lock &
+setxkbmap -option compose:ralt
+
+# exec_always --no-startup-id feh --bg-scale /home/jelle/.wallpaper.jpg
+~/.screenlayout/default.sh
+/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 &
+nitrogen --restore
+picom -b
+$HOME/.config/polybar/launch.sh
+pa-applet &
+nm-applet &
+blueman-tray &
+~/.config/conky/start.sh
+
+# Keys
+# exec_always xmodmap -e "clear lock" #disable caps lock switch
+# exec_always xmodmap -e "add control = Control_L" #set caps_lock as escape
+dropbox start &
+xfce4-power-manager &

@@ -196,7 +196,7 @@ bindsym $mod+Shift+s sticky toggle
 for_window [class="Spotify"] move to workspace $workspace10
 assign [class="Skype"] $workspace9
 assign [class="Slack"] $workspace9
-assign [class="Teams"] $workspace9
+assign [class="teams-for-linux"] $workspace9
 assign [class="Google-chrome"] $workspace1
 assign [class="Firefox"] $workspace1
 assign [class="Emacs"] $workspace3

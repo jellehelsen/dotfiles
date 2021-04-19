@@ -245,6 +245,8 @@ bindsym Print exec screenshot
 # bindsym $mod+Ctrl+d exec rofi -show calc -modi calc -no-show-match -no-sort -calc-command \"echo -n '{result}' | xclip -selection clipboard\"
 bindsym $mod+Shift+Ctrl+1 exec ~/.screenlayout/single.sh
 bindsym $mod+Shift+Ctrl+2 exec ~/.screenlayout/default.sh
+bindsym $mod+Ctrl+c exec emacs-capture --eval '(org-capture)'
+
 
 # ======ROFI===========================================
 bindsym Ctrl+space                       exec rofi -show combi -combi-modi "drun#run#window" -modi "combi#drun#run" -theme $rofi_theme_drun

@@ -22,7 +22,7 @@ backgroundType=blurAndDim
 image=$HOME/Pictures/Wallpapers/mountain3.png
 blurStrength=5
 blur2Strength=0x10
-dimStrength=60%
+dimStrength=10%
 
 # Available options: circle, bars
 indicatorType=circle
@@ -34,9 +34,9 @@ dateString="%A, %d %B"
 datePos=960:620
 dateSize=30
 verifyText="..."
-wrongText="!!!"
+wrongText="Failed!"
 noInputText="___"
-inputTypeColor=f0544cAA
+inputTypeColor=00ff00ff
 inputDeleteColor=ff1010ff
 greeterSize=20
 
@@ -54,7 +54,7 @@ insideColor=00000000
 insideVerifyingColor=00000000
 insideWrongColor=00000000
 ringColor=00000055
-ringVerifyingColor=f0544c55
+ringVerifyingColor=00ff00ff
 ringWrongColor=f0544cff
 separatorColor=f0544cff
 

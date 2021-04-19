@@ -47,6 +47,7 @@
        vi-tilde-fringe   ; fringe tildes to mark beyond EOB
        window-select     ; visually switch windows
        workspaces
+       ;; (emoji +ascii +github +unicode)
        ;; ophints
        ;; zen
 

@@ -164,6 +164,14 @@
                          "~/Documents/gtd/tickler.org"))
 #+END_SRC
 
+** Diary
+#+begin_src emacs-lisp
+(setq diary-file "~/Documents/gtd/diary")
+#+end_src
+
+#+RESULTS:
+: ~/Documents/gtd/diary
+
 ** Google Calendar Sync
 #+begin_src emacs-lisp
 (require 'org-gcal)

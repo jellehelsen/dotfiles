@@ -66,8 +66,7 @@ case "$(uname)" in
     echo "$(uname) Didn't match anything"
 esac
 
-# Created by `userpath` on 2020-01-10 16:57:13
-export PATH="$PATH:/Users/jelle/.local/bin"
+export PATH="$PATH:/snap/bin"
 
 # The next line updates PATH for the Google Cloud SDK.
 if [ -f '/home/jelle/Documents/code/telenet/google-cloud-sdk/path.zsh.inc' ]; then . '/home/jelle/Documents/code/telenet/google-cloud-sdk/path.zsh.inc'; fi

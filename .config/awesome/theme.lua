@@ -21,7 +21,7 @@ theme.fg_urgent  = "#CC9393"
 theme.bg_normal  = "#3F3F3F"
 theme.bg_focus   = "#1E2320"
 theme.bg_urgent  = "#3F3F3F"
-theme.bg_systray = theme.bg_normal
+theme.bg_systray = "#7197E7" --theme.bg_normal
 -- }}}
 
 -- {{{ Borders

@@ -18,7 +18,7 @@ textColor=ffffffAA
 font="LatoLight"
 
 #Backgrounds available: image, blur (i3lock-color blur method), blurAndDim (uses scrot and imagemagick, slower)
-backgroundType=blurAndDim
+backgroundType=blur #AndDim
 image=$HOME/Pictures/Wallpapers/mountain3.png
 blurStrength=5
 blur2Strength=0x10

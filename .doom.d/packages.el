@@ -44,3 +44,8 @@
 (package! gnus)
 (package! elfeed-goodies)
 (package! org-gcal)
+(package! bbdb)
+(package! gmail2bbdb)
+(package! counsel-bbdb)
+(package! nnreddit)
+(package! all-the-icons-gnus)

@@ -1,18 +1,8 @@
-#+TITLE: config
-#+STARTUP: overview
-* Basics
-#+BEGIN_SRC emacs-lisp
 (when (memq window-system '(mac ns x))
   (exec-path-from-shell-initialize))
 (add-to-list 'exec-path "/usr/local/bin/")
 (executable-find "aspell")
-#+END_SRC
 
-#+RESULTS:
-: /usr/local/bin/aspell
-
-* Visuals
-#+BEGIN_SRC emacs-lisp
 (setq-default display-line-numbers 'visual)
 (setq display-line-numbers 'visual)
 (setq doom-line-numbers-style 'visual)
@@ -22,10 +12,7 @@
       doom-variable-pitch-font (font-spec :family "DejaVu Sans") ; inherits `doom-font''s :size
       doom-unicode-font (font-spec :family "MesloLGLDZ Nerd Font" :size 14)
       doom-big-font (font-spec :family "MesloLGLDZ Nerd Font" :size 19))
-#+END_SRC
 
-* Ruby
-#+BEGIN_SRC emacs-lisp
 ;; (projectile-rails-global-mode)
 ;; ;; (global-rbenv-mode)
 ;; (defun start-rails-server ()
@@ -43,14 +30,7 @@
 ;;       (:desc "Test project" :n "t" #'projectile-test-project)
 ;;       (:desc "Start rails server" :n "S" #'start-rails-server)
 ;;       )
-#+END_SRC
 
-#+RESULTS:
-
-* Orgmode
-** General
-#+NAME: Load
-#+BEGIN_SRC emacs-lisp
 (require 'ox-md)
 (require 'ox-hugo)
 (require 'ox-confluence)
@@ -65,21 +45,9 @@
 ;    )
 ; )
 
-#+END_SRC
-
-#+RESULTS: Load
-: org-protocol
-
-#+NAME: basics
-#+BEGIN_SRC emacs-lisp
 (setq org-directory "~/Dropbox/Notes")
 (set-face-attribute 'org-headline-done nil :strike-through t)
-#+END_SRC
 
-#+RESULTS: basics
-
-** Capture
-#+BEGIN_SRC emacs-lisp
 (setq org-capture-templates '(
   ("t" "Todo [inbox]" entry
       (file+headline "~/Documents/gtd/inbox.org" "Tasks") "* TODO %i%?")
@@ -104,13 +72,7 @@
   "Advise capture-finalize to close the frame"
   (if (equal "emacs-capture" (frame-parameter nil 'name))
       (delete-frame)))
-#+END_SRC
 
-#+RESULTS:
-: org-capture-finalize
-
-** Publishing
-#+BEGIN_SRC emacs-lisp
 (setq base-ref ".")
 (setf my-header
       (format
@@ -149,152 +111,88 @@
          :publishing-directory "~/public-html/etc/"
          :publishing-function org-publish-attachment)
         ("website" :components ("orgfiles" "images" "other"))))
-#+END_SRC
 
-#+RESULTS:
-| orgfiles | :base-directory | ~/org/manmethoed/ | :base-extension | org | :publishing-directory | ~/public-html/ | :publishing-function | org-html-publish-to-html | :exclude | PrivatePage.org | :headline-levels | 1 | :section-numbers | t | :with-toc | nil | :with-date | nil | :with-author | nil | :with-creator | nil | :html-validation-link | nil | :html-head |
-
-** Agenda
-#+BEGIN_SRC emacs-lisp
 (setq org-agenda-files '("~/Documents/gtd/inbox.org"
                          "~/Documents/gtd/gtd.org"
                          "~/Documents/gtd/tickler.org"))
-#+END_SRC
 
-** Diary
-#+begin_src emacs-lisp
 (setq diary-file "~/Documents/gtd/diary")
-#+end_src
 
-#+RESULTS:
-: ~/Documents/gtd/diary
-
-** Google Calendar Sync
-#+begin_src emacs-lisp
 (require 'org-gcal)
 (setq org-gcal-client-id "818210936169-7hdbvpqdg9jib2845teqf08i71h16tlv.apps.googleusercontent.com"
       org-gcal-client-secret "aq4jLz970s_JYd50y3g3-QO9"
       org-gcal-fetch-file-alist '(("jelle.helsen@hcode.be" .  "~/Documents/gtd/hcode.org")))
-#+end_src
 
-#+RESULTS:
-: ((jelle.helsen@hcode.be . ~/Documents/gtd/hcode.org))
-
-** Refiling
-#+BEGIN_SRC emacs-lisp
 (setq org-refile-targets '(("~/Documents/gtd/gtd.org" :maxlevel . 3)
                            ("~/Documents/gtd/someday.org" :level . 1)
                            ("~/Documents/gtd/tickler.org" :maxlevel . 2)))
-#+END_SRC
 
-#+RESULTS:
-: ((~/Documents/gtd/gtd.org :maxlevel . 3) (~/Documents/gtd/someday.org :level . 1) (~/Documents/gtd/tickler.org :maxlevel . 2))
-
-* Email
-** Basics
-#+BEGIN_SRC emacs-lisp
 (setq user-mail-address "jelle.helsen@hcode.be")
-#+END_SRC
 
-#+RESULTS:
-: jelle.helsen@hcode.be
+(setq mu4e-maildir "~/email"
+      mu4e-trash-folder "/Trash"
+      mu4e-refile-folder "/Archive"
+      mu4e-get-mail-command "mbsync -a"
+      mu4e-update-interval nil
+      mu4e-compose-signature-auto-include nil
+      mu4e-view-show-images t
+      mu4e-view-show-addresses t)
 
-** Setup folders
-#+BEGIN_SRC emacs-lisp
-  (setq mu4e-maildir "~/email"
-        mu4e-trash-folder "/Trash"
-        mu4e-refile-folder "/Archive"
-        mu4e-get-mail-command "mbsync -a"
-        mu4e-update-interval nil
-        mu4e-compose-signature-auto-include nil
-        mu4e-view-show-images t
-        mu4e-view-show-addresses t)
-#+END_SRC
-
-#+RESULTS:
-: t
-** Contexts
-#+BEGIN_SRC emacs-lisp
-  (with-eval-after-load 'mu4e (setq mu4e-contexts
-                                    `(
-                                      ,(make-mu4e-context
-                                        :name "hcode"
-                                        :enter-func (lambda () (mu4e-message "Entering HCODE context"))
-                                        :match-func (lambda(msg)
-                                                      (when msg
-                                                        (string-match-p "^/hcode" (mu4e-message-field msg :maildir))))
-                                        :vars '(
-                                                (user-mail-address . "jelle.helsen@hcode.be")
-                                                (user-full-name    . "Jelle Helsen")
-                                                (mu4e-compose-signature . "With kind regards,\nJelle Helsen")
-                                                (smtpmail-smtp-user "jelle.helsen@hcode.be")
-                                                )
-                                        )
-                                      ,(make-mu4e-context
-                                        :name "devoteam"
-                                        :enter-func (lambda () (mu4e-message "Entering DevoTeam context"))
-                                        :match-func (lambda(msg)
-                                                      (when msg
-                                                        (string-match-p "^/devoteam" (mu4e-message-field msg :maildir))))
-                                        :vars '(
-                                                (user-mail-address . "jelle.helsen@devoteam.com")
-                                                (user-full-name    . "Jelle Helsen")
-                                                (mu4e-compose-signature . "With kind regards,\nJelle Helsen")
-                                                (smtpmail-smtp-user "jelle.helsen@devoteam.com")
-                                                )
-                                        )
+(with-eval-after-load 'mu4e (setq mu4e-contexts
+                                  `(
+                                    ,(make-mu4e-context
+                                      :name "hcode"
+                                      :enter-func (lambda () (mu4e-message "Entering HCODE context"))
+                                      :match-func (lambda(msg)
+                                                    (when msg
+                                                      (string-match-p "^/hcode" (mu4e-message-field msg :maildir))))
+                                      :vars '(
+                                              (user-mail-address . "jelle.helsen@hcode.be")
+                                              (user-full-name    . "Jelle Helsen")
+                                              (mu4e-compose-signature . "With kind regards,\nJelle Helsen")
+                                              (smtpmail-smtp-user "jelle.helsen@hcode.be")
+                                              )
                                       )
-                                    ) )
-#+END_SRC
+                                    ,(make-mu4e-context
+                                      :name "devoteam"
+                                      :enter-func (lambda () (mu4e-message "Entering DevoTeam context"))
+                                      :match-func (lambda(msg)
+                                                    (when msg
+                                                      (string-match-p "^/devoteam" (mu4e-message-field msg :maildir))))
+                                      :vars '(
+                                              (user-mail-address . "jelle.helsen@devoteam.com")
+                                              (user-full-name    . "Jelle Helsen")
+                                              (mu4e-compose-signature . "With kind regards,\nJelle Helsen")
+                                              (smtpmail-smtp-user "jelle.helsen@devoteam.com")
+                                              )
+                                      )
+                                    )
+                                  ) )
 
-#+RESULTS:
-| #s(mu4e-context hcode (lambda nil (mu4e-message Entering HCODE context)) nil (lambda (msg) (when msg (string-match-p ^/hcode (mu4e-message-field msg :maildir)))) ((user-mail-address . jelle.helsen@hcode.be) (user-full-name . Jelle Helsen) (mu4e-compose-signature . With kind regards, |
-** Shortcuts
-#+BEGIN_SRC emacs-lisp
-  (setq mu4e-maildir-shortcuts
-        '(
-          ("/hcode/INBOX" . ?g)
-          ("/devoteam/INBOX" . ?d)
-          ))
-#+END_SRC
+(setq mu4e-maildir-shortcuts
+      '(
+        ("/hcode/INBOX" . ?g)
+        ("/devoteam/INBOX" . ?d)
+        ))
 
-#+RESULTS:
-: ((/hcode/INBOX . 103) (/devoteam/INBOX . 100))
-** Bookmarks
-#+BEGIN_SRC emacs-lisp
-  (setq mu4e-bookmarks
-        `(("flag:unread AND NOT flag:trashed AND NOT maildir:/Trash/" "Unread messages" ?u)
-          ("date:today..now AND NOT flag:trashed AND NOT maildir:/Trash/" "Today's messages" ?t)
-          ("date:7d..now AND NOT maildir:/Trash/" "Last 7 days" ?w)
-          ("mime:image/*" "Messages with images" ?p)
-          (,(mapconcat 'identity
-                       (mapcar
-                        (lambda (maildir)
-                          (concat "maildir:" (car maildir)))
-                        mu4e-maildir-shortcuts) " OR ")
-           "All inboxes" ?i)))
-#+END_SRC
+(setq mu4e-bookmarks
+      `(("flag:unread AND NOT flag:trashed AND NOT maildir:/Trash/" "Unread messages" ?u)
+        ("date:today..now AND NOT flag:trashed AND NOT maildir:/Trash/" "Today's messages" ?t)
+        ("date:7d..now AND NOT maildir:/Trash/" "Last 7 days" ?w)
+        ("mime:image/*" "Messages with images" ?p)
+        (,(mapconcat 'identity
+                     (mapcar
+                      (lambda (maildir)
+                        (concat "maildir:" (car maildir)))
+                      mu4e-maildir-shortcuts) " OR ")
+         "All inboxes" ?i)))
 
-#+RESULTS:
-| flag:unread AND NOT flag:trashed AND NOT maildir:/Trash/     | Unread messages      | 117 |
-| date:today..now AND NOT flag:trashed AND NOT maildir:/Trash/ | Today's messages     | 116 |
-| date:7d..now AND NOT maildir:/Trash/                         | Last 7 days          | 119 |
-| mime:image/*                                                 | Messages with images | 112 |
-| maildir:/hcode/INBOX OR maildir:/devoteam/INBOX              | All inboxes          | 105 |
-** Sending
-#+BEGIN_SRC emacs-lisp
 (setq sendmail-program "msmtp"
       send-mail-function 'smtpmail-send-it
       message-sendmail-f-is-evil t
       message-sendmail-extra-arguments '("--read-envelope-from")
       message-send-mail-function 'smtpmail-send-it)
-#+END_SRC
 
-#+RESULTS:
-: smtpmail-send-it
-
-** LastPass
-#+begin_src emacs-lisp
 (setq lastpass-user "jelle.helsen@hcode.be")
 (setq lastpass-trust-login t)
 ;; Enable lastpass custom auth-source
@@ -307,12 +205,7 @@
   (apply update-function r))
 
 (advice-add 'mu4e-update-mail-and-index :around #'lastpass-mu4e-update-mail-and-index)
-#+end_src
 
-#+RESULTS:
-
-** GNUS
-   #+begin_src emacs-lisp
 (setenv "GPG_AGENT_INFO" nil)
 (all-the-icons-gnus-setup)
 (setq user-mail-address "jelle.helsen@hcode.be"
@@ -367,13 +260,7 @@
 (setq smtpmail-smtp-server "smtp.gmail.com"
       smtpmail-smtp-service 587
       gnus-ignored-newsgroups nil)
-   #+end_src
 
-   #+RESULTS:
-
-* RSS
-** Elfeed
-#+begin_src emacs-lisp
 (elfeed-org)
 (add-hook! 'elfeed-show-mode-hook (setq display-line-numbers nil))
 (require 'elfeed-goodies)
@@ -382,22 +269,12 @@
   (setq elfeed-goodies/entry-pane-size 0.5)
   )
 ;; (add-hook! 'elfeed-show-mode-hook #'menu-bar--display-line-numbers-mode-none)
-#+end_src
 
-#+RESULTS:
-: 0.5
-** Keybindings
-#+begin_src emacs-lisp
 (map! :map elfeed-search-mode-map
       :localleader
       :desc "Update" "u" #'elfeed-update
       )
-#+end_src
 
-#+RESULTS:
-
-* Confluence
-#+BEGIN_SRC emacs-lisp
 (require 'confluence)
 (setq confluence-url "https://confluence.rel.apps.telenet.be/rpc/xmlrpc")
 (with-eval-after-load 'org-jira (setq jiralib-url "https://jira.rel.apps.telenet.be"))
@@ -443,25 +320,14 @@
    '("j" "My JIRA issues"
      ((ejira-jql "resolution = unresolved and assignee = currentUser()"
                  ((org-agenda-overriding-header "Assigned to me")))))))
-#+END_SRC
 
-#+RESULTS:
-: t
-
-* Apps menu
-#+BEGIN_SRC emacs-lisp
 (map! :leader
       (:desc "Apps" :prefix "a"
        :desc "Email" :n "m" #'gnus
        :desc "IRC" :n "i" #'irc
        :desc "RSS" :n "r" #'elfeed
        ))
-#+END_SRC
 
-#+RESULTS:
-: elfeed
-* Key bindings
-#+BEGIN_SRC emacs-lisp
 (map! :leader
       (:desc "project" :prefix "p"
        :desc "Browse project"          :n  "." #'+default/browse-project
@@ -475,21 +341,11 @@
        :desc "List project tasks"      :n  "T" #'+ivy/tasks
        :desc "Find in project (ag)"   :n  "a" #'counsel-projectile-ag
        :desc "Invalidate cache"        :n  "x" #'projectile-invalidate-cache)     )
-#+END_SRC
 
-#+RESULTS:
-* Node
-#+BEGIN_SRC emacs-lisp
 ;(nvm-use "10.11.0")
 ;(setq exec-path (append '("~/.nvm/versions/node/v10.11.0/bin/") exec-path))
 ;(setenv "PATH" (concat "~/.nvm/versions/node/v10.11.0/bin/:" (getenv "PATH")))
-#+END_SRC
 
-#+RESULTS:
-: ~/.nvm/versions/node/v10.11.0/bin/:/home/jelle/.nvm/versions/node/v10.11.0/bin/:/home/jelle/.rbenv/bin/:/home/jelle/.rbenv/shims/:/home/jelle/.local/bin/:/usr/local/sbin/:/usr/local/bin/:/usr/sbin/:/usr/bin/:/sbin/:/bin/:/usr/games/:/usr/local/games/:/snap/bin/
-
-* Defaults
-#+BEGIN_SRC emacs-lisp
 (setq-default indent-tabs-mode nil)
 (setq tab-width 2)
 (setq-default tab-width 2)
@@ -502,63 +358,26 @@
 ;; (setq visual-line-mode t)
 (setq display-line-numbers-type 'visual)
 (global-visual-line-mode)
-#+END_SRC
 
-#+RESULTS:
-: t
-* Golang
-#+BEGIN_SRC emacs-lisp
 (setenv "PATH" (concat "~/go/bin/:" (getenv "PATH")))
 (add-to-list 'load-path "~/go/bin/")
 (add-to-list 'load-path "/usr/local/share/emacs/site-lisp/")
-#+END_SRC
 
-* Yaml
-#+BEGIN_SRC emacs-lisp
 (setq yaml-indent-level 2)
-#+END_SRC
 
-#+RESULTS:
-: 2
-* Tramp
-#+BEGIN_SRC emacs-lisp
 ;; (add-to-list 'tramp-remote-path 'tramp-own-remote-path)
-#+END_SRC
-* IRC
-#+BEGIN_SRC emacs-lisp
+
 (set-irc-server! "irc.freenode.net"
   `(:tls t
     :nick "doom"
     :channels ("#emacs")))
-#+END_SRC
 
-#+RESULTS:
-* Python
-#+BEGIN_SRC emacs-lisp
 (advice-add 'python-mode :before 'elpy-enable)
 (setq elpy-rpc-virtualenv-path 'current)
-#+END_SRC
 
-#+RESULTS:
-: current
-
-* Stuff I'm testing
-#+BEGIN_SRC emacs-lisp
 (use-package! ox-moderncv
   :init (require 'ox-moderncv))
-#+END_SRC
 
-#+RESULTS:
-: ox-moderncv
-
-#+BEGIN_SRC emacs-lisp
 load-path
-#+END_SRC
 
-* Spelling
-#+begin_src emacs-lisp
 (setq ispell-dictionary "english")
-#+end_src
-
-#+RESULTS:
-: english

@@ -47,7 +47,7 @@
        vi-tilde-fringe   ; fringe tildes to mark beyond EOB
        window-select     ; visually switch windows
        workspaces
-       ;; (emoji +ascii +github +unicode)
+       (emoji +ascii +github +unicode)
        ;; ophints
        ;; zen
 
@@ -68,6 +68,7 @@
        ;; eshell            ; a consistent, cross-platform shell (WIP)
        ;; imenu             ; an imenu sidebar and searchable code index
        vc                ; version-control and Emacs, sitting in a tree
+       undo
 
        :term              ; terminals in Emacs
        eshell
@@ -156,7 +157,7 @@
        ;; toward a specific purpose. They may have additional dependencies and
        ;; should be loaded late.
        :app
-       ;; irc               ; how neckbeards socialize
+       irc               ; how neckbeards socialize
        (rss +org)        ; emacs as an RSS reader
        twitter           ; twitter client https://twitter.com/vnought
        (write            ; emacs as a word processor (latex + org + markdown)

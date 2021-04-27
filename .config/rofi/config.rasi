@@ -28,6 +28,7 @@ configuration {
 	icon-theme: "Vimix-ruby";
 	matching-negate-char: '!';
 	show-match: false;
+	terminal: "alacritty";
 	
 	sidebar-mode: false;
 	fullscreen: false;

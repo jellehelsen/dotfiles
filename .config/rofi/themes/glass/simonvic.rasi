@@ -63,7 +63,7 @@ entry{
 
 
 listview {
-	columns: 4;
+	columns: 1;
 	fixed-columns: false;
 	lines: 5;
 	fixed-height: false;

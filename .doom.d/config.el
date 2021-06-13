@@ -13,6 +13,24 @@
       doom-unicode-font (font-spec :family "MesloLGLDZ Nerd Font" :size 14)
       doom-big-font (font-spec :family "MesloLGLDZ Nerd Font" :size 19))
 
+(use-package dashboard
+  :init      ;; tweak dashboard config before loading it
+  (setq dashboard-set-heading-icons t)
+  (setq dashboard-set-file-icons t)
+  (setq dashboard-banner-logo-title "Emacs Is More Than A Text Editor!")
+  (setq dashboard-startup-banner 'logo) ;; use standard emacs logo as banner
+  ;; (setq dashboard-startup-banner "~/.config/doom/doom-emacs-dash.png")  ;; use custom image as banner
+  (setq dashboard-center-content t) ;; set to 't' for centered content
+  (setq dashboard-items '((recents . 5)
+                          (agenda . 5 )
+                          (bookmarks . 5)
+                          (projects . 5)
+                          (registers . 5)))
+  :config
+  (dashboard-setup-startup-hook)
+  (dashboard-modify-heading-icons '((recents . "file-text")
+                                    (bookmarks . "book"))))
+
 ;; (projectile-rails-global-mode)
 ;; ;; (global-rbenv-mode)
 ;; (defun start-rails-server ()
@@ -115,6 +133,9 @@
 (setq org-agenda-files '("~/Documents/gtd/inbox.org"
                          "~/Documents/gtd/gtd.org"
                          "~/Documents/gtd/tickler.org"))
+(setq org-agenda-custom-commands
+      '(("Y" alltodo "" nil ("~/todos.txt")))
+      )
 
 (setq diary-file "~/Documents/gtd/diary")
 
@@ -374,6 +395,11 @@
 
 (advice-add 'python-mode :before 'elpy-enable)
 (setq elpy-rpc-virtualenv-path 'current)
+
+(setq projectile-project-search-path '("~/Documents/code/mine"
+                                       "~/Documents/code/telenet"
+                                       "~/Documents/code/opensource"
+                                       ))
 
 (use-package! ox-moderncv
   :init (require 'ox-moderncv))

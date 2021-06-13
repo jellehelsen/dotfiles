@@ -47,5 +47,6 @@
 (package! bbdb)
 (package! gmail2bbdb)
 (package! counsel-bbdb)
-(package! nnreddit)
 (package! all-the-icons-gnus)
+(package! try)
+(package! dashboard)

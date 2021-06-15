@@ -298,49 +298,6 @@
 
 (require 'confluence)
 (setq confluence-url "https://confluence.rel.apps.telenet.be/rpc/xmlrpc")
-(with-eval-after-load 'org-jira (setq jiralib-url "https://jira.rel.apps.telenet.be"))
-(use-package ejira
-  :init
-  (setq jiralib2-url              "https://jira.rel.apps.telenet.be"
-        jiralib2-auth             'basic
-        jiralib2-user-login-name  "jhelsen2"
-        jiralib2-token            nil
-
-        ejira-org-directory       "~/jira"
-        ejira-projects            '("CLINFTRIBE")
-
-        ejira-priorities-alist    '(("Highest" . ?A)
-                                    ("High"    . ?B)
-                                    ("Medium"  . ?C)
-                                    ("Low"     . ?D)
-                                    ("Lowest"  . ?E))
-        ejira-update-jql-unresolved-fn #'ejira-jql-my-unresolved-project-tickets
-        ;; ejira-todo-states-alist   '(("To Do"       . 1)
-        ;;                             ("In Progress" . 2)
-        ;;                             ("Done"        . 3))
-        )
-  :config
-  ;; Tries to auto-set custom fields by looking into /editmeta
-  ;; of an issue and an epic.
-  (add-hook 'jiralib2-post-login-hook #'ejira-guess-epic-sprint-fields)
-
-  ;; They can also be set manually if autoconfigure is not used.
-  ;; (setq ejira-sprint-field       'customfield_10001
-  ;;       ejira-epic-field         'customfield_10002
-  ;;       ejira-epic-summary-field 'customfield_10004)
-
-  ;; (require 'helm-ejira)
-  (require 'ejira-agenda)
-
-  ;; Make the issues visisble in your agenda by adding `ejira-org-directory'
-  ;; into your `org-agenda-files'.
-  (add-to-list 'org-agenda-files ejira-org-directory)
-
-  ;; Add an agenda view to browse the issues that
-  (org-add-agenda-custom-command
-   '("j" "My JIRA issues"
-     ((ejira-jql "resolution = unresolved and assignee = currentUser()"
-                 ((org-agenda-overriding-header "Assigned to me")))))))
 
 (map! :leader
       (:desc "Apps" :prefix "a"

@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    paths-ignore:
+      - '**.md'
+      - '**.org'
+      - '.dir-locals.el'
+      - 'LICENSE'
+    branches:
+      - main
+      - develop
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        emacs_version: [27.1, 27.2, snapshot]
+    steps:
+      - uses: purcell/setup-emacs@master
+        with:
+          version: ${{ matrix.emacs_version }}
+      - name: Check out doom-emacs
+        uses: actions/checkout@v2
+      - name: Set up test Doom profile
+        run:  bin/doom test
+      - name: Cache package builds
+        uses: actions/cache@v2
+        with:
+          path: .local/straight/repos
+          key: ${{ runner.os }}-build-doom-packages-${{ hashFiles('**/packages.el') }}
+          restore-keys: |
+            ${{ runner.os }}-build-doom-packages-
+      # FIXME
+      # name: Compile
+      #   run: "bin/doom -y compile"

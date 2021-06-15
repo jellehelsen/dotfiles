@@ -18,7 +18,7 @@ textColor=ffffffAA
 font="LatoLight"
 
 #Backgrounds available: image, blur (i3lock-color blur method), blurAndDim (uses scrot and imagemagick, slower)
-backgroundType=blur #AndDim
+backgroundType=blurAndDim
 image=$HOME/Pictures/Wallpapers/mountain3.png
 blurStrength=5
 blur2Strength=0x10
@@ -26,12 +26,12 @@ dimStrength=10%
 
 # Available options: circle, bars
 indicatorType=circle
-indicatorPos=960:785
+indicatorPos=1985:785
 timeString=%H:%M:%S
-timePos=960:540
+timePos=1985:540
 timeSize=150
 dateString="%A, %d %B"
-datePos=960:620
+datePos=1985:620
 dateSize=30
 verifyText="..."
 wrongText="Failed!"
